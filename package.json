@@ -1,0 +1,14 @@
+{
+  "name": "easyprint",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "bun --cwd apps/web dev",
+    "dev:api": "bun --cwd apps/api dev",
+    "db:push": "bun --cwd apps/api drizzle-kit push",
+    "db:studio": "bun --cwd apps/api drizzle-kit studio"
+  }
+}
