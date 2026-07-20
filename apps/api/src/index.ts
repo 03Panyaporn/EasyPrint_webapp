@@ -1,3 +1,4 @@
+import "./env";
 import { Elysia } from "elysia";
 import { createOrderSchema } from "@easyprint/shared";
 import { db } from "./db";
