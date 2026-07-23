@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./apps/web/*"],
+      "@easyprint/shared": ["./packages/shared/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}
