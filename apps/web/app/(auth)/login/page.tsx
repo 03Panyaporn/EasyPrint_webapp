@@ -4,19 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const isFormValid = usernameOrEmail.trim() !== "" && password.length >= 8;
+  const isFormValid = email.trim() !== "" && password.length >= 8;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
-    
+
+    // TODO: ต่อ API เข้าสู่ระบบจริง (POST /auth/login)
     console.log("EasyPrint Login Form Submitted:", {
-      usernameOrEmail,
+      email,
       password,
       rememberMe,
     });
@@ -46,13 +47,10 @@ export default function LoginPage() {
 
       {/* LEFT COLUMN: Welcome Panel (Orange-Teal-Pink gradient + Floating Spheres & Glassmorphic 3D Card) */}
       <div className="hidden lg:flex lg:w-[50%] bg-gradient-to-tr from-[#F46A2F] via-[#FFB273]/80 to-[#8FD2D5] flex-col justify-between p-16 relative overflow-hidden shadow-2xl">
-        
-        {/* Decorative Grid Overlay to add modern micro-texture depth */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0c_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0c_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
 
-        {/* 3D-like spheres with premium gradients, borders and multi-layered shadows */}
-        <div className="absolute top-[8%] left-[15%] w-80 h-80 rounded-full bg-gradient-to-br from-[#FFB273] to-[#F46A2F] shadow-[inset_-10px_-10px_30px_rgba(0,0,0,0.2),10px_20px_40px_rgba(244,106,47,0.4)] blur-[1px] animate-float-1 pointer-events-none z-0"></div>
-        <div className="absolute bottom-[10%] right-[8%] w-[380px] h-[380px] rounded-full bg-gradient-to-tr from-[#8FD2D5] to-[#F3DADA] shadow-[inset_-15px_-15px_40px_rgba(0,0,0,0.15),15px_25px_55px_rgba(143,210,213,0.35)] blur-[2px] animate-float-3 pointer-events-none z-0"></div>
+        {/* 3D-like spheres: crisp edges, soft diffused shadow behind (no grid texture, no on-shape blur) */}
+        <div className="absolute top-[8%] left-[15%] w-80 h-80 rounded-full bg-gradient-to-br from-[#FFB273] to-[#F46A2F] shadow-[0_35px_70px_-10px_rgba(180,60,10,0.55)] animate-float-1 pointer-events-none z-0"></div>
+        <div className="absolute bottom-[10%] right-[8%] w-[380px] h-[380px] rounded-full bg-gradient-to-tr from-[#8FD2D5] to-[#F3DADA] shadow-[0_35px_75px_-10px_rgba(20,90,95,0.4)] animate-float-3 pointer-events-none z-0"></div>
         <div className="absolute top-[42%] right-[18%] w-40 h-40 rounded-full bg-gradient-to-br from-[#FFFFFF]/30 to-[#FFFFFF]/5 backdrop-blur-[4px] border border-white/20 shadow-[0_20px_40px_rgba(0,0,0,0.1)] animate-float-2 pointer-events-none z-0"></div>
 
         {/* Empty placeholder for flex spacing in place of the deleted logo */}
@@ -66,16 +64,10 @@ export default function LoginPage() {
               Easy<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFB273] to-[#F3DADA] drop-shadow-[0_8px_16px_rgba(255,178,115,0.3)]">Print</span>
             </h1>
 
-            <div className="inline-block">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-extrabold text-sm tracking-wide shadow-md">
-                ✨ ยินดีต้อนรับกลับเข้าสู่ระบบ
-              </span>
-            </div>
+            <p className="text-white text-2xl sm:text-3xl font-extrabold tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
+              ยินดีต้อนรับเข้าสู่ระบบ
+            </p>
           </div>
-
-          <p className="text-white/95 text-xl font-medium leading-relaxed drop-shadow-sm max-w-md">
-            จัดการและจัดส่งคำสั่งพิมพ์เอกสารออนไลน์ของคุณให้รวดเร็ว ปลอดภัย และไร้รอยต่อในที่เดียว
-          </p>
 
           {/* Interactive 3D Glassmorphic Preview Card (Static / No floating animation) */}
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-[24px] shadow-2xl shadow-black/5 max-w-xs flex items-center gap-4">
@@ -103,14 +95,14 @@ export default function LoginPage() {
       </div>
 
       {/* RIGHT COLUMN: Sign In Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-16 relative z-10 bg-white lg:bg-slate-50/20">
-        
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-16 relative z-10 bg-white lg:bg-slate-50">
+
         {/* Subtle background glow for mobile screens */}
         <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-[#FFB273]/8 blur-3xl pointer-events-none lg:hidden"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-[#8FD2D5]/8 blur-3xl pointer-events-none lg:hidden"></div>
 
         {/* Card Container */}
-        <div className="w-full max-w-[480px] bg-white rounded-[24px] shadow-2xl shadow-slate-100/60 sm:border border-slate-100/80 p-8 sm:p-10 space-y-8 my-auto relative z-10">
+        <div className="w-full max-w-[480px] bg-white rounded-[24px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.15),0_10px_28px_-10px_rgba(244,106,47,0.15)] p-8 sm:p-10 space-y-8 my-auto relative z-10">
           
           {/* Brand Logo for mobile only */}
           <div className="flex lg:hidden items-center gap-2.5">
@@ -127,31 +119,31 @@ export default function LoginPage() {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             
-            {/* Username/Email Input */}
+            {/* Email Input */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">ชื่อผู้ใช้งาน หรือ อีเมล</label>
+              <label className="block text-xs font-bold text-slate-700 mb-2">อีเมล</label>
               <div className="relative">
-                <div className="absolute left-3.5 top-3.5 text-slate-400">
+                <div className="absolute left-4 top-3.5 text-slate-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={usernameOrEmail}
-                  onChange={(e) => setUsernameOrEmail(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@email.com"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#F46A2F] focus:ring-1 focus:ring-[#F46A2F] transition duration-200"
+                  className="w-full pl-11 pr-4 py-3.5 rounded-full bg-slate-50 border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:border-[#F46A2F] focus:ring-1 focus:ring-[#F46A2F] transition duration-200"
                 />
               </div>
             </div>
 
             {/* Password Input */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">รหัสผ่าน</label>
+              <label className="block text-xs font-bold text-slate-700 mb-2">รหัสผ่าน</label>
               <div className="relative">
-                <div className="absolute left-3.5 top-3.5 text-slate-400">
+                <div className="absolute left-4 top-3.5 text-slate-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -162,14 +154,25 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-16 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#F46A2F] focus:ring-1 focus:ring-[#F46A2F] transition duration-200"
+                  className="w-full pl-11 pr-11 py-3.5 rounded-full bg-slate-50 border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:border-[#F46A2F] focus:ring-1 focus:ring-[#F46A2F] transition duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-3.5 text-xs font-bold text-[#F46A2F] hover:text-[#E05B22] transition"
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 transition"
+                  aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                 >
-                  {showPassword ? "ซ่อน" : "แสดง"}
+                  {showPassword ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.025 10.025 0 012.132-3.611m3.13-2.567A9.958 9.958 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
@@ -195,7 +198,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!isFormValid}
-                className={`w-full py-3.5 font-bold rounded-[14px] shadow-lg transition-all duration-300 ${
+                className={`w-full py-3.5 font-bold rounded-full shadow-lg transition-all duration-300 ${
                   isFormValid
                     ? "bg-[#F46A2F] text-white hover:bg-[#E05B22] hover:-translate-y-0.5 active:translate-y-0 shadow-[#F46A2F]/20 cursor-pointer"
                     : "bg-slate-300 text-white cursor-not-allowed"
