@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { register } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 
 const PASSWORD_REVEAL_MS = 10000;
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   // Form field states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +24,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   // Auto-hide password again after a few seconds so it doesn't stay exposed
   useEffect(() => {
@@ -60,19 +68,21 @@ export default function RegisterPage() {
     phone.trim() !== "" &&
     acceptTerms;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || isSubmitting) return;
 
-    // TODO: ต่อ API สมัครสมาชิกลูกค้าจริง (POST /auth/register)
-    console.log("EasyPrint Register Form Submitted:", {
-      email,
-      password,
-      firstname,
-      lastname,
-      phone,
-      address,
-    });
+    setFormError("");
+    setIsSubmitting(true);
+    try {
+      await register({ email, password, firstname, lastname, phone, address: address || undefined });
+      router.push("/orders");
+      router.refresh();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClass =
@@ -288,20 +298,25 @@ export default function RegisterPage() {
             <span className="text-xs text-slate-500 leading-normal">ฉันยอมรับข้อตกลงและเงื่อนไขการใช้บริการ</span>
           </label>
 
+          {/* Server error message */}
+          {formError && (
+            <p className="text-sm text-red-500 font-semibold text-center">{formError}</p>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
             className={`group relative w-full py-3.5 font-bold rounded-full overflow-hidden transition-all duration-300 ${
-              isFormValid
+              isFormValid && !isSubmitting
                 ? "bg-gradient-to-r from-[#F46A2F] via-[#FF8A50] to-[#FFB273] text-white border border-white/40 shadow-lg shadow-[#F46A2F]/30 hover:shadow-xl hover:shadow-[#F46A2F]/40 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                 : "bg-slate-200 text-slate-400 cursor-not-allowed"
             }`}
           >
-            {isFormValid && (
+            {isFormValid && !isSubmitting && (
               <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"></span>
             )}
-            <span className="relative">สมัครสมาชิก</span>
+            <span className="relative">{isSubmitting ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}</span>
           </button>
 
         </form>

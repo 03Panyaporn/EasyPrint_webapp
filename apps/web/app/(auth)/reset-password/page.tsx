@@ -3,6 +3,8 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { resetPassword } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 
 function getPasswordStrength(pass: string) {
   if (!pass) return { score: 0, label: "", colorClass: "bg-slate-200" };
@@ -24,19 +26,28 @@ function ResetPasswordForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const passwordsMatch = !password || !confirmPassword || password === confirmPassword;
   const strength = getPasswordStrength(password);
 
   const isFormValid = password.length >= 8 && confirmPassword.length >= 8 && password === confirmPassword;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid || !token) return;
+    if (!isFormValid || !token || isSubmitting) return;
 
-    // TODO: ต่อ API ยืนยัน token และบันทึกรหัสผ่านใหม่ (Argon2 hash ฝั่ง backend)
-    console.log("EasyPrint Reset Password Form Submitted:", { token });
-    setSubmitted(true);
+    setFormError("");
+    setIsSubmitting(true);
+    try {
+      await resetPassword({ token, password });
+      setSubmitted(true);
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!token) {
@@ -207,19 +218,25 @@ function ResetPasswordForm() {
           {!passwordsMatch && <p className="text-xs text-red-500 mt-2">รหัสผ่านไม่ตรงกัน</p>}
         </div>
 
+        {formError && (
+          <p className="text-sm text-red-500 font-semibold text-center">{formError}</p>
+        )}
+
         <button
           type="submit"
-          disabled={!isFormValid}
+          disabled={!isFormValid || isSubmitting}
           className={`w-full py-3.5 font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${
-            isFormValid
+            isFormValid && !isSubmitting
               ? "bg-gradient-to-r from-[#F46A2F] via-[#FF8A50] to-[#FFB273] text-white border border-white/40 shadow-lg shadow-[#F46A2F]/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               : "bg-slate-200 text-slate-400 cursor-not-allowed"
           }`}
         >
-          เปลี่ยนรหัสผ่าน
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
+          {isSubmitting ? "กำลังเปลี่ยนรหัสผ่าน..." : "เปลี่ยนรหัสผ่าน"}
+          {!isSubmitting && (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          )}
         </button>
       </form>
 

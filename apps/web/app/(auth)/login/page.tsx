@@ -1,26 +1,43 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+
+const ROLE_HOME: Record<string, string> = {
+  customer: "/orders",
+  shop_owner: "/shop",
+  admin: "/admin",
+};
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const isFormValid = email.trim() !== "" && password.length >= 8;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || isSubmitting) return;
 
-    // TODO: ต่อ API เข้าสู่ระบบจริง (POST /auth/login)
-    console.log("EasyPrint Login Form Submitted:", {
-      email,
-      password,
-      rememberMe,
-    });
+    setFormError("");
+    setIsSubmitting(true);
+    try {
+      const { user } = await login({ email, password, rememberMe });
+      router.push(ROLE_HOME[user.role] ?? "/");
+      router.refresh();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -193,18 +210,23 @@ export default function LoginPage() {
               </Link>
             </div>
 
+            {/* Server error message */}
+            {formError && (
+              <p className="text-sm text-red-500 font-semibold text-center">{formError}</p>
+            )}
+
             {/* Submit Button */}
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={!isFormValid}
+                disabled={!isFormValid || isSubmitting}
                 className={`w-full py-3.5 font-bold rounded-full shadow-lg transition-all duration-300 ${
-                  isFormValid
+                  isFormValid && !isSubmitting
                     ? "bg-[#F46A2F] text-white hover:bg-[#E05B22] hover:-translate-y-0.5 active:translate-y-0 shadow-[#F46A2F]/20 cursor-pointer"
                     : "bg-slate-300 text-white cursor-not-allowed"
                 }`}
               >
-                เข้าสู่ระบบ
+                {isSubmitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
               </button>
             </div>
 

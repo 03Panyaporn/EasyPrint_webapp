@@ -2,20 +2,31 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { forgotPassword } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isEmailValid) return;
+    if (!isEmailValid || isSubmitting) return;
 
-    // TODO: ต่อ API ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลจริง (ดู reset-password/page.tsx สำหรับหน้าปลายทางของลิงก์)
-    console.log("EasyPrint Forgot Password Form Submitted:", { email });
-    setSubmitted(true);
+    setFormError("");
+    setIsSubmitting(true);
+    try {
+      await forgotPassword({ email });
+      setSubmitted(true);
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "ส่งคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -107,19 +118,25 @@ export default function ForgotPasswordPage() {
                   />
                 </div>
 
+                {formError && (
+                  <p className="text-sm text-red-500 font-semibold text-center">{formError}</p>
+                )}
+
                 <button
                   type="submit"
-                  disabled={!isEmailValid}
+                  disabled={!isEmailValid || isSubmitting}
                   className={`w-full py-3.5 font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${
-                    isEmailValid
+                    isEmailValid && !isSubmitting
                       ? "bg-gradient-to-r from-[#F46A2F] via-[#FF8A50] to-[#FFB273] text-white border border-white/40 shadow-lg shadow-[#F46A2F]/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                       : "bg-slate-200 text-slate-400 cursor-not-allowed"
                   }`}
                 >
-                  ส่งลิงก์กู้คืนรหัสผ่าน
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
+                  {isSubmitting ? "กำลังส่ง..." : "ส่งลิงก์กู้คืนรหัสผ่าน"}
+                  {!isSubmitting && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  )}
                 </button>
               </form>
 
