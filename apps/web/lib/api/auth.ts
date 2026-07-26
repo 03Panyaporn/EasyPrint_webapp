@@ -1,4 +1,10 @@
-import type { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput } from "@easyprint/shared";
+import type {
+  RegisterInput,
+  LoginInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+  RegisterShopInput,
+} from "@easyprint/shared";
 import { apiFetch } from "./client";
 
 export type PublicUser = {
@@ -12,8 +18,30 @@ export type PublicUser = {
   createdAt: string;
 };
 
+export type PublicShop = {
+  id: string;
+  ownerId: string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  category: string | null;
+  googleMapLink: string | null;
+  idCardUrl: string | null;
+  shopPhotoUrl: string | null;
+  approvalStatus: "pending" | "approved" | "rejected";
+  deliveryEnabled: boolean;
+  createdAt: string;
+};
+
 export function register(input: RegisterInput) {
   return apiFetch<{ user: PublicUser }>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function registerShop(input: RegisterShopInput) {
+  return apiFetch<{ user: PublicUser; shop: PublicShop }>("/auth/register/shop", {
     method: "POST",
     body: JSON.stringify(input),
   });

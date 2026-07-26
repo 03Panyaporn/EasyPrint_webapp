@@ -194,6 +194,33 @@
 ### 12. สิ่งที่ยังไม่ได้ทำ
 
 * ยังไม่มี endpoint `PATCH /admin/shops/:id/approve` (อนุมัติร้านค้า) — ร้านที่สมัครเข้ามาตอนนี้ค้างที่ `pending` ตลอด ยังไม่มีทางเปลี่ยนสถานะ
-* หน้าเว็บ `shop-register/page.tsx` ยังไม่ได้ต่อเข้า API จริง (ไม่มีช่องรหัสผ่าน, `handleSubmit` ยังแค่ตั้ง state ในเครื่อง)
-* ระบบอัปโหลดรูปจริง (id_card, shop_photo) ยังไม่มี
+
+---
+
+## 📤 อัปเดต — ต่อฟอร์ม shop-register เข้า API จริง + ระบบอัปโหลดไฟล์จริง
+
+ตอนแรกตั้งใจปล่อยให้รูปบัตรประชาชน/รูปร้านเป็น "ไม่บังคับ" ไปก่อนเพราะยังไม่มีระบบอัปโหลด แต่เจ้าของโปรเจกต์อยากให้บังคับใส่จริงเหมือนฟอร์มเดิม เลยต้องสร้างระบบอัปโหลดไฟล์จริงขึ้นมาด้วย
+
+### 13. สิ่งที่ทำ
+
+* **สร้าง Supabase Storage bucket จริง 2 อัน** ผ่าน `@supabase/supabase-js` (service role key) — `shop-photos` (**public** เพราะลูกค้าต้องเห็นรูปหน้าร้านได้) และ `id-cards` (**private** เพราะเป็นข้อมูลบัตรประชาชน ห้ามเปิดสาธารณะเด็ดขาด) ทั้งสอง bucket จำกัดชนิดไฟล์ (JPG/PNG/WEBP) และขนาดไม่เกิน 5MB ไว้ที่ระดับ bucket ด้วย (กันซ้ำกับที่เช็คในโค้ด)
+* **API endpoint ใหม่** `POST /uploads` (`apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts`) รับไฟล์แบบ multipart/form-data พร้อม `type` (`shop-photo` หรือ `id-card`) อัปโหลดขึ้น bucket ที่ถูกต้อง คืน `{ path, url }` — `url` เป็น `null` สำหรับ `id-card` เพราะ bucket private ไม่มี public URL ตรงๆ
+* **แก้ Zod schema** — `googleMapLink`, `idCardUrl`, `shopPhotoUrl` เปลี่ยนจาก optional เป็น **required** ตามที่ขอ (`idCardUrl` validate แค่ไม่ว่างเปล่า ไม่ใช้ `.url()` เพราะเก็บเป็น path ไม่ใช่ URL)
+* **ต่อฟอร์ม `shop-register/page.tsx` เข้า API จริง** — เพิ่มช่องรหัสผ่าน + ยืนยันรหัสผ่าน, แก้ `handleSubmit` ให้: (1) อัปโหลดไฟล์ทั้งสองพร้อมกันผ่าน `POST /uploads` ก่อน (2) เอาผลลัพธ์ (`path`/`url`) ไปยิง `POST /auth/register/shop` จริง (3) แสดง error จริงจาก server ถ้าพัง ไม่ใช่แค่ mock success เฉยๆ เหมือนเดิม
+* เพิ่ม `apps/web/lib/api/uploads.ts` แยกจาก `lib/api/client.ts` เดิม เพราะ multipart/form-data ห้ามตั้ง `Content-Type` เอง (ต้องให้ browser คำนวณ boundary ให้)
+
+### 14. เจอปัญหาเพิ่มระหว่างทดสอบ
+
+* **curl บน Windows (mingw) พังเวลาใช้ `-F "file=@path;type=image/png"`** — ใส่ `;type=` ต่อท้าย path แล้ว curl error 26 (อ่านไฟล์ไม่ได้) ทั้งที่ไฟล์มีอยู่จริง แก้โดยตัด `;type=...` ออก ปล่อยให้ curl เดา mime type จากนามสกุลไฟล์เอง ก็ใช้ได้ปกติ — เป็นปัญหาของ curl เวอร์ชันนี้ ไม่เกี่ยวกับ endpoint
+* **แก้ Zod schema ใน `packages/shared` แล้ว API ไม่เห็นการเปลี่ยนแปลง** — `bun run --watch` มี warning เตือนไว้ตั้งแต่แรกว่าไม่ watch ไฟล์นอก `apps/api` (เช่น `packages/shared`) แต่ลืมสังเกต พอแก้ schema แล้วทดสอบซ้ำ error message เก่ายังค้างอยู่ (บอก "Invalid url" ทั้งที่แก้เป็น `.min(1)` ไปแล้ว) ต้อง restart dev server ของ `apps/api` เองทุกครั้งที่แก้ไฟล์ใน `packages/shared`
+
+### 15. ทดสอบจริงครบวงจร (อัปโหลดไฟล์จริง → สมัครร้านจริง)
+
+อัปโหลดไฟล์รูปทดสอบจริงผ่าน `POST /uploads` ทั้ง 2 bucket → เช็คว่า `shop-photos` เปิดดูได้จริงจาก URL ที่ได้ (HTTP 200) และ `id-cards` เข้าถึงแบบสาธารณะไม่ได้จริง (HTTP 400 ตามที่ตั้งใจ) → เอา path/url ที่ได้จริงไปยิง `POST /auth/register/shop` ต่อ (ไม่ใช้ค่าปลอม) → เช็คว่า record ที่บันทึกมี `idCardUrl`/`shopPhotoUrl` ตรงกับที่อัปโหลดจริง → ทดสอบผ่านหน้าเว็บจริงในเบราว์เซอร์ด้วย (กรอกฟอร์มเต็ม เห็น network request ยิงไป `POST /auth/register/shop` สำเร็จ 200) — ลบข้อมูลทดสอบและไฟล์ที่อัปโหลดออกจาก Storage หมดหลังเสร็จ
+
+### 16. สิ่งที่ยังไม่ได้ทำ
+
+* ยังไม่มี endpoint `PATCH /admin/shops/:id/approve` (อนุมัติร้านค้า) — ร้านที่สมัครเข้ามาตอนนี้ค้างที่ `pending` ตลอด
+* `POST /uploads` เปิดสาธารณะไม่มี rate limit — กันได้แค่ชนิดไฟล์/ขนาดไฟล์ ยังไม่กันการยิงรัวๆ (spam)
+* ยังไม่มีทางดูรูปบัตรประชาชนที่อัปโหลดไว้ (bucket private ไม่มี URL ตรงๆ ต้องมี endpoint สร้าง signed URL ให้แอดมินก่อน ถึงจะดูได้ตอนอนุมัติร้านค้า)
 

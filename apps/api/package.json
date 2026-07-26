@@ -9,6 +9,7 @@
   "dependencies": {
     "@easyprint/shared": "workspace:*",
     "@elysiajs/cors": "^1.1.1",
+    "@supabase/supabase-js": "^2.110.8",
     "argon2": "^0.40.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.33.0",

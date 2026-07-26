@@ -63,10 +63,12 @@ export const registerShopSchema = z.object({
   district: z.string().min(1, "กรุณากรอกอำเภอ/เขต"),
   province: z.string().min(1, "กรุณาเลือกจังหวัด"),
   postcode: z.string().regex(/^\d{5}$/, "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก"),
-  googleMapLink: z.string().url("ลิงก์ไม่ถูกต้อง").optional(),
-  // ยังไม่มีระบบอัปโหลดไฟล์จริง (รอ Supabase Storage) — รับเป็น URL string เฉยๆ ไปก่อน ไม่บังคับ
-  idCardUrl: z.string().url().optional(),
-  shopPhotoUrl: z.string().url().optional(),
+  googleMapLink: z.string().url("ลิงก์ไม่ถูกต้อง"),
+  // อัปโหลดผ่าน POST /uploads ก่อนแล้วค่อยส่งผลลัพธ์มาที่นี่
+  // shopPhotoUrl = public URL จาก bucket "shop-photos" (Supabase คืน URL เต็มให้)
+  // idCardUrl = storage path จาก bucket "id-cards" (bucket private ไม่มี public URL ตรงๆ ไม่ใช่ URL จริง แค่ path)
+  idCardUrl: z.string().min(1, "กรุณาอัปโหลดรูปบัตรประชาชน"),
+  shopPhotoUrl: z.string().url("กรุณาอัปโหลดรูปภาพร้านค้า"),
 });
 
 export type RegisterShopInput = z.infer<typeof registerShopSchema>;
