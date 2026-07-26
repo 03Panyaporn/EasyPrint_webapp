@@ -34,7 +34,13 @@
 | owner_id | uuid (FK → users.id) | |
 | name | text | |
 | phone | text | |
-| address | text | |
+| address | text | ประกอบจากฟอร์มที่แยกเป็นบ้านเลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ ตอนสมัคร แล้ว format รวมเป็นข้อความเดียว |
+| category | text | ประเภทร้านค้า — ดูค่าที่รองรับที่ `shopTypeSchema` ใน `packages/shared/src/schemas/auth.ts` |
+| google_map_link | text | nullable, ใส่ทีหลังได้ |
+| id_card_url | text | nullable — ยังไม่มีระบบอัปโหลดไฟล์จริง (รอ Supabase Storage) |
+| shop_photo_url | text | nullable — เหตุผลเดียวกับด้านบน |
+| approval_status | enum: pending / approved / rejected | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน |
+| delivery_enabled | boolean | default true |
 | created_at | timestamp | |
 
 ### `orders`
@@ -107,8 +113,6 @@
 | is_active | boolean | default true |
 | created_at | timestamp | |
 
-`shops` เพิ่มคอลัมน์ `delivery_enabled boolean default true` (สวิตช์เปิด/ปิดระบบจัดส่งทั้งร้านในคราวเดียว)
-
 ## ความสัมพันธ์ (Relationships)
 
 ```
@@ -127,4 +131,3 @@ addon_services (1) ──< main_service_addons (addon_service_id) [ON DELETE CAS
 
 - ตารางวัน-เวลาทำการของร้าน (`shop_hours`) — ตาม 1.3.1.2.2
 - Dashboard/สรุปรายได้ — อาจทำเป็น query แบบ aggregate แทนตารางแยก — ตาม 1.3.1.6
-- ⚠️ endpoint ที่แก้ไข/ลบข้อมูลใน `main_services`/`addon_services`/`delivery_options` ยังไม่เช็ค JWT ว่าเป็นเจ้าของร้านจริง (ดู TODO ใน `apps/api/src/routes/services.ts`) — ต้องเพิ่ม auth middleware ก่อนขึ้น production

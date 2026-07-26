@@ -1,18 +1,46 @@
 import { Elysia } from "elysia";
 import { and, eq, gt, isNull } from "drizzle-orm";
-import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "@easyprint/shared";
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  registerShopSchema,
+} from "@easyprint/shared";
 import { db } from "../db";
-import { users, passwordResetTokens } from "../../drizzle/schema";
+import { users, passwordResetTokens, shops } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
-import { signAuthToken, verifyAuthToken } from "./jwt";
+import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
 
-const COOKIE_NAME = "easyprint_token";
+const COOKIE_NAME = AUTH_COOKIE_NAME;
 const isProd = process.env.NODE_ENV === "production";
 
 function toPublicUser(user: typeof users.$inferSelect) {
   const { passwordHash, ...publicUser } = user;
   return publicUser;
+}
+
+// รวมฟิลด์ที่อยู่แบบแยกส่วน (จากฟอร์ม shop-register) เป็นข้อความเดียว เพราะ shops.address เก็บเป็น text ก้อนเดียว
+function formatShopAddress(input: {
+  houseNo: string;
+  village?: string;
+  street?: string;
+  subdistrict: string;
+  district: string;
+  province: string;
+  postcode: string;
+}) {
+  const parts = [
+    input.houseNo,
+    input.village ? `หมู่ ${input.village}` : "",
+    input.street && input.street !== "-" ? `ถ.${input.street}` : "",
+    `ต.${input.subdistrict}`,
+    `อ.${input.district}`,
+    `จ.${input.province}`,
+    input.postcode,
+  ];
+  return parts.filter(Boolean).join(" ");
 }
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
@@ -56,6 +84,67 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     });
 
     return { user: toPublicUser(user) };
+  })
+
+  // สมัครสมาชิกร้านค้า (หน้า /register/shop-register ฝั่ง web) — สร้าง user (role=shop_owner) กับ shop พร้อมกันในทีเดียว
+  // ร้านที่สมัครใหม่เริ่มที่ approvalStatus="pending" เสมอ ต้องรอแอดมินอนุมัติก่อน (ดู shopApprovalStatusEnum ใน schema.ts)
+  .post("/register/shop", async ({ body, cookie, set }) => {
+    const parsed = registerShopSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
+    if (existing) {
+      set.status = 409;
+      return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
+    }
+
+    const passwordHash = await hashPassword(parsed.data.password);
+    const address = formatShopAddress(parsed.data);
+
+    const { user, shop } = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: parsed.data.email,
+          passwordHash,
+          role: "shop_owner",
+          firstname: parsed.data.firstname,
+          lastname: parsed.data.lastname,
+          phone: parsed.data.phone,
+        })
+        .returning();
+
+      const [shop] = await tx
+        .insert(shops)
+        .values({
+          ownerId: user.id,
+          name: parsed.data.shopName,
+          phone: parsed.data.phone,
+          address,
+          category: parsed.data.shopType,
+          googleMapLink: parsed.data.googleMapLink,
+          idCardUrl: parsed.data.idCardUrl,
+          shopPhotoUrl: parsed.data.shopPhotoUrl,
+        })
+        .returning();
+
+      return { user, shop };
+    });
+
+    const token = signAuthToken({ userId: user.id, role: user.role }, false);
+    cookie[COOKIE_NAME]?.set({
+      value: token,
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 1 วัน
+    });
+
+    return { user: toPublicUser(user), shop };
   })
 
   .post("/login", async ({ body, cookie, set }) => {

@@ -19,15 +19,7 @@ import {
   CircleUser,
 } from "lucide-react";
 import { on } from "events";
-
-const SHOP_TYPES = [
-  "ร้านถ่ายเอกสารทั่วไป",
-  "ร้านพรินต์สี / กราฟิก",
-  "ร้านเข้าเล่ม / ทำสปิไรล์",
-  "ร้านปริ้นต์ขนาดใหญ่ (A0/A1)",
-  "ร้านสติ๊กเกอร์ / ป้าย",
-  "ร้านครบวงจร",
-];
+import { SHOP_TYPES } from "@easyprint/shared";
 
 export default function ShopRegisterPage() {
   const [form, setForm] = useState({

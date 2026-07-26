@@ -11,6 +11,12 @@ export const orderStatusEnum = pgEnum("order_status", [
   "completed",
   "cancelled",
 ]);
+// ร้านที่สมัครใหม่เริ่มที่ pending เสมอ — รอแอดมินอนุมัติก่อนถึงจะเปิดขายจริงได้ (ตาม flow "อนุมัติร้านค้า")
+export const shopApprovalStatusEnum = pgEnum("shop_approval_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -39,6 +45,11 @@ export const shops = pgTable("shops", {
   name: text("name").notNull(),
   phone: text("phone"),
   address: text("address"),
+  category: text("category"), // ประเภทร้านค้า เช่น "ร้านถ่ายเอกสารทั่วไป" — ดูค่าที่รองรับที่ shopTypeSchema ใน packages/shared
+  googleMapLink: text("google_map_link"), // ไม่บังคับตอนสมัคร ใส่ทีหลังได้
+  idCardUrl: text("id_card_url"), // ยังไม่มีระบบอัปโหลดจริง (รอ Supabase Storage) เก็บเป็น URL เฉยๆ ไปก่อน
+  shopPhotoUrl: text("shop_photo_url"),
+  approvalStatus: shopApprovalStatusEnum("approval_status").notNull().default("pending"),
   deliveryEnabled: boolean("delivery_enabled").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
