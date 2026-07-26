@@ -7,7 +7,8 @@
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
 | POST | `/auth/register` | สมัครสมาชิกลูกค้าใหม่ (role = customer) ตั้ง JWT httpOnly cookie ให้เลย | ไม่ต้อง |
-| POST | `/auth/login` | เข้าสู่ระบบ ตั้ง JWT httpOnly cookie (rememberMe คุม maxAge) | ไม่ต้อง |
+| POST | `/auth/register/shop` | สมัครสมาชิกร้านค้าใหม่ (role = shop_owner) สร้าง user + shop พร้อมกันในทรานแซกชันเดียว, ร้านเริ่มที่ `approvalStatus: "pending"` เสมอ, ตั้ง JWT httpOnly cookie ให้เลย | ไม่ต้อง |
+| POST | `/auth/login` | เข้าสู่ระบบ (ใช้ได้ทุก role รวมถึง shop_owner ที่สมัครผ่าน `/auth/register/shop`) ตั้ง JWT httpOnly cookie (rememberMe คุม maxAge) | ไม่ต้อง |
 | POST | `/auth/logout` | ล้าง JWT cookie | ไม่ต้อง |
 | GET | `/auth/me` | เช็ค session ปัจจุบันจาก cookie | ต้อง login |
 | POST | `/auth/forgot-password` | สร้าง reset token ส่งลิงก์ไปทางอีเมล (ตอบ success เหมือนกันไม่ว่าจะเจออีเมลหรือไม่) | ไม่ต้อง |

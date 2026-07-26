@@ -34,7 +34,13 @@
 | owner_id | uuid (FK → users.id) | |
 | name | text | |
 | phone | text | |
-| address | text | |
+| address | text | ประกอบจากฟอร์มที่แยกเป็นบ้านเลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ ตอนสมัคร แล้ว format รวมเป็นข้อความเดียว |
+| category | text | ประเภทร้านค้า — ดูค่าที่รองรับที่ `shopTypeSchema` ใน `packages/shared/src/schemas/auth.ts` |
+| google_map_link | text | nullable, ใส่ทีหลังได้ |
+| id_card_url | text | nullable — ยังไม่มีระบบอัปโหลดไฟล์จริง (รอ Supabase Storage) |
+| shop_photo_url | text | nullable — เหตุผลเดียวกับด้านบน |
+| approval_status | enum: pending / approved / rejected | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน |
+| delivery_enabled | boolean | default true |
 | created_at | timestamp | |
 
 ### `orders`
@@ -106,8 +112,6 @@
 | free_shipping_threshold | numeric(10,2) | nullable = ไม่มีเงื่อนไขส่งฟรี |
 | is_active | boolean | default true |
 | created_at | timestamp | |
-
-`shops` เพิ่มคอลัมน์ `delivery_enabled boolean default true` (สวิตช์เปิด/ปิดระบบจัดส่งทั้งร้านในคราวเดียว)
 
 ## ความสัมพันธ์ (Relationships)
 
