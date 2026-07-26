@@ -4,10 +4,10 @@ import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema 
 import { db } from "../db";
 import { users, passwordResetTokens } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
-import { signAuthToken, verifyAuthToken } from "./jwt";
+import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
 
-const COOKIE_NAME = "easyprint_token";
+const COOKIE_NAME = AUTH_COOKIE_NAME;
 const isProd = process.env.NODE_ENV === "production";
 
 function toPublicUser(user: typeof users.$inferSelect) {

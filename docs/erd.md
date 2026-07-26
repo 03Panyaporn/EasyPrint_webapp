@@ -127,4 +127,3 @@ addon_services (1) ──< main_service_addons (addon_service_id) [ON DELETE CAS
 
 - ตารางวัน-เวลาทำการของร้าน (`shop_hours`) — ตาม 1.3.1.2.2
 - Dashboard/สรุปรายได้ — อาจทำเป็น query แบบ aggregate แทนตารางแยก — ตาม 1.3.1.6
-- ⚠️ endpoint ที่แก้ไข/ลบข้อมูลใน `main_services`/`addon_services`/`delivery_options` ยังไม่เช็ค JWT ว่าเป็นเจ้าของร้านจริง (ดู TODO ใน `apps/api/src/routes/services.ts`) — ต้องเพิ่ม auth middleware ก่อนขึ้น production

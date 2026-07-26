@@ -9,11 +9,38 @@ import {
   updateDeliveryOptionSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { mainServices, addOnServices, mainServiceAddOns, deliveryOptions } from "../../drizzle/schema";
+import { mainServices, addOnServices, mainServiceAddOns, deliveryOptions, shops } from "../../drizzle/schema";
+import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 
-// ⚠️ TODO: endpoint POST/PATCH/DELETE ในไฟล์นี้ยังไม่เช็ค JWT ว่าผู้เรียกเป็นเจ้าของร้าน (:shopId) จริง
-// (รูปแบบ TODO เดียวกับ customerId ใน POST /orders ที่ src/index.ts) — ต้องเพิ่ม auth middleware ก่อนใช้งานจริง
-// ตอนนี้ใครก็เรียก endpoint พร้อม shopId ของร้านอื่นแล้วแก้ข้อมูลร้านนั้นได้ ห้ามขึ้น production ก่อนแก้จุดนี้
+// เช็คว่า request มี JWT ที่ login เป็น shop_owner ของร้าน :shopId นี้จริง ก่อนให้แก้ไข/ลบข้อมูล
+// คืน { error } object ถ้าไม่ผ่าน (พร้อมตั้ง set.status ให้แล้ว) หรือ null ถ้าผ่าน — ตรวจสอบสิทธิ์แบบเดียวกับที่ /auth/me ใช้อ่าน cookie
+async function requireShopOwner(
+  cookie: Record<string, { value?: unknown } | undefined>,
+  shopId: string,
+  set: { status?: unknown }
+) {
+  const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+  const payload = token ? verifyAuthToken(token) : null;
+  if (!payload) {
+    set.status = 401;
+    return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+  }
+  if (payload.role !== "shop_owner") {
+    set.status = 403;
+    return { error: "ต้องเป็นบัญชีร้านค้าเท่านั้น" };
+  }
+
+  const [shop] = await db
+    .select({ id: shops.id })
+    .from(shops)
+    .where(and(eq(shops.id, shopId), eq(shops.ownerId, payload.userId)));
+  if (!shop) {
+    set.status = 403;
+    return { error: "คุณไม่มีสิทธิ์จัดการร้านนี้" };
+  }
+
+  return null;
+}
 
 function serializeMainService(
   row: typeof mainServices.$inferSelect,
@@ -85,7 +112,10 @@ export const servicesRoutes = new Elysia()
     };
   })
 
-  .post("/shops/:shopId/services", async ({ params, body, set }) => {
+  .post("/shops/:shopId/services", async ({ params, body, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const parsed = createMainServiceSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -136,7 +166,10 @@ export const servicesRoutes = new Elysia()
     return { service: serializeMainService(service, parsed.data.addOns) };
   })
 
-  .patch("/shops/:shopId/services/:id", async ({ params, body, set }) => {
+  .patch("/shops/:shopId/services/:id", async ({ params, body, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const parsed = updateMainServiceSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -190,7 +223,10 @@ export const servicesRoutes = new Elysia()
     return { service: serializeMainService(service, currentAddOns) };
   })
 
-  .delete("/shops/:shopId/services/:id", async ({ params, set }) => {
+  .delete("/shops/:shopId/services/:id", async ({ params, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     // ON DELETE CASCADE บน main_service_addons ลบ binding ที่ผูกกับบริการนี้ให้อัตโนมัติ
     const [deleted] = await db
       .delete(mainServices)
@@ -210,7 +246,10 @@ export const servicesRoutes = new Elysia()
     return { addOns: rows.map(serializeAddOnService) };
   })
 
-  .post("/shops/:shopId/addons", async ({ params, body, set }) => {
+  .post("/shops/:shopId/addons", async ({ params, body, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const parsed = createAddOnServiceSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -247,7 +286,10 @@ export const servicesRoutes = new Elysia()
     return { addOn: serializeAddOnService(addOn) };
   })
 
-  .patch("/shops/:shopId/addons/:id", async ({ params, body, set }) => {
+  .patch("/shops/:shopId/addons/:id", async ({ params, body, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const parsed = updateAddOnServiceSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -286,7 +328,10 @@ export const servicesRoutes = new Elysia()
     return { addOn: serializeAddOnService(addOn) };
   })
 
-  .delete("/shops/:shopId/addons/:id", async ({ params, set }) => {
+  .delete("/shops/:shopId/addons/:id", async ({ params, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     // ON DELETE CASCADE บน main_service_addons ลบ binding ที่บริการหลักอื่นผูกไว้กับบริการเสริมนี้ให้อัตโนมัติ
     const [deleted] = await db
       .delete(addOnServices)
@@ -309,7 +354,10 @@ export const servicesRoutes = new Elysia()
     return { deliveryOptions: rows.map(serializeDeliveryOption) };
   })
 
-  .post("/shops/:shopId/delivery-options", async ({ params, body, set }) => {
+  .post("/shops/:shopId/delivery-options", async ({ params, body, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const parsed = createDeliveryOptionSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -349,7 +397,10 @@ export const servicesRoutes = new Elysia()
     return { deliveryOption: serializeDeliveryOption(option) };
   })
 
-  .patch("/shops/:shopId/delivery-options/:id", async ({ params, body, set }) => {
+  .patch("/shops/:shopId/delivery-options/:id", async ({ params, body, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const parsed = updateDeliveryOptionSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -394,7 +445,10 @@ export const servicesRoutes = new Elysia()
     return { deliveryOption: serializeDeliveryOption(option) };
   })
 
-  .delete("/shops/:shopId/delivery-options/:id", async ({ params, set }) => {
+  .delete("/shops/:shopId/delivery-options/:id", async ({ params, set, cookie }) => {
+    const authError = await requireShopOwner(cookie, params.shopId, set);
+    if (authError) return authError;
+
     const [deleted] = await db
       .delete(deliveryOptions)
       .where(and(eq(deliveryOptions.id, params.id), eq(deliveryOptions.shopId, params.shopId)))

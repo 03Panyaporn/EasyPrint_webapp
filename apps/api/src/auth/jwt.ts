@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 
+export const AUTH_COOKIE_NAME = "easyprint_token";
+
 if (!process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET ไม่ถูกตั้งค่า — เช็คไฟล์ .env (ก็อปจาก .env.example)");
 }
