@@ -9,6 +9,7 @@ import {
   Inbox,
   Store,
   MessageSquareText,
+  X,
 } from "lucide-react";
 import { Order } from "./types";
 import { statusConfig } from "./statusConfig";
@@ -61,7 +62,7 @@ export default function OrdersTable({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm">
+        <table className="w-full text-center border-collapse text-sm">
           <thead>
             <tr className="bg-gray-50/80 text-gray-600 font-semibold border-b border-gray-100">
               <th className="py-3.5 px-4 sm:px-6 whitespace-nowrap">รหัส</th>
@@ -79,7 +80,7 @@ export default function OrdersTable({
                 <br />
                 <span className="font-normal text-gray-400">(อัปเดตสถานะ)</span>
               </th>
-              <th className="py-3.5 px-4 text-right whitespace-nowrap">จัดการ</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">จัดการ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -98,7 +99,7 @@ export default function OrdersTable({
                   <tr key={order.id} className="hover:bg-orange-50/30 transition-colors">
                     {/* รหัส */}
                     <td className="py-4 px-4 sm:px-6">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1.5">
                         <span className="font-semibold text-gray-800">{order.code}</span>
                         {order.note && (
                           <div className="relative" data-note-popover>
@@ -112,14 +113,28 @@ export default function OrdersTable({
                               <MessageSquareText size={13} />
                             </button>
                             {openNoteId === order.id && (
-                              <div className="absolute z-20 top-full left-0 mt-1.5 w-60 bg-white rounded-xl shadow-lg border border-gray-100 p-3.5">
-                                <p className="text-xs font-semibold text-gray-800 mb-1">
-                                  หมายเหตุจากลูกค้า
-                                </p>
-                                <p className="text-xs text-gray-600 leading-relaxed whitespace-normal">
-                                  {order.note}
-                                </p>
-                              </div>
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40 bg-black/40"
+                                  onClick={() => setOpenNoteId(null)}
+                                />
+                                <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-w-[90vw] bg-white rounded-xl shadow-xl border border-gray-100 p-4">
+                                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <p className="text-sm font-semibold text-gray-800">
+                                      หมายเหตุจากลูกค้า
+                                    </p>
+                                    <button
+                                      onClick={() => setOpenNoteId(null)}
+                                      className="p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </div>
+                                  <p className="text-sm text-gray-600 leading-relaxed whitespace-normal">
+                                    {order.note}
+                                  </p>
+                                </div>
+                              </>
                             )}
                           </div>
                         )}
@@ -168,13 +183,13 @@ export default function OrdersTable({
                     {/* การจัดส่ง */}
                     <td className="py-4 px-4 text-gray-700 max-w-[160px]">
                       {order.delivery.method === "self_pickup" ? (
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center justify-center gap-1.5">
                           <Store size={14} className="text-gray-400 shrink-0" />
                           มารับเองที่ร้าน
                         </span>
                       ) : (
                         <div className="relative" data-address-popover>
-                          <p className="truncate">{order.delivery.address}</p>
+                          <p className="truncate text-center">{order.delivery.address}</p>
                           <button
                             onClick={() =>
                               setOpenAddressId(openAddressId === order.id ? null : order.id)
@@ -189,14 +204,28 @@ export default function OrdersTable({
                             {openAddressId === order.id ? "ซ่อนที่อยู่" : "ดูที่อยู่"}
                           </button>
                           {openAddressId === order.id && (
-                            <div className="absolute z-20 top-full left-0 mt-1.5 w-60 bg-white rounded-xl shadow-lg border border-gray-100 p-3.5">
-                              <p className="text-xs font-semibold text-gray-800 mb-1">
-                                ที่อยู่จัดส่ง
-                              </p>
-                              <p className="text-xs text-gray-600 leading-relaxed whitespace-normal">
-                                {order.delivery.address}
-                              </p>
-                            </div>
+                            <>
+                              <div
+                                className="fixed inset-0 z-40 bg-black/40"
+                                onClick={() => setOpenAddressId(null)}
+                              />
+                              <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-w-[90vw] bg-white rounded-xl shadow-xl border border-gray-100 p-4">
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                  <p className="text-sm font-semibold text-gray-800">
+                                    ที่อยู่จัดส่ง
+                                  </p>
+                                  <button
+                                    onClick={() => setOpenAddressId(null)}
+                                    className="p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                                <p className="text-sm text-gray-600 leading-relaxed whitespace-normal">
+                                  {order.delivery.address}
+                                </p>
+                              </div>
+                            </>
                           )}
                         </div>
                       )}
@@ -227,7 +256,7 @@ export default function OrdersTable({
                     </td>
 
                     {/* จัดการ */}
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-4 px-4">
                       <button
                         onClick={() => onOpenDetail(order)}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"

@@ -23,7 +23,7 @@ export default function FileThumbnail({ order, kind, size = "sm", onClick }: Fil
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 group ${
+      className={`flex flex-col items-center gap-1.5 group mx-auto ${
         onClick ? "cursor-pointer" : "cursor-default"
       }`}
     >

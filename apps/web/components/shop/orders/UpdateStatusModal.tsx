@@ -1,6 +1,6 @@
 "use client";
 
-import { X, ShieldCheck, Truck, PartyPopper, Store, Check } from "lucide-react";
+import { X, ShieldCheck, Wrench, Truck, PartyPopper, Store, Check } from "lucide-react";
 import { Order, OrderStatus } from "./types";
 import { progressSteps, statusConfig } from "./statusConfig";
 import FileThumbnail from "./FileThumbnail";
@@ -19,7 +19,6 @@ interface Variant {
   infoText: string;
   icon: React.ElementType;
   nextStatus: OrderStatus;
-  actionLabel: string;
   showStepper: boolean;
 }
 
@@ -40,17 +39,21 @@ function getVariant(order: Order): Variant | null {
         infoText: "ตรวจสอบรายการสั่งซื้อและหลักฐานการชำระเงินแล้ว",
         icon: ShieldCheck,
         nextStatus: "accepted",
-        actionLabel: "รับงานแล้ว",
         showStepper: false,
       };
     case "accepted":
+      return {
+        infoText: "เริ่มดำเนินการผลิตงานให้ลูกค้า",
+        icon: Wrench,
+        nextStatus: "in_progress",
+        showStepper: true,
+      };
     case "in_progress":
       if (isPickup) {
         return {
           infoText: "เตรียมสินค้าให้พร้อม แจ้งลูกค้ามารับที่ร้านได้เลย",
           icon: Store,
           nextStatus: "completed",
-          actionLabel: "ลูกค้ารับสินค้าแล้ว",
           showStepper: true,
         };
       }
@@ -58,7 +61,6 @@ function getVariant(order: Order): Variant | null {
         infoText: "เริ่มจัดเตรียมการจัดส่งให้ลูกค้า",
         icon: Truck,
         nextStatus: "shipping",
-        actionLabel: "ทำการจัดส่ง",
         showStepper: true,
       };
     case "shipping":
@@ -66,7 +68,6 @@ function getVariant(order: Order): Variant | null {
         infoText: "จัดส่งสินค้าให้ลูกค้ารับเรียบร้อยแล้ว",
         icon: PartyPopper,
         nextStatus: "completed",
-        actionLabel: "เสร็จสิ้น",
         showStepper: true,
       };
     default:
@@ -89,6 +90,7 @@ export default function UpdateStatusModal({
   if (!variant) return null;
 
   const Icon = variant.icon;
+  const currentMeta = statusConfig[order.status];
   const targetMeta = statusConfig[variant.nextStatus];
   const canCancelOrder = ["accepted", "in_progress", "shipping"].includes(order.status);
   const canRejectPayment = order.status === "pending_review";
@@ -131,23 +133,20 @@ export default function UpdateStatusModal({
               const isPast = idx < currentIndex;
               const isCurrent = idx === currentIndex;
               const isTarget = idx === targetIndex;
-              const isDone = isPast || isCurrent;
 
               return (
                 <div key={step} className="flex items-center flex-1 last:flex-none">
                   <div className="flex flex-col items-center gap-1.5">
                     <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
-                        isTarget
-                          ? `${stepMeta.solidBg} text-white`
-                          : isCurrent
-                          ? `${stepMeta.badgeBg} ${stepMeta.badgeText} ring-2 ring-offset-1 ring-current`
-                          : isPast
-                          ? `${stepMeta.badgeBg} ${stepMeta.badgeText}`
-                          : "bg-gray-100 text-gray-400"
-                      }`}
+                      className={
+                        isCurrent
+                          ? `w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${currentMeta.solidBg} text-white shadow-md ${currentMeta.solidShadow}`
+                          : isTarget
+                          ? `w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all border-2 ${stepMeta.targetBorder} ${stepMeta.badgeBg} ${stepMeta.badgeText} shadow-md ${stepMeta.solidShadow} scale-110`
+                          : "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-gray-100 text-gray-400"
+                      }
                     >
-                      {isDone ? <Check size={13} /> : idx + 1}
+                      {isCurrent ? <Check size={13} /> : isPast ? <Check size={13} /> : idx + 1}
                     </div>
                     <span
                       className={`text-[10px] text-center leading-tight max-w-[52px] ${
@@ -162,6 +161,11 @@ export default function UpdateStatusModal({
                       {isCurrent && (
                         <span className="block text-[9px] font-normal text-gray-400">
                           (ปัจจุบัน)
+                        </span>
+                      )}
+                      {isTarget && (
+                        <span className={`block text-[9px] font-normal ${stepMeta.badgeText}`}>
+                          (ถัดไป)
                         </span>
                       )}
                     </span>
@@ -214,7 +218,7 @@ export default function UpdateStatusModal({
           onClick={() => onAdvance(order, variant.nextStatus)}
           className={`w-full py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:brightness-95 transition-all mb-3 ${targetMeta.solidBg} ${targetMeta.solidShadow}`}
         >
-          {variant.actionLabel}
+          {targetMeta.label}
         </button>
 
         {/* Secondary actions */}

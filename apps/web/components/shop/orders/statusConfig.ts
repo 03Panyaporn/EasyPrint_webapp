@@ -19,6 +19,8 @@ interface StatusMeta {
   /** พื้นหลังทึบสีเดียวกับสถานะนี้ ใช้กับปุ่ม action หลักและวงกลม step ที่เป็นเป้าหมาย */
   solidBg: string;
   solidShadow: string;
+  /** ขอบเข้มของสถานะนี้ ใช้เน้นวงกลม step ที่กำลังจะเปลี่ยนไป (ให้ดูเป็นสามมิติ) */
+  targetBorder: string;
 }
 
 export const statusConfig: Record<OrderStatus, StatusMeta> = {
@@ -32,6 +34,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
     badgeBorder: "border-orange-100",
     solidBg: "bg-orange-500",
     solidShadow: "shadow-orange-200",
+    targetBorder: "border-orange-400",
   },
   accepted: {
     label: "รับงานแล้ว",
@@ -43,6 +46,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
     badgeBorder: "border-purple-100",
     solidBg: "bg-purple-600",
     solidShadow: "shadow-purple-200",
+    targetBorder: "border-purple-400",
   },
   in_progress: {
     label: "กำลังดำเนินการ",
@@ -54,6 +58,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
     badgeBorder: "border-blue-200",
     solidBg: "bg-blue-700",
     solidShadow: "shadow-blue-200",
+    targetBorder: "border-blue-400",
   },
   shipping: {
     label: "กำลังจัดส่ง",
@@ -65,6 +70,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
     badgeBorder: "border-cyan-100",
     solidBg: "bg-cyan-600",
     solidShadow: "shadow-cyan-200",
+    targetBorder: "border-cyan-400",
   },
   completed: {
     label: "เสร็จสิ้น",
@@ -76,6 +82,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
     badgeBorder: "border-green-100",
     solidBg: "bg-green-600",
     solidShadow: "shadow-green-200",
+    targetBorder: "border-green-400",
   },
   cancelled: {
     label: "ยกเลิก",
@@ -87,6 +94,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
     badgeBorder: "border-red-100",
     solidBg: "bg-red-600",
     solidShadow: "shadow-red-200",
+    targetBorder: "border-red-400",
   },
 };
 
