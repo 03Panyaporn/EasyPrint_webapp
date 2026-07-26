@@ -10,6 +10,7 @@ interface AddServiceModalProps {
   onSaveMain: (service: MainService) => void;
   onSaveAddOn: (addOn: AddOnService) => void;
   allAddOnServices: AddOnService[];
+  allMainServices: MainService[];
   editingMainService?: MainService | null;
   editingAddOnService?: AddOnService | null;
   defaultType?: "main" | "addon";
@@ -21,6 +22,7 @@ export default function AddServiceModal({
   onSaveMain,
   onSaveAddOn,
   allAddOnServices,
+  allMainServices,
   editingMainService,
   editingAddOnService,
   defaultType = "main",
@@ -91,6 +93,14 @@ export default function AddServiceModal({
 
   if (!isOpen) return null;
 
+  const isEditing = !!(editingMainService || editingAddOnService);
+
+  const handleServiceTypeChange = (type: "main" | "addon") => {
+    if (isEditing) return; // ห้ามเปลี่ยนประเภทระหว่างแก้ไข ไม่งั้นจะบันทึกเป็นรายการใหม่แทนการแก้ไขของเดิม
+    setServiceType(type);
+    setUnit(type === "main" ? "แผ่น" : "เล่ม");
+  };
+
   const handlePaperSizeChange = (size: string) => {
     if (paperSizes.includes(size)) {
       if (paperSizes.length === 1) return; // Must select at least 1
@@ -124,9 +134,10 @@ export default function AddServiceModal({
   };
 
   const handleExtraPriceChange = (addOnId: string, newExtraPrice: number) => {
+    const safePrice = Math.max(0, newExtraPrice);
     setSelectedAddOns(
       selectedAddOns.map((b) =>
-        b.addOnId === addOnId ? { ...b, extraPrice: newExtraPrice } : b
+        b.addOnId === addOnId ? { ...b, extraPrice: safePrice } : b
       )
     );
   };
@@ -141,6 +152,15 @@ export default function AddServiceModal({
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = "กรุณากรอกชื่อบริการ";
+    else {
+      const trimmedName = name.trim().toLowerCase();
+      const currentId = serviceType === "main" ? editingMainService?.id : editingAddOnService?.id;
+      const duplicateList = serviceType === "main" ? allMainServices : allAddOnServices;
+      const isDuplicate = duplicateList.some(
+        (s) => s.id !== currentId && s.name.trim().toLowerCase() === trimmedName
+      );
+      if (isDuplicate) errs.name = "มีบริการชื่อนี้อยู่แล้ว กรุณาใช้ชื่ออื่น";
+    }
     if (price === "" || Number(price) < 0) errs.price = "กรุณากรอกราคาที่ถูกต้อง";
 
     if (serviceType === "main") {
@@ -224,12 +244,13 @@ export default function AddServiceModal({
             <div className="grid grid-cols-2 gap-3">
               <label
                 className={`
-                  flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all
+                  flex items-center gap-3 p-3 rounded-xl border transition-all
                   ${
                     serviceType === "main"
                       ? "border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/20"
                       : "border-gray-200 hover:bg-gray-50"
                   }
+                  ${isEditing ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
                 `}
               >
                 <input
@@ -237,7 +258,8 @@ export default function AddServiceModal({
                   name="serviceType"
                   value="main"
                   checked={serviceType === "main"}
-                  onChange={() => setServiceType("main")}
+                  disabled={isEditing}
+                  onChange={() => handleServiceTypeChange("main")}
                   className="text-orange-500 focus:ring-orange-500"
                 />
                 <div>
@@ -248,12 +270,13 @@ export default function AddServiceModal({
 
               <label
                 className={`
-                  flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all
+                  flex items-center gap-3 p-3 rounded-xl border transition-all
                   ${
                     serviceType === "addon"
                       ? "border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/20"
                       : "border-gray-200 hover:bg-gray-50"
                   }
+                  ${isEditing ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
                 `}
               >
                 <input
@@ -261,7 +284,8 @@ export default function AddServiceModal({
                   name="serviceType"
                   value="addon"
                   checked={serviceType === "addon"}
-                  onChange={() => setServiceType("addon")}
+                  disabled={isEditing}
+                  onChange={() => handleServiceTypeChange("addon")}
                   className="text-orange-500 focus:ring-orange-500"
                 />
                 <div>

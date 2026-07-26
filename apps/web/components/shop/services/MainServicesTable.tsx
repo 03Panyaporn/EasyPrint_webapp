@@ -176,7 +176,15 @@ export default function MainServicesTable({
                   {/* Toggle active */}
                   <td className="py-4 px-4 text-center">
                     <button
-                      onClick={() => onToggleActive(service.id)}
+                      onClick={() => {
+                        if (service.isActive) {
+                          const confirmed = confirm(
+                            `คุณต้องการปิดบริการ "${service.name}" หรือไม่?\n\nลูกค้าจะไม่สามารถเลือกบริการนี้ได้จนกว่าจะเปิดใช้งานอีกครั้ง`
+                          );
+                          if (!confirmed) return;
+                        }
+                        onToggleActive(service.id);
+                      }}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                         service.isActive ? "bg-orange-500" : "bg-gray-200"
                       }`}

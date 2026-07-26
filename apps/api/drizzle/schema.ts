@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 // โครงสร้างเริ่มต้น อ้างอิงจาก docs/proposal.md หัวข้อ 1.3
 // แก้/เพิ่มตารางได้ตามที่ทีมออกแบบ ERD จริงใน docs/erd.md
@@ -25,8 +26,87 @@ export const shops = pgTable("shops", {
   name: text("name").notNull(),
   phone: text("phone"),
   address: text("address"),
+  deliveryEnabled: boolean("delivery_enabled").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ราคาทุกตารางในกลุ่มบริการ/จัดส่งเก็บเป็นหน่วยบาท (numeric) ไม่ใช่สตางค์แบบ orders.total_price
+// เหตุผล: ฟอร์มฝั่ง web กรอก/แสดงผลเป็นบาทตรงๆ อยู่แล้ว เลี่ยงการแปลงหน่วยไปมาโดยไม่จำเป็น
+export const mainServices = pgTable("main_services", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  shopId: uuid("shop_id").references(() => shops.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  paperSizes: text("paper_sizes").array().notNull(),
+  customPaperSize: text("custom_paper_size"),
+  colors: text("colors").array().notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  unit: text("unit").notNull(),
+  estimatedTime: text("estimated_time"),
+  imageUrl: text("image_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const addOnServices = pgTable("addon_services", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  shopId: uuid("shop_id").references(() => shops.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  unit: text("unit").notNull(),
+  estimatedTime: text("estimated_time"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ตารางเชื่อมบริการหลัก <-> บริการเสริม พร้อมราคาบวกเพิ่มเฉพาะคู่นั้น
+export const mainServiceAddOns = pgTable(
+  "main_service_addons",
+  {
+    mainServiceId: uuid("main_service_id")
+      .references(() => mainServices.id, { onDelete: "cascade" })
+      .notNull(),
+    addOnServiceId: uuid("addon_service_id")
+      .references(() => addOnServices.id, { onDelete: "cascade" })
+      .notNull(),
+    extraPrice: numeric("extra_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.mainServiceId, table.addOnServiceId] }),
+  })
+);
+
+export const deliveryOptions = pgTable("delivery_options", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  shopId: uuid("shop_id").references(() => shops.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  logoUrl: text("logo_url"),
+  baseFee: numeric("base_fee", { precision: 10, scale: 2 }).notNull(),
+  freeShippingThreshold: numeric("free_shipping_threshold", { precision: 10, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const mainServicesRelations = relations(mainServices, ({ many }) => ({
+  addOns: many(mainServiceAddOns),
+}));
+
+export const addOnServicesRelations = relations(addOnServices, ({ many }) => ({
+  mainServiceBindings: many(mainServiceAddOns),
+}));
+
+export const mainServiceAddOnsRelations = relations(mainServiceAddOns, ({ one }) => ({
+  mainService: one(mainServices, {
+    fields: [mainServiceAddOns.mainServiceId],
+    references: [mainServices.id],
+  }),
+  addOnService: one(addOnServices, {
+    fields: [mainServiceAddOns.addOnServiceId],
+    references: [addOnServices.id],
+  }),
+}));
 
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),

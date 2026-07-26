@@ -208,6 +208,7 @@ export default function ServicesPage() {
       {activeTab === "addon" && (
         <AddOnServicesTable
           addOns={addOnServices}
+          mainServices={mainServices}
           onAddClick={() => openAddServiceModal("addon")}
           onEditClick={openEditAddOnServiceModal}
           onDeleteClick={handleDeleteAddOnService}
@@ -234,6 +235,7 @@ export default function ServicesPage() {
         onSaveMain={handleSaveMainService}
         onSaveAddOn={handleSaveAddOnService}
         allAddOnServices={addOnServices}
+        allMainServices={mainServices}
         editingMainService={editingMainService}
         editingAddOnService={editingAddOnService}
         defaultType={serviceModalDefaultType}
@@ -244,6 +246,7 @@ export default function ServicesPage() {
         isOpen={isDeliveryModalOpen}
         onClose={() => setIsDeliveryModalOpen(false)}
         onSave={handleSaveDelivery}
+        allDeliveryOptions={deliveryOptions}
         editingDelivery={editingDelivery}
       />
     </div>

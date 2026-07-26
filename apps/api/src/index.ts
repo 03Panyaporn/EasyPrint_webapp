@@ -3,9 +3,11 @@ import { Elysia } from "elysia";
 import { createOrderSchema } from "@easyprint/shared";
 import { db } from "./db";
 import { orders } from "../drizzle/schema";
+import { servicesRoutes } from "./routes/services";
 
 const app = new Elysia()
   .get("/", () => ({ status: "ok", service: "EasyPrint API" }))
+  .use(servicesRoutes)
 
   // ตัวอย่าง endpoint: สร้างคำสั่งพิมพ์ใหม่
   // ทุก endpoint ในโปรเจกต์นี้ต้อง validate ด้วย Zod schema จาก @easyprint/shared ก่อนเสมอ (ดู AGENTS.md ข้อ 6)

@@ -8,6 +8,7 @@ interface AddDeliveryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (delivery: DeliveryOption) => void;
+  allDeliveryOptions: DeliveryOption[];
   editingDelivery?: DeliveryOption | null;
 }
 
@@ -15,6 +16,7 @@ export default function AddDeliveryModal({
   isOpen,
   onClose,
   onSave,
+  allDeliveryOptions,
   editingDelivery,
 }: AddDeliveryModalProps) {
   const [name, setName] = useState("");
@@ -51,6 +53,13 @@ export default function AddDeliveryModal({
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = "กรุณากรอกชื่อประเภทการจัดส่ง";
+    else {
+      const trimmedName = name.trim().toLowerCase();
+      const isDuplicate = allDeliveryOptions.some(
+        (d) => d.id !== editingDelivery?.id && d.name.trim().toLowerCase() === trimmedName
+      );
+      if (isDuplicate) errs.name = "มีประเภทการจัดส่งชื่อนี้อยู่แล้ว กรุณาใช้ชื่ออื่น";
+    }
     if (baseFee === "" || Number(baseFee) < 0) errs.baseFee = "กรุณากรอกค่าจัดส่งเริ่มต้นที่ถูกต้อง";
     setErrors(errs);
     return Object.keys(errs).length === 0;

@@ -46,7 +46,15 @@ export default function DeliverySettingsTable({
             {isAllDeliveryEnabled ? "เปิดใช้งานอยู่" : "ปิดการจัดส่งทั้งหมด"}
           </span>
           <button
-            onClick={onToggleAllDelivery}
+            onClick={() => {
+              if (isAllDeliveryEnabled) {
+                const confirmed = confirm(
+                  "คุณต้องการปิดใช้งานระบบการจัดส่งทั้งหมดหรือไม่?\n\nลูกค้าจะไม่สามารถเลือกวิธีจัดส่งใดๆ ได้เลยจนกว่าจะเปิดใช้งานอีกครั้ง"
+                );
+                if (!confirmed) return;
+              }
+              onToggleAllDelivery();
+            }}
             className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
               isAllDeliveryEnabled ? "bg-orange-500" : "bg-gray-300"
             }`}
@@ -136,7 +144,15 @@ export default function DeliverySettingsTable({
                     {/* Toggle Active */}
                     <td className="py-4 px-4 text-center">
                       <button
-                        onClick={() => onToggleActive(option.id)}
+                        onClick={() => {
+                          if (option.isActive) {
+                            const confirmed = confirm(
+                              `คุณต้องการปิดตัวเลือกการจัดส่ง "${option.name}" หรือไม่?\n\nลูกค้าจะไม่เห็นตัวเลือกนี้ในหน้าชำระเงินจนกว่าจะเปิดใช้งานอีกครั้ง`
+                            );
+                            if (!confirmed) return;
+                          }
+                          onToggleActive(option.id);
+                        }}
                         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                           option.isActive ? "bg-orange-500" : "bg-gray-200"
                         }`}

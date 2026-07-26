@@ -42,18 +42,74 @@
 | note | text | |
 | created_at | timestamp | |
 
+### `main_services`
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| shop_id | uuid (FK → shops.id) | |
+| name | text | |
+| description | text | nullable |
+| paper_sizes | text[] | เช่น ["A4","A3"] |
+| custom_paper_size | text | nullable, ใช้เมื่อ paper_sizes มี "กำหนดเอง" |
+| colors | text[] | เช่น ["ขาวดำ","สี"] |
+| price | numeric(10,2) | หน่วยบาท (ไม่ใช่สตางค์แบบ orders.total_price) |
+| unit | text | เช่น "แผ่น", "เล่ม" |
+| estimated_time | text | nullable |
+| image_url | text | nullable |
+| is_active | boolean | default true |
+| created_at | timestamp | |
+
+### `addon_services`
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| shop_id | uuid (FK → shops.id) | |
+| name | text | |
+| description | text | nullable |
+| price | numeric(10,2) | หน่วยบาท |
+| unit | text | |
+| estimated_time | text | nullable |
+| is_active | boolean | default true |
+| created_at | timestamp | |
+
+### `main_service_addons`
+ตารางเชื่อมบริการหลัก ↔ บริการเสริม พร้อมราคาบวกเพิ่มเฉพาะคู่นั้น
+| column | type | note |
+|---|---|---|
+| main_service_id | uuid (FK → main_services.id, ON DELETE CASCADE) | ส่วนหนึ่งของ PK ร่วม |
+| addon_service_id | uuid (FK → addon_services.id, ON DELETE CASCADE) | ส่วนหนึ่งของ PK ร่วม |
+| extra_price | numeric(10,2) | default 0, หน่วยบาท |
+
+### `delivery_options`
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| shop_id | uuid (FK → shops.id) | |
+| name | text | |
+| description | text | nullable |
+| logo_url | text | nullable |
+| base_fee | numeric(10,2) | หน่วยบาท |
+| free_shipping_threshold | numeric(10,2) | nullable = ไม่มีเงื่อนไขส่งฟรี |
+| is_active | boolean | default true |
+| created_at | timestamp | |
+
+`shops` เพิ่มคอลัมน์ `delivery_enabled boolean default true` (สวิตช์เปิด/ปิดระบบจัดส่งทั้งร้านในคราวเดียว)
+
 ## ความสัมพันธ์ (Relationships)
 
 ```
 users (1) ──< shops (owner_id)
 users (1) ──< orders (customer_id)
 shops (1) ──< orders (shop_id)
+shops (1) ──< main_services (shop_id)
+shops (1) ──< addon_services (shop_id)
+shops (1) ──< delivery_options (shop_id)
+main_services (1) ──< main_service_addons (main_service_id) [ON DELETE CASCADE]
+addon_services (1) ──< main_service_addons (addon_service_id) [ON DELETE CASCADE]
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)
 
-ตาราง/ฟีเจอร์ต่อไปนี้ยังไม่มีใน `schema.ts` — เพิ่มตามที่ทีมออกแบบเพิ่มเติม อ้างอิงจาก `docs/proposal.md` หัวข้อ 1.3:
-
-- ตารางกำหนดราคา/อัตราค่าบริการของแต่ละร้าน (`pricing_rules`) — ตาม 1.3.1.3
 - ตารางวัน-เวลาทำการของร้าน (`shop_hours`) — ตาม 1.3.1.2.2
 - Dashboard/สรุปรายได้ — อาจทำเป็น query แบบ aggregate แทนตารางแยก — ตาม 1.3.1.6
+- ⚠️ endpoint ที่แก้ไข/ลบข้อมูลใน `main_services`/`addon_services`/`delivery_options` ยังไม่เช็ค JWT ว่าเป็นเจ้าของร้านจริง (ดู TODO ใน `apps/api/src/routes/services.ts`) — ต้องเพิ่ม auth middleware ก่อนขึ้น production
