@@ -4,8 +4,9 @@
     {
       "name": "web",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["--cwd", "apps/web", "run", "dev"],
-      "port": 3000
+      "runtimeArgs": ["--cwd", "apps/web", "dev"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }

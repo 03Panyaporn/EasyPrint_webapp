@@ -1,13 +1,22 @@
 import "./env";
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
 import { createOrderSchema } from "@easyprint/shared";
 import { db } from "./db";
 import { orders } from "../drizzle/schema";
 import { servicesRoutes } from "./routes/services";
+import { authRoutes } from "./auth/routes";
+
+const isProd = process.env.NODE_ENV === "production";
+const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "http://localhost:3000";
+// ตอน dev พอร์ตของ `next dev` อาจขยับได้ (ชนพอร์ตอื่นแล้ว Next auto-fallback) เลยอนุญาต localhost ทุกพอร์ตแทนการ hardcode
+const corsOrigin = isProd ? WEB_ORIGIN : /^http:\/\/localhost:\d+$/;
 
 const app = new Elysia()
+  .use(cors({ origin: corsOrigin, credentials: true }))
   .get("/", () => ({ status: "ok", service: "EasyPrint API" }))
   .use(servicesRoutes)
+  .use(authRoutes)
 
   // ตัวอย่าง endpoint: สร้างคำสั่งพิมพ์ใหม่
   // ทุก endpoint ในโปรเจกต์นี้ต้อง validate ด้วย Zod schema จาก @easyprint/shared ก่อนเสมอ (ดู AGENTS.md ข้อ 6)

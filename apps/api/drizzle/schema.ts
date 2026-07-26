@@ -17,6 +17,19 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(), // เก็บด้วย Argon2 เท่านั้น
   role: userRoleEnum("role").notNull(),
+  firstname: text("firstname").notNull(),
+  lastname: text("lastname").notNull(),
+  phone: text("phone").notNull(),
+  address: text("address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  tokenHash: text("token_hash").notNull().unique(), // เก็บ hash ของ token เท่านั้น ไม่เก็บ token ดิบ
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

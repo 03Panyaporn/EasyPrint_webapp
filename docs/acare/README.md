@@ -87,3 +87,110 @@
         ```powershell
         Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force
         ```
+
+---
+
+## 5. อัปเดตวันที่ 2026-07-25 — เชื่อมต่อ Backend จริงให้หน้า Auth ครบวงจร (Login / Register / Forgot / Reset Password)
+
+ก่อนหน้านี้ 4 หน้า Auth (Login, Register ลูกค้า, Forgot Password, Reset Password) มีแค่ frontend/UI เสร็จ ปุ่ม submit ยังเป็นแค่ `console.log` ไม่ได้ต่อ API จริง วันนี้ทำให้ครบ full-stack ทั้งหมด รวมถึงทดสอบ end-to-end จริงผ่านเบราว์เซอร์แล้ว
+
+### 📌 ไฟล์ที่สร้างใหม่
+
+**Backend (`apps/api`)**
+*   [src/auth/jwt.ts](file:///d:/EasyPrint_webapp/apps/api/src/auth/jwt.ts) — sign/verify JWT (แยก rememberMe = อายุ token 30 วัน / ปกติ 1 วัน)
+*   [src/auth/password.ts](file:///d:/EasyPrint_webapp/apps/api/src/auth/password.ts) — hash/verify รหัสผ่านด้วย Argon2 + สร้าง reset token (สุ่ม 32 bytes เก็บแค่ sha256 hash ใน DB)
+*   [src/auth/routes.ts](file:///d:/EasyPrint_webapp/apps/api/src/auth/routes.ts) — endpoints `/auth/register`, `/login`, `/logout`, `/me`, `/forgot-password`, `/reset-password`
+*   [src/email.ts](file:///d:/EasyPrint_webapp/apps/api/src/email.ts) — ส่งอีเมลลิงก์รีเซ็ตรหัสผ่านผ่าน Resend (ถ้ายังไม่ตั้ง `RESEND_API_KEY` จะ log ลิงก์ลง console แทน ทดสอบ flow ได้โดยไม่ต้องมี key จริง)
+
+**Shared**
+*   [packages/shared/src/schemas/auth.ts](file:///d:/EasyPrint_webapp/packages/shared/src/schemas/auth.ts) — Zod schema `registerSchema`, `loginSchema`, `forgotPasswordSchema`, `resetPasswordSchema` ใช้ตรวจสอบข้อมูลทั้งฝั่ง web และ api
+
+**Frontend (`apps/web`)**
+*   [lib/api/client.ts](file:///d:/EasyPrint_webapp/apps/web/lib/api/client.ts) — fetch wrapper กลาง (แนบ cookie อัตโนมัติ, แปลง error จาก server เป็น `ApiError`)
+*   [lib/api/auth.ts](file:///d:/EasyPrint_webapp/apps/web/lib/api/auth.ts) — ฟังก์ชันเรียก auth API (`register`, `login`, `logout`, `getMe`, `forgotPassword`, `resetPassword`)
+*   `.env.local` — เก็บ `NEXT_PUBLIC_API_URL` (⚠️ ไฟล์นี้ถูก .gitignore ไม่ถูก push ขึ้น GitHub — ดูหัวข้อ "สิ่งที่เพื่อนร่วมทีมต้องทำ" ด้านล่าง)
+
+### 📌 ไฟล์ที่แก้ไข
+
+| ไฟล์ | แก้อะไร |
+|---|---|
+| [apps/api/drizzle/schema.ts](file:///d:/EasyPrint_webapp/apps/api/drizzle/schema.ts) | เพิ่มคอลัมน์ `firstname`, `lastname`, `phone`, `address` ในตาราง `users`; เพิ่มตารางใหม่ `password_reset_tokens` |
+| [apps/api/src/index.ts](file:///d:/EasyPrint_webapp/apps/api/src/index.ts) | mount `authRoutes`, เปิด CORS (`@elysiajs/cors`) ให้ web เรียกข้าม origin พร้อมส่ง cookie ได้ — ตอน dev รับ localhost ทุกพอร์ต กัน error ตอนพอร์ตชนแล้ว auto-fallback |
+| [apps/api/package.json](file:///d:/EasyPrint_webapp/apps/api/package.json) | เพิ่ม dependency `resend`, `@elysiajs/cors` |
+| [packages/shared/src/index.ts](file:///d:/EasyPrint_webapp/packages/shared/src/index.ts) | export schema auth ใหม่ |
+| [docs/erd.md](file:///d:/EasyPrint_webapp/docs/erd.md), [docs/api-spec.md](file:///d:/EasyPrint_webapp/docs/api-spec.md) | อัปเดตให้ตรงกับ schema/endpoint จริง |
+| `.env` (root) | เพิ่ม `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `NODE_ENV`, `WEB_ORIGIN`, `APP_URL`; เปลี่ยน `PORT` จาก `3000` เป็น **`3001`** (กันชนพอร์ตกับ `apps/web`) |
+| `apps/web/app/(auth)/login/page.tsx`, `register/page.tsx`, `forgot-password/page.tsx`, `reset-password/page.tsx` | เอา `console.log`/TODO ออก เชื่อม API จริง เพิ่ม loading state ตอนกด submit, แสดง error message จาก server, redirect หลังสำเร็จ (login/register → `/orders` ตาม role, reset password → หน้ายืนยันสำเร็จ) |
+
+ไม่มีไฟล์ไหนถูกลบ
+
+### 📌 แพ็กเกจที่ติดตั้งเพิ่ม
+*   `resend` — ส่งอีเมล (ฝั่ง `apps/api`)
+*   `@elysiajs/cors` — เปิด CORS (ฝั่ง `apps/api`)
+*   รันแล้วด้วย `bun install` ที่ root — เพื่อนร่วมทีมต้อง `bun install` ใหม่หลัง pull เพื่อดึง 2 แพ็กเกจนี้มาด้วย
+
+### 📌 Database (Supabase จริง — apply ให้แล้ว ไม่ต้องรันซ้ำ)
+*   เพิ่มคอลัมน์ `firstname text NOT NULL`, `lastname text NOT NULL`, `phone text NOT NULL`, `address text` ในตาราง `users` (ตอน apply ตาราง `users` มี 0 rows จึงปลอดภัย ไม่กระทบข้อมูลเดิม)
+*   สร้างตารางใหม่ `password_reset_tokens` (id, user_id FK → users.id, token_hash unique, expires_at, used_at, created_at)
+*   Apply ผ่าน raw SQL ในทรานแซกชันเดียว (ไม่ใช้ `drizzle-kit push` เพราะ prompt แบบโต้ตอบของมันค้างตอนรันผ่าน tool อัตโนมัติ) — ตรวจสอบแล้วว่าคอลัมน์ตรงกับ `schema.ts` เป๊ะ
+
+### 📌 ทดสอบ End-to-End แล้ว (ผ่านทุกจุด)
+1.  สมัครสมาชิก → บันทึกลง DB จริง → ตั้ง JWT httpOnly cookie → redirect ไป `/orders`
+2.  Login ด้วยรหัสผ่านผิด → ระบบแสดง error "อีเมลหรือรหัสผ่านไม่ถูกต้อง" จาก server
+3.  Login ถูกต้อง → redirect ตาม role
+4.  ลืมรหัสผ่าน → สร้าง reset token → log ลิงก์ลง console (ยังไม่มี Resend key)
+5.  เปิดลิงก์ reset password ด้วย token จริง → เปลี่ยนรหัสผ่านสำเร็จ
+6.  ทดสอบ login ด้วยรหัสผ่านเก่า (ต้องล้มเหลว) และรหัสผ่านใหม่ (ต้องสำเร็จ) — ผ่านทั้งคู่
+7.  ทดสอบใช้ reset token ซ้ำครั้งที่สอง (ต้องถูกปฏิเสธเพราะใช้ไปแล้ว) — ผ่าน
+*   ลบ test user ที่ใช้ทดสอบออกจาก DB เรียบร้อยแล้วหลังทดสอบเสร็จ ไม่มีข้อมูลทดสอบตกค้าง
+
+### ❌ ปัญหาที่พบวันนี้และวิธีแก้
+
+**ปัญหา A: `drizzle-kit push` ค้างที่ "Pulling schema from database..." ไม่จบ**
+*   **สาเหตุ:** `DATABASE_URL` ใน `.env` ใช้ Supabase transaction-mode pooler (พอร์ต `6543`) ซึ่งไม่รองรับ prepared statements ที่ `drizzle-kit` ใช้ตอน introspect schema
+*   **วิธีแก้:** สลับไปใช้ session-mode pooler (พอร์ต `5432`) เฉพาะตอนรัน migration แล้ว apply schema ด้วย raw SQL ในทรานแซกชันเดียวแทนเครื่องมือ interactive ของ `drizzle-kit push` (prompt แบบเลือกด้วยลูกศรของมันใช้ผ่าน stdin อัตโนมัติไม่ได้)
+
+**ปัญหา B: พอร์ต `3000` ถูกโปรเซสอื่นยึดอยู่ก่อนแล้ว ทำให้ `apps/web` ต้องขยับไปรันพอร์ตอื่นอัตโนมัติ**
+*   **สาเหตุ:** มีโปรเซส Node อื่นครองพอร์ต 3000 อยู่ก่อน (ไม่ทราบที่มา ไม่ได้ปิดให้เพราะอาจเป็นงานที่ทำค้างไว้)
+*   **วิธีแก้:** ปรับ CORS ฝั่ง `apps/api` (ใน `src/index.ts`) ให้ตอน dev รับ origin จาก `localhost` ทุกพอร์ต แทนการ hardcode `localhost:3000` เพียงพอร์ตเดียว ทำให้ต่อ API ได้ไม่ว่า `apps/web` จะขยับไปรันพอร์ตไหนก็ตาม
+
+**ปัญหา C: `bunx tsc --noEmit` เจอ type error ใน `jwt.ts` และ `routes.ts`**
+*   **สาเหตุ:** TypeScript ไม่ narrow type `string | undefined` ของ `JWT_SECRET`/`cookie.value` ให้อัตโนมัติข้าม closure, และ overload ของ `jsonwebtoken` เลือกไม่ตรงเวอร์ชันที่ต้องการ
+*   **วิธีแก้:** ประกาศ `const JWT_SECRET: string` แยกหลัง early-throw check, และ cast ผลลัพธ์ `jwt.verify` / ค่า `cookie.value` เป็น type ที่ต้องการอย่างชัดเจน
+
+### 📌 สิ่งที่เพื่อนร่วมทีมต้องทำหลัง `git pull` (สำคัญ — มีไฟล์ที่ git ไม่เก็บ)
+
+1.  **`bun install`** ที่ root — ดึง dependency ใหม่ (`resend`, `@elysiajs/cors`)
+2.  **ขอไฟล์ `.env` (root) ใหม่จากเจ้าของงาน** หรือเพิ่มเองด้วยมือ 4 บรรทัดนี้ (ไฟล์ `.env` ไม่ได้อยู่ใน git ตาม `AGENTS.md` ข้อ 8):
+    ```
+    RESEND_API_KEY=
+    RESEND_FROM_EMAIL=EasyPrint <onboarding@resend.dev>
+    NODE_ENV=development
+    WEB_ORIGIN=http://localhost:3000
+    APP_URL=http://localhost:3000
+    ```
+    และเปลี่ยน `PORT=3000` เป็น `PORT=3001` ในไฟล์เดิม
+3.  **สร้างไฟล์ใหม่ `apps/web/.env.local`** (ไม่อยู่ใน git เช่นกัน) ใส่:
+    ```
+    NEXT_PUBLIC_API_URL=http://localhost:3001
+    ```
+4.  **ไม่ต้องรัน migration DB เอง** — schema ใหม่ apply บน Supabase กลางเรียบร้อยแล้ว ทุกคนที่ต่อ DB เดียวกันเห็นคอลัมน์/ตารางใหม่ทันที
+5.  รันปกติ: `bun --cwd apps/api dev` (terminal หนึ่ง) และ `bun --cwd apps/web dev` (อีก terminal หนึ่ง)
+6.  (ไม่บังคับ) ถ้าอยากทดสอบส่งอีเมลจริง ไปสมัคร [resend.com](https://resend.com) ฟรี (3,000 อีเมล/เดือน ไม่ต้องผูกบัตร) แล้วใส่ key ใน `RESEND_API_KEY` — ถ้าไม่ใส่ ระบบยัง test flow ลืมรหัสผ่านได้ปกติ แค่ลิงก์จะโผล่ใน console ของ `apps/api` แทนอีเมลจริง
+
+### ✅ สถานะยืนยัน ณ วันที่ 2026-07-25: 4 หน้า Auth หลักเสร็จสมบูรณ์แล้ว
+
+**Login, Register (ลูกค้า), Forgot Password, Reset Password — เสร็จทั้ง frontend และ backend แล้ว** ไม่มีอะไรค้างในส่วนนี้ ยืนยันด้วยการทดสอบจริงตามหัวข้อ "ทดสอบ End-to-End" ด้านบน:
+*   Register → บันทึก DB จริง → login อัตโนมัติผ่าน JWT cookie → redirect
+*   Login → ตรวจรหัสผ่านถูก/ผิดถูกต้อง, error message จาก server แสดงผล
+*   Forgot Password → สร้าง reset token, ส่งอีเมล (หรือ log ลิงก์ถ้ายังไม่ตั้ง Resend key)
+*   Reset Password → เปลี่ยนรหัสผ่านสำเร็จ, รหัสเก่าใช้ไม่ได้, token ใช้ซ้ำไม่ได้
+
+### 🔲 สิ่งที่ยังไม่เสร็จ (นอกเหนือจาก 4 หน้าข้างต้น)
+
+| จุดที่ขาด | สถานะ | ผลกระทบ |
+|---|---|---|
+| **Route protection (middleware)** | ไม่มีไฟล์ `middleware.ts` เลย | ตอนนี้ใครก็เข้า `/orders`, `/shop`, `/admin` ได้ตรงๆ โดยไม่ต้อง login ก่อน — เป็นช่องโหว่ความปลอดภัยจริง |
+| **ปุ่ม Logout** | ลองสร้าง [components/auth/LogoutButton.tsx] แล้วเชื่อมใน [apps/web/app/(customer)/layout.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(customer)/layout.tsx) แต่ **ผู้ใช้สั่งยกเลิก (revert) ทั้งหมดแล้ว** — โค้ดถูกลบออก layout.tsx กลับไปเหมือนเดิม | ผู้ใช้ login แล้วไม่มีทางกด "ออกจากระบบ" จาก UI (endpoint `/auth/logout` ฝั่ง backend ยังใช้งานได้ปกติ แค่ยังไม่มีปุ่มเรียก) |
+| **หน้า Change Password** ([apps/web/app/(customer)/change-password/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(customer)/change-password/page.tsx) — คนละหน้ากับ reset-password) | ยังเป็น mock, มี `console.log` TODO ค้างอยู่ | ผู้ใช้ที่ login อยู่แล้วเปลี่ยนรหัสผ่านจากในระบบไม่ได้ |
+| **Shop Register** ([apps/web/app/(auth)/register/shop-register/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(auth)/register/shop-register/page.tsx)) | ยังไม่แตะเลย | ยังไม่มี backend รองรับสมัครสมาชิกฝั่งร้านค้า (role `shop_owner`) |

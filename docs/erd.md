@@ -11,6 +11,20 @@
 | email | text (unique) | |
 | password_hash | text | เข้ารหัสด้วย Argon2 เท่านั้น |
 | role | enum: shop_owner / customer / admin | |
+| firstname | text | |
+| lastname | text | |
+| phone | text | |
+| address | text | ไม่บังคับ |
+| created_at | timestamp | |
+
+### `password_reset_tokens`
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| user_id | uuid (FK → users.id) | |
+| token_hash | text (unique) | เก็บ hash ของ token เท่านั้น ไม่เก็บ token ดิบ (ส่งแค่ในลิงก์อีเมล) |
+| expires_at | timestamp | ปกติตั้งให้หมดอายุใน 1 ชั่วโมง |
+| used_at | timestamp | null จนกว่าจะถูกใช้ยืนยันเปลี่ยนรหัสผ่าน (ใช้ซ้ำไม่ได้) |
 | created_at | timestamp | |
 
 ### `shops`
@@ -100,6 +114,7 @@
 ```
 users (1) ──< shops (owner_id)
 users (1) ──< orders (customer_id)
+users (1) ──< password_reset_tokens (user_id)
 shops (1) ──< orders (shop_id)
 shops (1) ──< main_services (shop_id)
 shops (1) ──< addon_services (shop_id)
