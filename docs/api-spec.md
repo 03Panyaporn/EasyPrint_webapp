@@ -14,6 +14,16 @@
 | POST | `/auth/forgot-password` | สร้าง reset token ส่งลิงก์ไปทางอีเมล (ตอบ success เหมือนกันไม่ว่าจะเจออีเมลหรือไม่) | ไม่ต้อง |
 | POST | `/auth/reset-password` | ยืนยัน token + ตั้งรหัสผ่านใหม่ (Argon2 hash) | ไม่ต้อง (ใช้ token แทน) |
 
+## Uploads
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| POST | `/uploads` | อัปโหลดไฟล์รูปภาพ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` หรือ `"id-card"`) จำกัด JPG/PNG/WEBP ไม่เกิน 5MB — คืน `{ path, url }`, `url` เป็น `null` ถ้า type เป็น `id-card` (bucket private) | ไม่ต้อง (เรียกได้ก่อน login เพราะใช้ตอนสมัครร้านค้า) |
+
+โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง 2 bucket: `shop-photos` (public) และ `id-cards` (private) สร้างไว้แล้วบน Supabase
+
+⚠️ endpoint นี้เปิดสาธารณะโดยไม่มี rate limit — กันได้แค่ระดับ mime type + ขนาดไฟล์ ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้
+
 ## Orders
 
 | Method | Path | คำอธิบาย | Auth |

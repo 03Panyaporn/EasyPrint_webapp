@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   User,
   Mail,
+  Lock,
   Store,
   Phone,
   MapPin,
@@ -20,11 +21,17 @@ import {
 } from "lucide-react";
 import { on } from "events";
 import { SHOP_TYPES } from "@easyprint/shared";
+import { registerShop } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+import { uploadFile } from "@/lib/api/uploads";
 
 export default function ShopRegisterPage() {
   const [form, setForm] = useState({
-    ownerName: "",
+    firstname: "",
+    lastname: "",
     email: "",
+    password: "",
+    confirmPassword: "",
     shopName: "",
     phone: "",
     houseNo: "",
@@ -37,7 +44,12 @@ export default function ShopRegisterPage() {
     googleMapLink: "",
     shopType: "",
   });
+  const [idCardFile, setIdCardFile] = useState<File | null>(null);
+  const [shopPhotoFile, setShopPhotoFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStage, setSubmitStage] = useState<"idle" | "uploading" | "registering">("idle");
+  const [formError, setFormError] = useState("");
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -45,9 +57,52 @@ export default function ShopRegisterPage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const passwordsMatch = !form.password || !form.confirmPassword || form.password === form.confirmPassword;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    if (!passwordsMatch || isSubmitting) return;
+    if (!idCardFile || !shopPhotoFile) {
+      setFormError("กรุณาแนบรูปบัตรประชาชนและรูปภาพร้านค้า");
+      return;
+    }
+
+    setFormError("");
+    setIsSubmitting(true);
+    try {
+      setSubmitStage("uploading");
+      const [idCardResult, shopPhotoResult] = await Promise.all([
+        uploadFile(idCardFile, "id-card"),
+        uploadFile(shopPhotoFile, "shop-photo"),
+      ]);
+
+      setSubmitStage("registering");
+      await registerShop({
+        email: form.email,
+        password: form.password,
+        firstname: form.firstname,
+        lastname: form.lastname,
+        shopName: form.shopName,
+        phone: form.phone,
+        shopType: form.shopType as (typeof SHOP_TYPES)[number],
+        houseNo: form.houseNo,
+        village: form.village || undefined,
+        street: form.street || undefined,
+        subdistrict: form.subdistrict,
+        district: form.district,
+        province: form.province,
+        postcode: form.postcode,
+        googleMapLink: form.googleMapLink,
+        idCardUrl: idCardResult.path,
+        shopPhotoUrl: shopPhotoResult.url!,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "สมัครร้านค้าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSubmitting(false);
+      setSubmitStage("idle");
+    }
   };
   const [registerModalOpen, setRegisterModalOpen] = useState<boolean>(false);
 
@@ -131,19 +186,34 @@ export default function ShopRegisterPage() {
           onSubmit={handleSubmit}
           className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-5"
         >
-          {/* Row: ชื่อ + อีเมล */}
+          {/* Row: ชื่อ + นามสกุล */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="ชื่อเจ้าของร้าน" icon={<User className="w-4 h-4" />} required>
               <input
                 type="text"
-                name="ownerName"
-                value={form.ownerName}
+                name="firstname"
+                value={form.firstname}
                 onChange={handleChange}
-                placeholder="เช่น สมชาย ใจดี"
+                placeholder="เช่น สมชาย"
                 required
                 className={inputCls}
               />
             </Field>
+            <Field label="นามสกุล" icon={<User className="w-4 h-4" />} required>
+              <input
+                type="text"
+                name="lastname"
+                value={form.lastname}
+                onChange={handleChange}
+                placeholder="เช่น ใจดี"
+                required
+                className={inputCls}
+              />
+            </Field>
+          </div>
+
+          {/* Row: อีเมล + รหัสผ่าน */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="อีเมล" icon={<Mail className="w-4 h-4" />} required>
               <input
                 type="email"
@@ -155,8 +225,35 @@ export default function ShopRegisterPage() {
                 className={inputCls}
               />
             </Field>
-
+            <Field label="รหัสผ่าน" icon={<Lock className="w-4 h-4" />} required>
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder="อย่างน้อย 8 ตัวอักษร"
+                minLength={8}
+                required
+                className={inputCls}
+              />
+            </Field>
           </div>
+
+          <Field label="ยืนยันรหัสผ่าน" icon={<Lock className="w-4 h-4" />} required>
+            <input
+              type="password"
+              name="confirmPassword"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              placeholder="กรอกรหัสผ่านอีกครั้ง"
+              minLength={8}
+              required
+              className={inputCls}
+            />
+            {!passwordsMatch && (
+              <p className="text-xs text-red-500 mt-1">รหัสผ่านไม่ตรงกัน</p>
+            )}
+          </Field>
 
           {/* ชื่อร้านค้า */}
           <Field label="ชื่อร้านค้า" icon={<Store className="w-4 h-4" />} required>
@@ -284,18 +381,15 @@ export default function ShopRegisterPage() {
             </div>
           </div>
 
-          {/* Google Maps Link (optional) */}
-          <Field
-            label="ลิงก์ Google Maps"
-            icon={<Link2 className="w-4 h-4" />}
-            optional
-          >
+          {/* Google Maps Link */}
+          <Field label="ลิงก์ Google Maps" icon={<Link2 className="w-4 h-4" />} required>
             <input
               type="url"
               name="googleMapLink"
               value={form.googleMapLink}
               onChange={handleChange}
               placeholder="https://maps.google.com/..."
+              required
               className={inputCls}
             />
           </Field>
@@ -303,9 +397,9 @@ export default function ShopRegisterPage() {
           <Field label="รูปบัตรประชาชน" icon={<CircleUser className="w-4 h-4" />} required>
             <input
               type="file"
-              name="picture"
-              accept="image/*"
-              onChange={handleChange}
+              name="idCardFile"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setIdCardFile(e.target.files?.[0] ?? null)}
               required
               className={inputCls}
             />
@@ -313,19 +407,29 @@ export default function ShopRegisterPage() {
           <Field label="รูปภาพร้านค้า" icon={<Upload className="w-4 h-4" />} required>
             <input
               type="file"
-              name="picture"
-              accept="image/*"
-              onChange={handleChange}
+              name="shopPhotoFile"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setShopPhotoFile(e.target.files?.[0] ?? null)}
               required
               className={inputCls}
             />
           </Field>
+
+          {formError && (
+            <p className="text-sm text-red-500 font-semibold text-center">{formError}</p>
+          )}
+
           {/* Submit */}
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black rounded-2xl py-3.5 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all text-base mt-2"
+            disabled={isSubmitting}
+            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black rounded-2xl py-3.5 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all text-base mt-2"
           >
-            สมัครเป็นร้านค้า
+            {submitStage === "uploading"
+              ? "กำลังอัปโหลดไฟล์..."
+              : submitStage === "registering"
+                ? "กำลังสมัคร..."
+                : "สมัครเป็นร้านค้า"}
           </button>
 
           <p className="text-center text-xs text-slate-400">

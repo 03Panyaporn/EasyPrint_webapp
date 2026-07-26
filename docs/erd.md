@@ -36,9 +36,9 @@
 | phone | text | |
 | address | text | ประกอบจากฟอร์มที่แยกเป็นบ้านเลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ ตอนสมัคร แล้ว format รวมเป็นข้อความเดียว |
 | category | text | ประเภทร้านค้า — ดูค่าที่รองรับที่ `shopTypeSchema` ใน `packages/shared/src/schemas/auth.ts` |
-| google_map_link | text | nullable, ใส่ทีหลังได้ |
-| id_card_url | text | nullable — ยังไม่มีระบบอัปโหลดไฟล์จริง (รอ Supabase Storage) |
-| shop_photo_url | text | nullable — เหตุผลเดียวกับด้านบน |
+| google_map_link | text | บังคับกรอกตอนสมัคร |
+| id_card_url | text | **storage path** (ไม่ใช่ URL จริง) จาก Supabase Storage bucket `id-cards` (private — ข้อมูลบัตรประชาชนห้ามเปิดสาธารณะ) อัปโหลดผ่าน `POST /uploads` |
+| shop_photo_url | text | public URL เต็มจาก Supabase Storage bucket `shop-photos` (public) อัปโหลดผ่าน `POST /uploads` |
 | approval_status | enum: pending / approved / rejected | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน |
 | delivery_enabled | boolean | default true |
 | created_at | timestamp | |
