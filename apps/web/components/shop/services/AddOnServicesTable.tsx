@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { AddOnService } from "./types";
+import { AddOnService, MainService } from "./types";
 import { Pencil, Trash2, Plus, Clock, Layers } from "lucide-react";
 
 interface AddOnServicesTableProps {
   addOns: AddOnService[];
+  mainServices: MainService[];
   onAddClick: () => void;
   onEditClick: (addOn: AddOnService) => void;
   onDeleteClick: (id: string) => void;
@@ -14,6 +15,7 @@ interface AddOnServicesTableProps {
 
 export default function AddOnServicesTable({
   addOns,
+  mainServices,
   onAddClick,
   onEditClick,
   onDeleteClick,
@@ -130,7 +132,20 @@ export default function AddOnServicesTable({
                   {/* Toggle active */}
                   <td className="py-4 px-4 text-center">
                     <button
-                      onClick={() => onToggleActive(addOn.id)}
+                      onClick={() => {
+                        if (addOn.isActive) {
+                          const linkedCount = mainServices.filter((m) =>
+                            m.availableAddOns.some((b) => b.addOnId === addOn.id)
+                          ).length;
+                          if (linkedCount > 0) {
+                            const confirmed = confirm(
+                              `คุณต้องการปิดบริการเสริม "${addOn.name}" หรือไม่?\n\nบริการนี้ถูกผูกอยู่กับบริการหลัก ${linkedCount} รายการ ลูกค้าจะไม่เห็นตัวเลือกนี้ในบริการหลักเหล่านั้นจนกว่าจะเปิดใช้งานอีกครั้ง`
+                            );
+                            if (!confirmed) return;
+                          }
+                        }
+                        onToggleActive(addOn.id);
+                      }}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                         addOn.isActive ? "bg-orange-500" : "bg-gray-200"
                       }`}
@@ -156,7 +171,14 @@ export default function AddOnServicesTable({
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`คุณต้องการลบบริการเสริม "${addOn.name}" หรือไม่?`)) {
+                          const linkedCount = mainServices.filter((m) =>
+                            m.availableAddOns.some((b) => b.addOnId === addOn.id)
+                          ).length;
+                          const message =
+                            linkedCount > 0
+                              ? `คุณต้องการลบบริการเสริม "${addOn.name}" หรือไม่?\n\nบริการนี้ถูกผูกอยู่กับบริการหลัก ${linkedCount} รายการ ระบบจะนำออกจากบริการหลักเหล่านั้นด้วย`
+                              : `คุณต้องการลบบริการเสริม "${addOn.name}" หรือไม่?`;
+                          if (confirm(message)) {
                             onDeleteClick(addOn.id);
                           }
                         }}

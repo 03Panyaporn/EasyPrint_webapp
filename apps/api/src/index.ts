@@ -4,6 +4,7 @@ import { cors } from "@elysiajs/cors";
 import { createOrderSchema } from "@easyprint/shared";
 import { db } from "./db";
 import { orders } from "../drizzle/schema";
+import { servicesRoutes } from "./routes/services";
 import { authRoutes } from "./auth/routes";
 
 const isProd = process.env.NODE_ENV === "production";
@@ -14,6 +15,7 @@ const corsOrigin = isProd ? WEB_ORIGIN : /^http:\/\/localhost:\d+$/;
 const app = new Elysia()
   .use(cors({ origin: corsOrigin, credentials: true }))
   .get("/", () => ({ status: "ok", service: "EasyPrint API" }))
+  .use(servicesRoutes)
   .use(authRoutes)
 
   // ตัวอย่าง endpoint: สร้างคำสั่งพิมพ์ใหม่
