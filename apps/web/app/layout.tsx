@@ -6,6 +6,7 @@ const sarabun = Sarabun({
   weight: ["300", "400", "500", "600", "700"],
   subsets: ["thai", "latin"],
   display: "swap",
+  variable: "--font-sarabun",
 });
 
 export const metadata: Metadata = {
@@ -15,8 +16,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={sarabun.className}>
-      <body className="antialiased bg-gray-50 text-slate-800">{children}</body>
+    <html lang="th" className={`${sarabun.variable} ${sarabun.className}`}>
+      <body className={`${sarabun.className} antialiased bg-gray-50 text-slate-800`}>
+        {children}
+      </body>
     </html>
   );
 }

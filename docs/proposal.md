@@ -138,6 +138,7 @@
 | TypeScript | เพิ่มความปลอดภัยในการเขียนโค้ดด้วยระบบตรวจสอบชนิดข้อมูล (Type Safety) |
 | Tailwind CSS | Framework สำหรับออกแบบและจัดการหน้าตาเว็บไซต์ |
 | shadcn/ui | ชุด UI Components สำเร็จรูป เช่น Table, Dialog, Form, Card และ Dashboard |
+| Sarabun (Google Fonts) | ฟอนต์มาตรฐานหลักของทั้งระบบ บังคับใช้กับทุกหน้า ทุกองค์ประกอบ ทุกปุ่ม และ Navigation Bar |
 | Axios | ใช้ส่งและรับข้อมูลระหว่าง Frontend และ Backend ผ่าน REST API |
 
 **Backend**

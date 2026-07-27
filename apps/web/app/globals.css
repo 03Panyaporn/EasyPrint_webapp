@@ -1,3 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+*,
+*::before,
+*::after {
+  font-family: "Sarabun", var(--font-sarabun), sans-serif !important;
+}
+
+@layer base {
+  html,
+  body,
+  header,
+  nav,
+  aside,
+  main,
+  footer,
+  div,
+  span,
+  p,
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Sarabun", var(--font-sarabun), sans-serif !important;
+  }
+}
