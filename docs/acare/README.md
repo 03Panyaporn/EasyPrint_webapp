@@ -194,3 +194,44 @@
 | **ปุ่ม Logout** | ลองสร้าง [components/auth/LogoutButton.tsx] แล้วเชื่อมใน [apps/web/app/(customer)/layout.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(customer)/layout.tsx) แต่ **ผู้ใช้สั่งยกเลิก (revert) ทั้งหมดแล้ว** — โค้ดถูกลบออก layout.tsx กลับไปเหมือนเดิม | ผู้ใช้ login แล้วไม่มีทางกด "ออกจากระบบ" จาก UI (endpoint `/auth/logout` ฝั่ง backend ยังใช้งานได้ปกติ แค่ยังไม่มีปุ่มเรียก) |
 | **หน้า Change Password** ([apps/web/app/(customer)/change-password/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(customer)/change-password/page.tsx) — คนละหน้ากับ reset-password) | ยังเป็น mock, มี `console.log` TODO ค้างอยู่ | ผู้ใช้ที่ login อยู่แล้วเปลี่ยนรหัสผ่านจากในระบบไม่ได้ |
 | **Shop Register** ([apps/web/app/(auth)/register/shop-register/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(auth)/register/shop-register/page.tsx)) | ยังไม่แตะเลย | ยังไม่มี backend รองรับสมัครสมาชิกฝั่งร้านค้า (role `shop_owner`) |
+
+---
+
+## 6. อัปเดตวันที่ 2026-07-26 — หน้า Orders ฝั่งร้านค้า (Shop) เสร็จ + เปิด PR
+
+วันนี้ทำหน้า "รายการคำสั่งซื้อ" (`/shop/orders`) ให้ร้านค้าใช้ดู/อัปเดตสถานะออเดอร์ ตั้งแต่ commit โค้ดที่มีอยู่ในเครื่อง (ยังไม่เคยขึ้น GitHub) ไปจนถึงปรับ UX หลายรอบตามฟีดแบ็กจริง แล้วเปิด Pull Request สำเร็จ
+
+### 📌 งานที่ทำเสร็จวันนี้
+
+1.  **Commit หน้า Orders ครั้งแรกและเปิด PR**
+    *   สร้าง branch `feat/shop-orders-page`, commit หน้า [apps/web/app/(shop)/shop/orders/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(shop)/shop/orders/page.tsx) พร้อม component ใหม่ 12 ไฟล์ในโฟลเดอร์ [apps/web/components/shop/orders/](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/) (ตาราง, การ์ดสรุปสถานะ, modal รายละเอียด/อัปเดตสถานะ/ยกเลิก, ตัวดูไฟล์+PDF, mock data) รวม 15 ไฟล์ ~1,850 บรรทัด
+    *   Push ขึ้น GitHub และเปิด PR: **[#6](https://github.com/03Panyaporn/EasyPrint_webapp/pull/6)**
+
+2.  **ปรับ popup "หมายเหตุ" / "ที่อยู่" ในตาราง** ([OrdersTable.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrdersTable.tsx))
+    *   เดิมเป็น dropdown เล็กๆ โผล่ใต้ปุ่ม อ่านยาก → เปลี่ยนเป็นการ์ดลอยกึ่งกลางจอ (fixed + backdrop มืด) มีปุ่มปิด (X) ชัดเจน
+
+3.  **จัดเนื้อหาในตารางให้อยู่กึ่งกลางใต้หัวข้อคอลัมน์** ([OrdersTable.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrdersTable.tsx), [FileThumbnail.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/FileThumbnail.tsx))
+    *   เจอบั๊กเบราว์เซอร์: ปุ่ม (`<button>`) ที่ตั้ง `display:flex` ไม่ยอมขยายเต็มความกว้างเหมือน `<div>`/`<span>` (ปุ่ม/inputs ใช้ขนาดตามเนื้อหาเสมอ ไม่ว่าจะตั้ง display อะไรก็ตาม) ทำให้ `justify-center` ใช้ไม่ได้ผล ต้องแก้ด้วย `mx-auto` แทน
+    *   ตามคำขอภายหลัง ปรับปุ่ม "ดูที่อยู่" กลับไปชิดซ้ายเหมือนเดิม (ส่วนอื่นในคอลัมน์ยังกึ่งกลาง)
+
+4.  **แก้การ์ดสถานะ/ปุ่มอัปเดตสถานะออเดอร์** ([UpdateStatusModal.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/UpdateStatusModal.tsx), [statusConfig.ts](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/statusConfig.ts))
+    *   **เจอบั๊ก logic เดิม:** โค้ดเดิมรวม case `"accepted"` กับ `"in_progress"` ไว้ด้วยกัน ทำให้กดปุ่มจาก "รับงานแล้ว" แล้วสถานะกระโดดข้าม "กำลังดำเนินการ" ไปที่ "กำลังจัดส่ง" ทันที (สังเกตเจอจากรูปหน้าจอที่ผู้ใช้ส่งมา) → แก้แยก case ให้ขยับทีละสถานะ: รอตรวจสอบ → รับงานแล้ว → กำลังดำเนินการ → กำลังจัดส่ง (กรณีจัดส่ง) / เสร็จสิ้น (กรณีมารับเอง) → เสร็จสิ้น
+    *   ปรับวงกลม step ให้: สถานะปัจจุบัน = พื้นสีเข้มเต็มวง + ติ๊กถูก, สถานะถัดไป = ขอบหนา + เงา 3 มิติ + ขยายเล็กน้อยให้เด่น, สถานะที่เหลือ = วงกลมเทาเรียบ
+    *   ชื่อปุ่มกดหลักเปลี่ยนให้ตรงกับชื่อสถานะถัดไปเป๊ะๆ (ลบ label ที่พิมพ์เองซ้ำซ้อนออก ใช้ `statusConfig[nextStatus].label` แทน) และสีทุกจุด (ปุ่ม, วงกลม step ถัดไป) อิงตามสีประจำของสถานะนั้นๆ เอง
+    *   ทดสอบเดินผ่านทุก transition จริงในเบราว์เซอร์ (ทั้งกรณีจัดส่งและมารับเองที่ร้าน) ผ่านหมด
+
+5.  **เพิ่มปุ่ม "ทั้งหมด" ในการ์ดสรุปสถานะ** ([OrderStatusCards.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrderStatusCards.tsx))
+    *   เดิมกดการ์ดสถานะเพื่อกรองตารางได้ แต่ไม่มีปุ่มกลับมาดูรายการทั้งหมด (ต้องกดการ์ดเดิมซ้ำเพื่อ toggle ปิด ซึ่งไม่มีใครรู้) → เพิ่มการ์ด "ทั้งหมด" เป็นอันแรกสุด กดแล้วเคลียร์ตัวกรองเสมอ
+
+6.  Commit ที่ 2 ของวันนี้รวมข้อ 2–5 ไว้ด้วยกัน push ขึ้น branch เดิม ทำให้ PR #6 อัปเดตอัตโนมัติ (ไม่ต้องเปิด PR ใหม่)
+
+### 📌 การติดตั้งเพิ่มเติม / สิ่งที่เพื่อนร่วมทีมต้องทำหลัง pull
+
+**ไม่มี** — งานวันนี้เป็นการแก้ไฟล์ React/Tailwind ที่มีอยู่แล้วทั้งหมด ไม่มีแพ็กเกจใหม่ ไม่มีตัวแปร env ใหม่ ไม่มีการแก้ฐานข้อมูล ดึงโค้ดแล้วรัน `bun run dev:web` ตามขั้นตอนเดิมในหัวข้อ 3 ได้เลย
+
+### 🔲 สิ่งที่ยังไม่เสร็จ (เฉพาะส่วน Orders)
+
+*   ยังไม่มี automated test ให้หน้า Orders/component ที่เกี่ยวข้อง — ตรวจสอบด้วยการรันจริงในเบราว์เซอร์ (manual) เท่านั้น
+*   PR #6 ยังไม่ถูก review/merge
+*   repo นี้ยังไม่มี GitHub Actions (`.github/workflows`) เลย ดังนั้น PR #6 (และ PR อื่นๆ) จะไม่มี CI ตรวจ lint/build ให้อัตโนมัติ
+*   รายการ "สิ่งที่ยังไม่เสร็จ" จากหัวข้อ 5 (route protection, ปุ่ม Logout, หน้า Change Password, Shop Register) ยังคงค้างอยู่เหมือนเดิม ไม่เกี่ยวกับงานวันนี้
