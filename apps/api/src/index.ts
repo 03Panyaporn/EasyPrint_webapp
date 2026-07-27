@@ -54,6 +54,9 @@ const app = new Elysia()
     return { order };
   })
 
-  .listen(process.env.PORT ?? 3000);
+  // ห้ามใช้ 3000 เป็นค่า default เพราะ Next.js (apps/web) ก็ใช้พอร์ตนี้เป็นค่าเริ่มต้นเหมือนกัน
+  // บน Windows ทั้งสองฝั่ง bind พอร์ตเดียวกันได้แบบไม่ error (คนละ address family, IPv4 vs IPv6)
+  // แล้ว "localhost" จะ resolve ไปเจอฝั่งใดฝั่งหนึ่งแบบสุ่มๆ ทำให้ request หลุดไปหน้าเว็บแทน API เงียบๆ
+  .listen(process.env.PORT ?? 4000);
 
 console.log(`🖨️  EasyPrint API รันอยู่ที่ http://localhost:${app.server?.port}`);
