@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // โครงสร้างเริ่มต้น อ้างอิงจาก docs/proposal.md หัวข้อ 1.3
@@ -47,9 +47,12 @@ export const shops = pgTable("shops", {
   address: text("address"),
   category: text("category"), // ประเภทร้านค้า เช่น "ร้านถ่ายเอกสารทั่วไป" — ดูค่าที่รองรับที่ shopTypeSchema ใน packages/shared
   googleMapLink: text("google_map_link"), // ไม่บังคับตอนสมัคร ใส่ทีหลังได้
-  idCardUrl: text("id_card_url"), // ยังไม่มีระบบอัปโหลดจริง (รอ Supabase Storage) เก็บเป็น URL เฉยๆ ไปก่อน
-  shopPhotoUrl: text("shop_photo_url"),
+  idCardUrl: text("id_card_url"), // storage path จาก bucket private "id-cards" (ไม่ใช่ public URL)
+  shopPhotoUrl: text("shop_photo_url"), // public URL จาก bucket "shop-photos"
+  socialMedia: text("social_media"),
+  openingHours: jsonb("opening_hours"), // [{ day, isOpen, openTime, closeTime }, ...] ตามฟอร์ม shop-register
   approvalStatus: shopApprovalStatusEnum("approval_status").notNull().default("pending"),
+  rejectedReason: text("rejected_reason"), // ใส่ตอนแอดมินกด "ไม่อนุมัติ" — null ถ้ายังไม่เคยถูกปฏิเสธ
   deliveryEnabled: boolean("delivery_enabled").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

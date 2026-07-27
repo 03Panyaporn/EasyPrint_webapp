@@ -39,7 +39,10 @@
 | google_map_link | text | บังคับกรอกตอนสมัคร |
 | id_card_url | text | **storage path** (ไม่ใช่ URL จริง) จาก Supabase Storage bucket `id-cards` (private — ข้อมูลบัตรประชาชนห้ามเปิดสาธารณะ) อัปโหลดผ่าน `POST /uploads` |
 | shop_photo_url | text | public URL เต็มจาก Supabase Storage bucket `shop-photos` (public) อัปโหลดผ่าน `POST /uploads` |
-| approval_status | enum: pending / approved / rejected | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน |
+| social_media | text | ช่องทาง Social Media ที่กรอกตอนสมัคร |
+| opening_hours | jsonb | array ตารางเวลาทำการ 7 วัน `[{ day, isOpen, openTime, closeTime }, ...]` |
+| approval_status | enum: pending / approved / rejected | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน ถึงจะตั้งบริการ/ราคาได้ (ดู `requireShopOwner()` ใน `apps/api/src/routes/services.ts`) |
+| rejected_reason | text | nullable — ใส่ตอนแอดมินกด "ไม่อนุมัติ" เท่านั้น, ถูกล้างเป็น null อัตโนมัติถ้ากลับมาอนุมัติทีหลัง |
 | delivery_enabled | boolean | default true |
 | created_at | timestamp | |
 

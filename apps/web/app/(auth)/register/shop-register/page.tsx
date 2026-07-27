@@ -18,12 +18,37 @@ import {
   CheckCircle2,
   Upload,
   CircleUser,
+  Share2,
+  Clock,
 } from "lucide-react";
 import { on } from "events";
 import { SHOP_TYPES } from "@easyprint/shared";
 import { registerShop } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { uploadFile } from "@/lib/api/uploads";
+
+interface DaySchedule {
+  day: string;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+}
+
+const INITIAL_SCHEDULE: DaySchedule[] = [
+  { day: "จันทร์", isOpen: true, openTime: "08:00", closeTime: "18:00" },
+  { day: "อังคาร", isOpen: true, openTime: "08:00", closeTime: "18:00" },
+  { day: "พุธ", isOpen: true, openTime: "08:00", closeTime: "18:00" },
+  { day: "พฤหัสบดี", isOpen: true, openTime: "08:00", closeTime: "18:00" },
+  { day: "ศุกร์", isOpen: true, openTime: "08:00", closeTime: "18:00" },
+  { day: "เสาร์", isOpen: true, openTime: "08:00", closeTime: "18:00" },
+  { day: "อาทิตย์", isOpen: false, openTime: "08:00", closeTime: "18:00" },
+];
+
+const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
+  const hours = Math.floor(i / 2).toString().padStart(2, "0");
+  const minutes = i % 2 === 0 ? "00" : "30";
+  return `${hours}:${minutes}`;
+});
 
 export default function ShopRegisterPage() {
   const [form, setForm] = useState({
@@ -43,7 +68,37 @@ export default function ShopRegisterPage() {
     postcode: "",
     googleMapLink: "",
     shopType: "",
+    socialMedia: "",
   });
+  const [schedule, setSchedule] = useState<DaySchedule[]>(INITIAL_SCHEDULE);
+
+  const toggleDayOpen = (index: number) => {
+    setSchedule((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, isOpen: !item.isOpen } : item))
+    );
+  };
+
+  const updateScheduleTime = (
+    index: number,
+    field: "openTime" | "closeTime",
+    value: string
+  ) => {
+    setSchedule((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleApplySameTime = () => {
+    const sourceDay = schedule.find((s) => s.isOpen) || schedule[0];
+    setSchedule(
+      schedule.map((item) => ({
+        ...item,
+        isOpen: sourceDay.isOpen,
+        openTime: sourceDay.openTime,
+        closeTime: sourceDay.closeTime,
+      }))
+    );
+  };
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [shopPhotoFile, setShopPhotoFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -93,6 +148,8 @@ export default function ShopRegisterPage() {
         province: form.province,
         postcode: form.postcode,
         googleMapLink: form.googleMapLink,
+        socialMedia: form.socialMedia,
+        openingHours: schedule,
         idCardUrl: idCardResult.path,
         shopPhotoUrl: shopPhotoResult.url!,
       });
@@ -393,6 +450,120 @@ export default function ShopRegisterPage() {
               className={inputCls}
             />
           </Field>
+
+          {/* Social Media */}
+          <Field label="ช่องทาง Social Media (Facebook / Line / IG)" icon={<Share2 className="w-4 h-4" />} required>
+            <input
+              type="text"
+              name="socialMedia"
+              value={form.socialMedia}
+              onChange={handleChange}
+              placeholder="เช่น FB: EasyPrint Shop / Line: @easyprint"
+              required
+              className={inputCls}
+            />
+          </Field>
+
+          {/* ตารางเวลาทำการ */}
+          <div className="bg-slate-50/70 rounded-2xl border border-slate-200/80 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">ตารางเวลาทำการ</h3>
+                <p className="text-xs text-slate-500 mt-0.5">กำหนดเวลาเปิด-ปิดร้านสำหรับแต่ละวัน</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleApplySameTime}
+                className="self-start sm:self-auto px-3.5 py-1.5 bg-white border border-slate-200 hover:border-orange-300 rounded-xl text-xs font-bold text-slate-700 hover:text-orange-600 transition shadow-sm"
+              >
+                ใช้เวลาเดียวกันทุกวัน
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b border-slate-200/60">
+                    <th className="pb-2.5 font-bold">วัน</th>
+                    <th className="pb-2.5 font-bold">สถานะ</th>
+                    <th className="pb-2.5 font-bold">เวลาเปิด</th>
+                    <th className="pb-2.5 font-bold">เวลาปิด</th>
+                    <th className="pb-2.5 font-bold">ช่วงเวลาทำการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {schedule.map((item, idx) => (
+                    <tr key={item.day} className="hover:bg-white/60 transition-colors">
+                      <td className="py-3 font-semibold text-slate-800">{item.day}</td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleDayOpen(idx)}
+                            className={`w-9 h-5 rounded-full p-0.5 transition-colors relative ${
+                              item.isOpen ? "bg-slate-800" : "bg-slate-300"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 bg-white rounded-full transition-transform ${
+                                item.isOpen ? "translate-x-4" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
+                          <span className={`text-xs font-bold ${item.isOpen ? "text-emerald-600" : "text-slate-400"}`}>
+                            {item.isOpen ? "เปิด" : "ปิด"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        {item.isOpen ? (
+                          <select
+                            value={item.openTime}
+                            onChange={(e) => updateScheduleTime(idx, "openTime", e.target.value)}
+                            className="bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 cursor-pointer"
+                          >
+                            {TIME_OPTIONS_24H.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-slate-400 font-medium">-</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {item.isOpen ? (
+                          <select
+                            value={item.closeTime}
+                            onChange={(e) => updateScheduleTime(idx, "closeTime", e.target.value)}
+                            className="bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 cursor-pointer"
+                          >
+                            {TIME_OPTIONS_24H.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-slate-400 font-medium">-</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {item.isOpen ? (
+                          <span className="font-semibold text-slate-700">
+                            {item.openTime} - {item.closeTime}
+                          </span>
+                        ) : (
+                          <span className="font-bold text-red-500">ปิดทำการ</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           <Field label="รูปบัตรประชาชน" icon={<CircleUser className="w-4 h-4" />} required>
             <input

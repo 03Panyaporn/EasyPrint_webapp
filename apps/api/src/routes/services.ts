@@ -31,12 +31,16 @@ async function requireShopOwner(
   }
 
   const [shop] = await db
-    .select({ id: shops.id })
+    .select({ id: shops.id, approvalStatus: shops.approvalStatus })
     .from(shops)
     .where(and(eq(shops.id, shopId), eq(shops.ownerId, payload.userId)));
   if (!shop) {
     set.status = 403;
     return { error: "คุณไม่มีสิทธิ์จัดการร้านนี้" };
+  }
+  if (shop.approvalStatus !== "approved") {
+    set.status = 403;
+    return { error: "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน ยังตั้งบริการและราคาไม่ได้" };
   }
 
   return null;

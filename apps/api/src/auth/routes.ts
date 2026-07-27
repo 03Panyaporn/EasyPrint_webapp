@@ -128,6 +128,8 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
           googleMapLink: parsed.data.googleMapLink,
           idCardUrl: parsed.data.idCardUrl,
           shopPhotoUrl: parsed.data.shopPhotoUrl,
+          socialMedia: parsed.data.socialMedia,
+          openingHours: parsed.data.openingHours,
         })
         .returning();
 

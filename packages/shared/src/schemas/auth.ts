@@ -69,6 +69,8 @@ export const registerShopSchema = z.object({
   // idCardUrl = storage path จาก bucket "id-cards" (bucket private ไม่มี public URL ตรงๆ ไม่ใช่ URL จริง แค่ path)
   idCardUrl: z.string().min(1, "กรุณาอัปโหลดรูปบัตรประชาชน"),
   shopPhotoUrl: z.string().url("กรุณาอัปโหลดรูปภาพร้านค้า"),
+  socialMedia: z.string().min(1, "กรุณากรอกช่องทาง Social Media"),
+  openingHours: z.any().optional(),
 });
 
 export type RegisterShopInput = z.infer<typeof registerShopSchema>;
