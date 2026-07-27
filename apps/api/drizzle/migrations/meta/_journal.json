@@ -15,6 +15,13 @@
       "when": 1785041846109,
       "tag": "0001_slim_cable",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785131339866,
+      "tag": "0002_happy_spirit",
+      "breakpoints": true
     }
   ]
 }

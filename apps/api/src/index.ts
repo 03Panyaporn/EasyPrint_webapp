@@ -7,6 +7,7 @@ import { orders } from "../drizzle/schema";
 import { servicesRoutes } from "./routes/services";
 import { authRoutes } from "./auth/routes";
 import { uploadsRoutes } from "./routes/uploads";
+import { adminRoutes } from "./routes/admin";
 
 const isProd = process.env.NODE_ENV === "production";
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "http://localhost:3000";
@@ -19,6 +20,7 @@ const app = new Elysia()
   .use(servicesRoutes)
   .use(authRoutes)
   .use(uploadsRoutes)
+  .use(adminRoutes)
 
   // ตัวอย่าง endpoint: สร้างคำสั่งพิมพ์ใหม่
   // ทุก endpoint ในโปรเจกต์นี้ต้อง validate ด้วย Zod schema จาก @easyprint/shared ก่อนเสมอ (ดู AGENTS.md ข้อ 6)
