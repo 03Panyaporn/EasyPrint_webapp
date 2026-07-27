@@ -146,30 +146,32 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2.5 shrink-0">
             <button
               onClick={() => setModalType("documents")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-sm font-bold text-blue-700 transition-all shadow-2xs"
             >
-              <FileSearch size={15} />
+              <FileSearch size={16} className="text-blue-600" />
               ตรวจสอบเอกสาร
             </button>
-            <button
-              onClick={() => setModalType("approve")}
-              disabled={status === "อนุมัติแล้ว"}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition-colors shadow-sm shadow-green-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <CheckCircle size={15} />
-              อนุมัติร้านค้า
-            </button>
-            <button
-              onClick={() => setModalType("reject")}
-              disabled={status === "ไม่อนุมัติ"}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition-colors shadow-sm shadow-red-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <XCircle size={15} />
-              ไม่อนุมัติร้านค้า
-            </button>
+            {status === "รอตรวจสอบ" && (
+              <>
+                <button
+                  onClick={() => setModalType("approve")}
+                  className="flex items-center gap-2 px-4.5 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200 active:scale-95"
+                >
+                  <CheckCircle size={16} />
+                  อนุมัติร้านค้า
+                </button>
+                <button
+                  onClick={() => setModalType("reject")}
+                  className="flex items-center gap-2 px-4.5 py-2 rounded-xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-200 active:scale-95"
+                >
+                  <XCircle size={16} />
+                  ไม่อนุมัติร้านค้า
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

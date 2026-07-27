@@ -239,14 +239,14 @@ export default function AdminShopsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-left">
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">ร้านค้า</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden md:table-cell">ประเภทร้านค้า</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden lg:table-cell">ผู้มอบ</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden lg:table-cell">วันที่สมัคร</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">เอกสาร</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">สถานะ</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide text-right">จัดการ</th>
+              <tr className="bg-gray-50/80 text-left border-b border-gray-100">
+                <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide">ร้านค้า</th>
+                <th className="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide hidden md:table-cell">ประเภทร้านค้า</th>
+                <th className="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide hidden lg:table-cell">เจ้าของร้าน</th>
+                <th className="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide hidden lg:table-cell">วันที่สมัคร</th>
+                <th className="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide">เอกสาร</th>
+                <th className="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide">สถานะ</th>
+                <th className="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide text-right pr-6">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
