@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+// ห้ามใช้ localhost:3000 เป็นค่า default — ชนกับพอร์ตเริ่มต้นของ Next.js เอง (apps/web ก็รันที่ 3000)
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export class ApiError extends Error {
   status: number;
