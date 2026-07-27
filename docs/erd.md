@@ -35,7 +35,8 @@
 | name | text | |
 | phone | text | |
 | address | text | ประกอบจากฟอร์มที่แยกเป็นบ้านเลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ ตอนสมัคร แล้ว format รวมเป็นข้อความเดียว |
-| category | text | ประเภทร้านค้า — ดูค่าที่รองรับที่ `shopTypeSchema` ใน `packages/shared/src/schemas/auth.ts` |
+| service_types | text[] | "บริการของร้าน" เลือกได้หลายรายการตอนสมัคร (เดิมเป็น dropdown ประเภทร้านค้าเลือกได้ทีละ 1 — เลิกใช้ ลบคอลัมน์ `category` ออกแล้ว) ดูค่าที่รองรับที่ `shopServiceTypeSchema` ใน `packages/shared/src/schemas/auth.ts` |
+| delivery_methods | text[] | "วิธีรับสินค้า" เลือกได้หลายรายการตอนสมัคร (รับที่หน้าร้าน / จัดส่งโดยร้าน) คนละความหมายกับ `delivery_enabled` ด้านล่าง (นั่นคือสวิตช์เปิด/ปิดระบบจัดส่งทั้งร้านทีหลัง) |
 | google_map_link | text | บังคับกรอกตอนสมัคร |
 | id_card_url | text | **storage path** (ไม่ใช่ URL จริง) จาก Supabase Storage bucket `id-cards` (private — ข้อมูลบัตรประชาชนห้ามเปิดสาธารณะ) อัปโหลดผ่าน `POST /uploads` |
 | shop_photo_url | text | public URL เต็มจาก Supabase Storage bucket `shop-photos` (public) อัปโหลดผ่าน `POST /uploads` |

@@ -142,7 +142,7 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
               <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
               <ShopStatusBadge status={status} />
             </div>
-            <p className="text-gray-500 text-sm">{shop.shopType}</p>
+            <p className="text-gray-500 text-sm">{shop.serviceTypes.join(", ") || "-"}</p>
           </div>
 
           {/* Action buttons */}
@@ -181,8 +181,17 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
           <InfoCard title="ข้อมูลเจ้าของร้าน">
             <InfoGrid>
               <InfoItem label="ชื่อร้านค้า" value={shop.name} />
-              <InfoItem label="ประเภทร้านค้า" value={shop.shopType} />
               <InfoItem label="ชื่อเจ้าของ" value={`${shop.ownerFirstname} ${shop.ownerLastname}`} />
+              <InfoItem
+                label="บริการของร้าน"
+                value={shop.serviceTypes.length > 0 ? shop.serviceTypes.join(", ") : "-"}
+                full
+              />
+              <InfoItem
+                label="วิธีรับสินค้า"
+                value={shop.deliveryMethods.length > 0 ? shop.deliveryMethods.join(", ") : "-"}
+                full
+              />
               <InfoItem
                 label="อีเมล"
                 value={shop.email}

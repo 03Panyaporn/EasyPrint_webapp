@@ -19,7 +19,8 @@ export interface MockShop {
   phone: string;
   ownerFirstname: string;
   ownerLastname: string;
-  shopType: string;
+  serviceTypes: string[];
+  deliveryMethods: string[];
   address: string;
   district: string;
   province: string;
@@ -44,7 +45,8 @@ export const mockShops: MockShop[] = [
     phone: "081-234-5678",
     ownerFirstname: "สมาย",
     ownerLastname: "ใจดี",
-    shopType: "ร้านถ่ายเอกสารทั่วไป",
+    serviceTypes: ["ถ่ายเอกสาร", "ปริ้นเอกสารขาวดำ"],
+    deliveryMethods: ["รับที่หน้าร้าน"],
     address: "123/45 ถนนพหลโยธิน แขวงสามเสนใน",
     district: "พญาไท",
     province: "กรุงเทพมหานคร 10400",
@@ -72,7 +74,8 @@ export const mockShops: MockShop[] = [
     phone: "082-345-6789",
     ownerFirstname: "สุภา",
     ownerLastname: "ศรีดี",
-    shopType: "ร้านพรินต์สี / กราฟิก",
+    serviceTypes: ["ปริ้นเอกสารสี", "พิมพ์โปสเตอร์"],
+    deliveryMethods: ["รับที่หน้าร้าน", "จัดส่งโดยร้าน"],
     address: "88/1 ถนนสุขุมวิท",
     district: "วัฒนา",
     province: "กรุงเทพมหานคร 10110",
@@ -99,7 +102,8 @@ export const mockShops: MockShop[] = [
     phone: "083-456-7890",
     ownerFirstname: "สุกร",
     ownerLastname: "ใจกล้า",
-    shopType: "ร้านถ่ายเอกสารทั่วไป",
+    serviceTypes: ["ถ่ายเอกสาร", "ปริ้นเอกสารขาวดำ"],
+    deliveryMethods: ["รับที่หน้าร้าน"],
     address: "55 ซอยลาดพร้าว 15",
     district: "วังทองหลาง",
     province: "กรุงเทพมหานคร 10310",
@@ -128,7 +132,8 @@ export const mockShops: MockShop[] = [
     phone: "084-567-8901",
     ownerFirstname: "มนัส",
     ownerLastname: "ศรีรุ่ง",
-    shopType: "ร้านครบวงจร",
+    serviceTypes: ["ถ่ายเอกสาร", "ปริ้นเอกสารสี", "เข้าเล่ม (สันกาว / สันห่วง / สันเกลียว)"],
+    deliveryMethods: ["รับที่หน้าร้าน", "จัดส่งโดยร้าน"],
     address: "201 ถนนรัชดาภิเษก",
     district: "ห้วยขวาง",
     province: "กรุงเทพมหานคร 10310",
@@ -154,7 +159,8 @@ export const mockShops: MockShop[] = [
     phone: "085-678-9012",
     ownerFirstname: "ณัฐพล",
     ownerLastname: "สุขสม",
-    shopType: "ร้านเข้าเล่ม / ทำสปิไรล์",
+    serviceTypes: ["เข้าเล่ม (สันกาว / สันห่วง / สันเกลียว)"],
+    deliveryMethods: ["รับที่หน้าร้าน"],
     address: "77 ถนนพระราม 9",
     district: "เขตยานนาวา",
     province: "กรุงเทพมหานคร 10120",
@@ -182,7 +188,8 @@ export const mockShops: MockShop[] = [
     phone: "086-789-0123",
     ownerFirstname: "กมล",
     ownerLastname: "วงษ์สวัสดิ์",
-    shopType: "ร้านพรินต์สี / กราฟิก",
+    serviceTypes: ["ปริ้นเอกสารสี", "พิมพ์โปสเตอร์"],
+    deliveryMethods: ["รับที่หน้าร้าน", "จัดส่งโดยร้าน"],
     address: "100 ถนนสีลม",
     district: "บางรัก",
     province: "กรุงเทพมหานคร 10500",
@@ -210,7 +217,8 @@ export const mockShops: MockShop[] = [
     phone: "087-890-1234",
     ownerFirstname: "วารุณี",
     ownerLastname: "ชุ่มใจ",
-    shopType: "ร้านถ่ายเอกสารทั่วไป",
+    serviceTypes: ["ถ่ายเอกสาร", "ปริ้นเอกสารขาวดำ"],
+    deliveryMethods: ["รับที่หน้าร้าน"],
     address: "45/2 ถนนนวมินทร์",
     district: "บึงกุ่ม",
     province: "กรุงเทพมหานคร 10240",
@@ -238,7 +246,8 @@ export const mockShops: MockShop[] = [
     phone: "088-901-2345",
     ownerFirstname: "ไม่",
     ownerLastname: "ถูกต้อง",
-    shopType: "ร้านถ่ายเอกสารทั่วไป",
+    serviceTypes: ["ถ่ายเอกสาร", "ปริ้นเอกสารขาวดำ"],
+    deliveryMethods: ["รับที่หน้าร้าน"],
     address: "999 ถนนไม่มีอยู่จริง",
     district: "ไม่ระบุ",
     province: "กรุงเทพมหานคร",
