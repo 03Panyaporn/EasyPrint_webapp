@@ -46,6 +46,24 @@ async function requireShopOwner(
   return null;
 }
 
+// เช็คว่า shop นี้ "เปิดเผยข้อมูลบริการ/ราคาต่อสาธารณะได้ไหม" — อนุมัติแล้วเท่านั้น ยกเว้นเจ้าของร้านดูของตัวเองได้เสมอไม่ว่าสถานะไหน
+// กันไม่ให้ราคา/บริการของร้านที่ยัง pending หรือถูก reject ไปแล้ว (มีข้อมูลค้างจากตอนที่เคยอนุมัติ) หลุดออกไปให้คนนอกเห็นผ่าน shopId ตรงๆ
+async function canViewShopPublicly(
+  shopId: string,
+  cookie: Record<string, { value?: unknown } | undefined>
+) {
+  const [shop] = await db
+    .select({ approvalStatus: shops.approvalStatus, ownerId: shops.ownerId })
+    .from(shops)
+    .where(eq(shops.id, shopId));
+  if (!shop) return false;
+  if (shop.approvalStatus === "approved") return true;
+
+  const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+  const payload = token ? verifyAuthToken(token) : null;
+  return payload?.role === "shop_owner" && payload.userId === shop.ownerId;
+}
+
 function serializeMainService(
   row: typeof mainServices.$inferSelect,
   addOns: { addOnId: string; extraPrice: number }[]
@@ -74,6 +92,7 @@ function serializeAddOnService(row: typeof addOnServices.$inferSelect) {
     price: Number(row.price),
     unit: row.unit,
     estimatedTime: row.estimatedTime ?? undefined,
+    imageUrl: row.imageUrl ?? undefined,
     isActive: row.isActive,
   };
 }
@@ -101,7 +120,11 @@ async function fetchAddOnBindings(mainServiceId: string) {
 
 export const servicesRoutes = new Elysia()
   // ── บริการหลัก ──────────────────────────────
-  .get("/shops/:shopId/services", async ({ params }) => {
+  .get("/shops/:shopId/services", async ({ params, cookie }) => {
+    if (!(await canViewShopPublicly(params.shopId, cookie))) {
+      return { services: [] };
+    }
+
     const rows = await db.query.mainServices.findMany({
       where: eq(mainServices.shopId, params.shopId),
       with: { addOns: true },
@@ -245,7 +268,11 @@ export const servicesRoutes = new Elysia()
   })
 
   // ── บริการเสริม ──────────────────────────────
-  .get("/shops/:shopId/addons", async ({ params }) => {
+  .get("/shops/:shopId/addons", async ({ params, cookie }) => {
+    if (!(await canViewShopPublicly(params.shopId, cookie))) {
+      return { addOns: [] };
+    }
+
     const rows = await db.select().from(addOnServices).where(eq(addOnServices.shopId, params.shopId));
     return { addOns: rows.map(serializeAddOnService) };
   })
@@ -283,6 +310,7 @@ export const servicesRoutes = new Elysia()
         price: parsed.data.price.toFixed(2),
         unit: parsed.data.unit,
         estimatedTime: parsed.data.estimatedTime,
+        imageUrl: parsed.data.imageUrl,
         isActive: parsed.data.isActive,
       })
       .returning();
@@ -350,7 +378,11 @@ export const servicesRoutes = new Elysia()
   })
 
   // ── ตัวเลือกการจัดส่ง ────────────────────────
-  .get("/shops/:shopId/delivery-options", async ({ params }) => {
+  .get("/shops/:shopId/delivery-options", async ({ params, cookie }) => {
+    if (!(await canViewShopPublicly(params.shopId, cookie))) {
+      return { deliveryOptions: [] };
+    }
+
     const rows = await db
       .select()
       .from(deliveryOptions)

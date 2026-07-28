@@ -328,12 +328,23 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
-                        <button className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors" title="ดู">
+                        <button
+                          onClick={() => window.open(doc.url, "_blank", "noopener,noreferrer")}
+                          className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                          title="ดู"
+                        >
                           <Eye size={14} />
                         </button>
-                        <button className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors" title="ดาวน์โหลด">
+                        <a
+                          href={doc.url}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                          title="ดาวน์โหลด"
+                        >
                           <Download size={14} />
-                        </button>
+                        </a>
                       </div>
                     </td>
                   </tr>
