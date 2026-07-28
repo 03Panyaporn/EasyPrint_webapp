@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { DeliveryOption } from "./types";
-import { X, Upload, AlertCircle } from "lucide-react";
+import { X, Upload, AlertCircle, Loader2 } from "lucide-react";
+import { uploadFile } from "@/lib/api/uploads";
+import { ApiError } from "@/lib/api/client";
 
 interface AddDeliveryModalProps {
   isOpen: boolean;
@@ -24,6 +26,9 @@ export default function AddDeliveryModal({
   const [baseFee, setBaseFee] = useState<number | "">(0);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | "">("");
   const [isActive, setIsActive] = useState(true);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -38,14 +43,19 @@ export default function AddDeliveryModal({
           : ""
       );
       setIsActive(editingDelivery.isActive);
+      setLogoUrl(editingDelivery.logoUrl || "");
+      setLogoFile(null);
     } else {
       setName("");
       setDescription("");
       setBaseFee(40);
       setFreeShippingThreshold("");
       setIsActive(true);
+      setLogoUrl("");
+      setLogoFile(null);
     }
     setErrors({});
+    setIsUploading(false);
   }, [editingDelivery, isOpen]);
 
   if (!isOpen) return null;
@@ -65,14 +75,29 @@ export default function AddDeliveryModal({
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
+    let finalLogoUrl = logoUrl;
+    if (logoFile) {
+      setIsUploading(true);
+      try {
+        const { url } = await uploadFile(logoFile, "delivery-logo");
+        finalLogoUrl = url || "";
+      } catch (err) {
+        setErrors({ logo: err instanceof ApiError ? err.message : "อัปโหลดโลโก้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
 
     const delivery: DeliveryOption = {
       id: editingDelivery ? editingDelivery.id : `delivery-${Date.now()}`,
       name: name.trim(),
       description: description.trim() || undefined,
+      logoUrl: finalLogoUrl || undefined,
       baseFee: Number(baseFee),
       freeShippingThreshold:
         freeShippingThreshold !== "" && Number(freeShippingThreshold) > 0
@@ -183,15 +208,40 @@ export default function AddDeliveryModal({
             </div>
           </div>
 
-          {/* Logo Upload (Mock) */}
+          {/* Logo Upload */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
               โลโก้ / ไอคอนผู้ให้บริการ (ถ้ามี)
             </label>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-3 text-center hover:border-orange-400 transition-colors cursor-pointer bg-gray-50/50">
-              <Upload size={20} className="mx-auto text-gray-400 mb-1" />
-              <p className="text-xs text-gray-600 font-medium">อัปโหลดโลโก้ขนส่ง</p>
-            </div>
+            <label className="block border-2 border-dashed border-gray-200 rounded-xl p-3 text-center hover:border-orange-400 transition-colors cursor-pointer bg-gray-50/50">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              />
+              {logoFile || logoUrl ? (
+                <>
+                  {logoFile ? (
+                    <p className="text-xs text-gray-700 font-semibold">{logoFile.name}</p>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoUrl} alt="" className="mx-auto max-h-16 rounded-lg mb-1" />
+                  )}
+                  <p className="text-[11px] text-orange-500 mt-1 font-medium">คลิกเพื่อเปลี่ยนรูป</p>
+                </>
+              ) : (
+                <>
+                  <Upload size={20} className="mx-auto text-gray-400 mb-1" />
+                  <p className="text-xs text-gray-600 font-medium">อัปโหลดโลโก้ขนส่ง</p>
+                </>
+              )}
+            </label>
+            {errors.logo && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle size={12} /> {errors.logo}
+              </p>
+            )}
           </div>
 
           {/* Active Status */}
@@ -228,9 +278,11 @@ export default function AddDeliveryModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-xl shadow-md shadow-orange-200 transition"
+              disabled={isUploading}
+              className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl shadow-md shadow-orange-200 transition flex items-center gap-1.5"
             >
-              บันทึกการจัดส่ง
+              {isUploading && <Loader2 size={14} className="animate-spin" />}
+              {isUploading ? "กำลังอัปโหลดโลโก้..." : "บันทึกการจัดส่ง"}
             </button>
           </div>
         </form>

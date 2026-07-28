@@ -18,9 +18,9 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/uploads` | อัปโหลดไฟล์รูปภาพ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` หรือ `"id-card"`) จำกัด JPG/PNG/WEBP ไม่เกิน 5MB — คืน `{ path, url }`, `url` เป็น `null` ถ้า type เป็น `id-card` (bucket private) | ไม่ต้อง (เรียกได้ก่อน login เพราะใช้ตอนสมัครร้านค้า) |
+| POST | `/uploads` | อัปโหลดไฟล์รูปภาพ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"`) จำกัด JPG/PNG/WEBP ไม่เกิน 5MB — คืน `{ path, url }`, `url` เป็น `null` ถ้า type เป็น `id-card` (bucket private) | ไม่ต้อง (เรียกได้ก่อน login เพราะใช้ตอนสมัครร้านค้า) |
 
-โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง 2 bucket: `shop-photos` (public) และ `id-cards` (private) สร้างไว้แล้วบน Supabase
+โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง 2 bucket: `shop-photos` (public) และ `id-cards` (private) สร้างไว้แล้วบน Supabase — `service-image`/`delivery-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่
 
 ⚠️ endpoint นี้เปิดสาธารณะโดยไม่มี rate limit — กันได้แค่ระดับ mime type + ขนาดไฟล์ ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้
 
@@ -29,6 +29,15 @@
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
 | POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ | ยังไม่ใส่ (TODO) |
+
+## Shops (สาธารณะฝั่งลูกค้า)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/shops` | list ร้านค้าที่ `approvalStatus: "approved"` เท่านั้น (เรียงตามใหม่สุดก่อน) ใช้แสดงหน้าแรกฝั่งลูกค้า | ไม่ต้อง |
+| GET | `/shops/me` | ร้านของบัญชี shop_owner ที่ login อยู่ (`id`, `name`, `approvalStatus`, `rejectedReason`, `deliveryEnabled`) ใช้ตอนเปิดหน้า `/shop/services` เพื่อรู้ shopId ตัวเอง | ต้อง login เป็น shop_owner |
+
+โค้ดอยู่ที่ `apps/api/src/routes/shops.ts` — ร้านที่ยัง `pending`/`rejected` จะไม่ถูกส่งออกมาจาก endpoint นี้เด็ดขาด (กรองด้วย `WHERE approval_status = 'approved'` ในคำสั่ง SQL โดยตรง ไม่ใช่กรองฝั่ง frontend)
 
 ## Main Services (บริการหลัก)
 
@@ -59,7 +68,7 @@
 
 โค้ดอยู่ที่ `apps/api/src/routes/services.ts` — Zod schema ที่ใช้ validate อยู่ที่ `packages/shared/src/schemas/service.ts`
 
-ทุก endpoint ที่แก้ไข/ลบในกลุ่มนี้เช็ค JWT ผ่าน `requireShopOwner()` แล้ว (401 ถ้ายังไม่ login, 403 ถ้า login แต่ไม่ใช่เจ้าของร้าน `:shopId` นี้, **403 ถ้าร้านยังไม่ได้รับการอนุมัติจากแอดมิน**) — endpoint GET (list) ยังคงเปิดสาธารณะเพราะลูกค้าต้องดูบริการได้โดยไม่ต้อง login
+ทุก endpoint ที่แก้ไข/ลบในกลุ่มนี้เช็ค JWT ผ่าน `requireShopOwner()` แล้ว (401 ถ้ายังไม่ login, 403 ถ้า login แต่ไม่ใช่เจ้าของร้าน `:shopId` นี้, **403 ถ้าร้านยังไม่ได้รับการอนุมัติจากแอดมิน**) — endpoint GET (list) ยังคงเปิดสาธารณะเพราะลูกค้าต้องดูบริการได้โดยไม่ต้อง login แต่จะ**คืนค่าว่างถ้าร้านนั้นยังไม่ได้อนุมัติหรือถูกปฏิเสธไปแล้ว** (เช็คผ่าน `canViewShopPublicly()`) — ยกเว้นเจ้าของร้านที่ login อยู่ดูข้อมูลของร้านตัวเองได้เสมอไม่ว่าสถานะไหน กันไม่ให้ราคา/บริการของร้านที่ไม่ได้รับอนุมัติ (หรือเคยอนุมัติแล้วโดนถอนทีหลัง) หลุดออกไปให้คนนอกเห็นผ่าน `shopId` ตรงๆ
 
 ## Admin — ตรวจสอบร้านค้า
 

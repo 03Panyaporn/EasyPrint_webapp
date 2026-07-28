@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ServicesTabs from "@/components/shop/services/ServicesTabs";
 import MainServicesTable from "@/components/shop/services/MainServicesTable";
 import AddOnServicesTable from "@/components/shop/services/AddOnServicesTable";
@@ -14,19 +14,79 @@ import {
   ServiceTypeTab,
 } from "@/components/shop/services/types";
 import {
-  initialMainServices,
-  initialAddOnServices,
-  initialDeliveryOptions,
-} from "@/lib/mock-data/services-mock";
-import { Wrench, CheckCircle } from "lucide-react";
+  getMyShop,
+  getMainServices,
+  createMainService,
+  updateMainService,
+  deleteMainService,
+  getAddOnServices,
+  createAddOnService,
+  updateAddOnService,
+  deleteAddOnService,
+  getDeliveryOptions,
+  createDeliveryOption,
+  updateDeliveryOption,
+  deleteDeliveryOption,
+  type MyShop,
+} from "@/lib/api/services";
+import { ApiError } from "@/lib/api/client";
+import type {
+  CreateMainServiceInput,
+  CreateAddOnServiceInput,
+  CreateDeliveryOptionInput,
+} from "@easyprint/shared";
+import { Wrench, CheckCircle, Loader2 } from "lucide-react";
+
+function toMainServiceInput(service: MainService): CreateMainServiceInput {
+  return {
+    name: service.name,
+    description: service.description,
+    paperSizes: service.paperSizes as CreateMainServiceInput["paperSizes"],
+    customPaperSize: service.customPaperSize,
+    colors: service.colors as CreateMainServiceInput["colors"],
+    price: service.price,
+    unit: service.unit as CreateMainServiceInput["unit"],
+    estimatedTime: service.estimatedTime as CreateMainServiceInput["estimatedTime"],
+    imageUrl: service.imageUrl,
+    isActive: service.isActive,
+    addOns: service.availableAddOns,
+  };
+}
+
+function toAddOnServiceInput(addOn: AddOnService): CreateAddOnServiceInput {
+  return {
+    name: addOn.name,
+    description: addOn.description,
+    price: addOn.price,
+    unit: addOn.unit as CreateAddOnServiceInput["unit"],
+    estimatedTime: addOn.estimatedTime as CreateAddOnServiceInput["estimatedTime"],
+    imageUrl: addOn.imageUrl,
+    isActive: addOn.isActive,
+  };
+}
+
+function toDeliveryOptionInput(delivery: DeliveryOption): CreateDeliveryOptionInput {
+  return {
+    name: delivery.name,
+    description: delivery.description,
+    logoUrl: delivery.logoUrl,
+    baseFee: delivery.baseFee,
+    freeShippingThreshold: delivery.freeShippingThreshold ?? null,
+    isActive: delivery.isActive,
+  };
+}
 
 export default function ServicesPage() {
   // ── 1. States ──────────────────────────────────
+  const [shop, setShop] = useState<MyShop | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
   const [activeTab, setActiveTab] = useState<ServiceTypeTab>("main");
 
-  const [mainServices, setMainServices] = useState<MainService[]>(initialMainServices);
-  const [addOnServices, setAddOnServices] = useState<AddOnService[]>(initialAddOnServices);
-  const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>(initialDeliveryOptions);
+  const [mainServices, setMainServices] = useState<MainService[]>([]);
+  const [addOnServices, setAddOnServices] = useState<AddOnService[]>([]);
+  const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
   const [isAllDeliveryEnabled, setIsAllDeliveryEnabled] = useState(true);
 
   // Modal States
@@ -46,83 +106,173 @@ export default function ServicesPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const showApiError = (err: unknown, fallback: string) => {
+    window.alert(err instanceof ApiError ? err.message : fallback);
+  };
+
+  // ── โหลดข้อมูลจริงตอนเข้าหน้า ────────────────
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const { shop: myShop } = await getMyShop();
+      setShop(myShop);
+      setIsAllDeliveryEnabled(myShop.deliveryEnabled);
+
+      const [servicesRes, addOnsRes, deliveryRes] = await Promise.all([
+        getMainServices(myShop.id),
+        getAddOnServices(myShop.id),
+        getDeliveryOptions(myShop.id),
+      ]);
+      setMainServices(servicesRes.services);
+      setAddOnServices(addOnsRes.addOns);
+      setDeliveryOptions(deliveryRes.deliveryOptions);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "โหลดข้อมูลร้านค้าไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   // ── 2. CRUD Handlers: Main Services ────────────
-  const handleSaveMainService = (service: MainService) => {
-    setMainServices((prev) => {
-      const exists = prev.some((s) => s.id === service.id);
-      if (exists) {
-        return prev.map((s) => (s.id === service.id ? service : s));
+  const handleSaveMainService = async (service: MainService) => {
+    if (!shop) return;
+    const isEditing = mainServices.some((s) => s.id === service.id);
+    try {
+      if (isEditing) {
+        const { service: saved } = await updateMainService(shop.id, service.id, toMainServiceInput(service));
+        setMainServices((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      } else {
+        const { service: saved } = await createMainService(shop.id, toMainServiceInput(service));
+        setMainServices((prev) => [saved, ...prev]);
       }
-      return [service, ...prev];
-    });
-    showToast(`บันทึกบริการหลัก "${service.name}" เรียบร้อยแล้ว`);
+      showToast(`บันทึกบริการหลัก "${service.name}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "บันทึกบริการหลักไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
-  const handleDeleteMainService = (id: string) => {
+  const handleDeleteMainService = async (id: string) => {
+    if (!shop) return;
     const target = mainServices.find((s) => s.id === id);
-    setMainServices((prev) => prev.filter((s) => s.id !== id));
-    if (target) showToast(`ลบบริการหลัก "${target.name}" เรียบร้อยแล้ว`);
+    try {
+      await deleteMainService(shop.id, id);
+      setMainServices((prev) => prev.filter((s) => s.id !== id));
+      if (target) showToast(`ลบบริการหลัก "${target.name}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "ลบบริการหลักไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
-  const handleToggleMainActive = (id: string) => {
-    setMainServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
-    );
+  const handleToggleMainActive = async (id: string) => {
+    if (!shop) return;
+    const target = mainServices.find((s) => s.id === id);
+    if (!target) return;
+    try {
+      const { service: saved } = await updateMainService(shop.id, id, { isActive: !target.isActive });
+      setMainServices((prev) => prev.map((s) => (s.id === id ? saved : s)));
+    } catch (err) {
+      showApiError(err, "เปลี่ยนสถานะบริการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   // ── 3. CRUD Handlers: Add-On Services ──────────
-  const handleSaveAddOnService = (addOn: AddOnService) => {
-    setAddOnServices((prev) => {
-      const exists = prev.some((a) => a.id === addOn.id);
-      if (exists) {
-        return prev.map((a) => (a.id === addOn.id ? addOn : a));
+  const handleSaveAddOnService = async (addOn: AddOnService) => {
+    if (!shop) return;
+    const isEditing = addOnServices.some((a) => a.id === addOn.id);
+    try {
+      if (isEditing) {
+        const { addOn: saved } = await updateAddOnService(shop.id, addOn.id, toAddOnServiceInput(addOn));
+        setAddOnServices((prev) => prev.map((a) => (a.id === saved.id ? saved : a)));
+      } else {
+        const { addOn: saved } = await createAddOnService(shop.id, toAddOnServiceInput(addOn));
+        setAddOnServices((prev) => [saved, ...prev]);
       }
-      return [addOn, ...prev];
-    });
-    showToast(`บันทึกบริการเสริม "${addOn.name}" เรียบร้อยแล้ว`);
+      showToast(`บันทึกบริการเสริม "${addOn.name}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "บันทึกบริการเสริมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
-  const handleDeleteAddOnService = (id: string) => {
+  const handleDeleteAddOnService = async (id: string) => {
+    if (!shop) return;
     const target = addOnServices.find((a) => a.id === id);
-    setAddOnServices((prev) => prev.filter((a) => a.id !== id));
-    // Remove binding from main services as well
-    setMainServices((prev) =>
-      prev.map((m) => ({
-        ...m,
-        availableAddOns: m.availableAddOns.filter((b) => b.addOnId !== id),
-      }))
-    );
-    if (target) showToast(`ลบบริการเสริม "${target.name}" เรียบร้อยแล้ว`);
+    try {
+      await deleteAddOnService(shop.id, id);
+      setAddOnServices((prev) => prev.filter((a) => a.id !== id));
+      // Remove binding from main services as well (ฝั่ง backend cascade ลบ binding ให้แล้ว อันนี้แค่ sync UI local state)
+      setMainServices((prev) =>
+        prev.map((m) => ({
+          ...m,
+          availableAddOns: m.availableAddOns.filter((b) => b.addOnId !== id),
+        }))
+      );
+      if (target) showToast(`ลบบริการเสริม "${target.name}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "ลบบริการเสริมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
-  const handleToggleAddOnActive = (id: string) => {
-    setAddOnServices((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a))
-    );
+  const handleToggleAddOnActive = async (id: string) => {
+    if (!shop) return;
+    const target = addOnServices.find((a) => a.id === id);
+    if (!target) return;
+    try {
+      const { addOn: saved } = await updateAddOnService(shop.id, id, { isActive: !target.isActive });
+      setAddOnServices((prev) => prev.map((a) => (a.id === id ? saved : a)));
+    } catch (err) {
+      showApiError(err, "เปลี่ยนสถานะบริการเสริมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   // ── 4. CRUD Handlers: Delivery Options ─────────
-  const handleSaveDelivery = (delivery: DeliveryOption) => {
-    setDeliveryOptions((prev) => {
-      const exists = prev.some((d) => d.id === delivery.id);
-      if (exists) {
-        return prev.map((d) => (d.id === delivery.id ? delivery : d));
+  const handleSaveDelivery = async (delivery: DeliveryOption) => {
+    if (!shop) return;
+    const isEditing = deliveryOptions.some((d) => d.id === delivery.id);
+    try {
+      if (isEditing) {
+        const { deliveryOption: saved } = await updateDeliveryOption(
+          shop.id,
+          delivery.id,
+          toDeliveryOptionInput(delivery)
+        );
+        setDeliveryOptions((prev) => prev.map((d) => (d.id === saved.id ? saved : d)));
+      } else {
+        const { deliveryOption: saved } = await createDeliveryOption(shop.id, toDeliveryOptionInput(delivery));
+        setDeliveryOptions((prev) => [saved, ...prev]);
       }
-      return [delivery, ...prev];
-    });
-    showToast(`บันทึกประเภทการจัดส่ง "${delivery.name}" เรียบร้อยแล้ว`);
+      showToast(`บันทึกประเภทการจัดส่ง "${delivery.name}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "บันทึกประเภทการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
-  const handleDeleteDelivery = (id: string) => {
+  const handleDeleteDelivery = async (id: string) => {
+    if (!shop) return;
     const target = deliveryOptions.find((d) => d.id === id);
-    setDeliveryOptions((prev) => prev.filter((d) => d.id !== id));
-    if (target) showToast(`ลบประเภทการจัดส่ง "${target.name}" เรียบร้อยแล้ว`);
+    try {
+      await deleteDeliveryOption(shop.id, id);
+      setDeliveryOptions((prev) => prev.filter((d) => d.id !== id));
+      if (target) showToast(`ลบประเภทการจัดส่ง "${target.name}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "ลบประเภทการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
-  const handleToggleDeliveryActive = (id: string) => {
-    setDeliveryOptions((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, isActive: !d.isActive } : d))
-    );
+  const handleToggleDeliveryActive = async (id: string) => {
+    if (!shop) return;
+    const target = deliveryOptions.find((d) => d.id === id);
+    if (!target) return;
+    try {
+      const { deliveryOption: saved } = await updateDeliveryOption(shop.id, id, { isActive: !target.isActive });
+      setDeliveryOptions((prev) => prev.map((d) => (d.id === id ? saved : d)));
+    } catch (err) {
+      showApiError(err, "เปลี่ยนสถานะการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   // ── 5. Modal Trigger Helpers ───────────────────
@@ -157,6 +307,23 @@ export default function ServicesPage() {
     setIsDeliveryModalOpen(true);
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-400">
+        <Loader2 size={24} className="animate-spin" />
+        <p className="text-sm">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
+
+  if (loadError || !shop) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center px-4">
+        <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบร้านค้าของบัญชีนี้"}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Toast Notification */}
@@ -183,6 +350,15 @@ export default function ServicesPage() {
           </p>
         </div>
       </div>
+
+      {/* Approval status banner — ร้านต้องอนุมัติก่อนถึงจะเพิ่ม/แก้ไข/ลบได้ (backend เช็คซ้ำอีกชั้นอยู่แล้ว) */}
+      {shop.approvalStatus !== "approved" && (
+        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium">
+          {shop.approvalStatus === "pending"
+            ? "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน ยังตั้งบริการและราคาไม่ได้"
+            : `ร้านค้าถูกปฏิเสธ${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังตั้งบริการและราคาไม่ได้`}
+        </div>
+      )}
 
       {/* Tabs Controller */}
       <ServicesTabs

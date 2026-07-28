@@ -10,9 +10,12 @@ export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.
 });
 
 // shop-photos = public bucket (ลูกค้าต้องเห็นรูปหน้าร้านได้) — id-cards = private (ข้อมูลบัตรประชาชนละเอียดอ่อน ห้ามเปิดสาธารณะ)
+// รูปบริการหลัก/โลโก้ตัวเลือกจัดส่ง ก็เป็นรูปสาธารณะเหมือนกัน (ลูกค้าต้องเห็นได้) เลยใช้ bucket "shop-photos" ร่วมกัน ไม่ต้องสร้าง bucket ใหม่บน Supabase
 export const UPLOAD_BUCKETS = {
   "shop-photo": { bucket: "shop-photos", public: true },
   "id-card": { bucket: "id-cards", public: false },
+  "service-image": { bucket: "shop-photos", public: true },
+  "delivery-logo": { bucket: "shop-photos", public: true },
 } as const;
 export type UploadType = keyof typeof UPLOAD_BUCKETS;
 
