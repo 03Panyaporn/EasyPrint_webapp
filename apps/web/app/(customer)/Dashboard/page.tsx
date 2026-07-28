@@ -24,8 +24,7 @@ export default function LandingPage() {
     const [shops, setShops] = useState<PublicShopListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
-
-    const [selectedLocation, setSelectedLocation] = useState("all");
+    const [selectedDelivery, setSelectedDelivery] = useState<string>("all");
     const [selectedService, setSelectedService] = useState<string>("all");
     const [selectedHours, setSelectedHours] = useState<string>("all");
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -40,37 +39,37 @@ export default function LandingPage() {
             })
             .finally(() => setLoading(false));
     }, []);
+    // รายการ "ประเภทงาน" ในตัวกรอง มาจากบริการจริงที่ร้านที่อนุมัติแล้วให้บริการเท่านั้น
+    const allServiceTypes = [...new Set(shops.flatMap((shop) => shop.serviceTypes ?? []))];
+
     // Dynamic filtering logic
     const filteredShops = shops.filter((shop) => {
-        if (
-            selectedLocation !== "all" &&
-            !(shop.deliveryMethods ?? []).includes(selectedLocation)
-        ) {
+        // Delivery method filter
+        if (selectedDelivery !== "all" && !(shop.deliveryMethods ?? []).includes(selectedDelivery)) {
             return false;
         }
-
-        if (
-            selectedService !== "all" &&
-            !(shop.serviceTypes ?? []).includes(selectedService)
-        ) {
+        // Service filter
+        if (selectedService !== "all" && !(shop.serviceTypes ?? []).includes(selectedService)) {
             return false;
         }
-
+        // Hours filter
         const openNow = isShopOpenNow(shop.openingHours);
-
-        if (selectedHours === "open" && !openNow) return false;
-        if (selectedHours === "close" && openNow) return false;
-
+        if (selectedHours === "open" && !openNow) {
+            return false;
+        }
+        if (selectedHours === "close" && openNow) {
+            return false;
+        }
         return true;
     });
 
     const activeFilterCount =
-        (selectedLocation !== "all" ? 1 : 0) +
+        (selectedDelivery !== "all" ? 1 : 0) +
         (selectedService !== "all" ? 1 : 0) +
         (selectedHours !== "all" ? 1 : 0);
 
     const clearAllFilters = () => {
-        setSelectedLocation("all");
+        setSelectedDelivery("all");
         setSelectedService("all");
         setSelectedHours("all");
     };
@@ -129,8 +128,8 @@ export default function LandingPage() {
                     {/* Mobile Quick Tap Chips (Horizontal Scroll on Mobile) */}
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:hidden scrollbar-none text-xs font-semibold">
                         <button
-                            onClick={() => setSelectedLocation("all")}
-                            className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedLocation === "all"
+                            onClick={() => setSelectedDelivery("all")}
+                            className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedDelivery === "all"
                                 ? "bg-orange-500 text-white shadow-xs font-bold"
                                 : "bg-slate-200/70 text-slate-700 hover:bg-slate-300"
                                 }`}
@@ -139,9 +138,9 @@ export default function LandingPage() {
                         </button>
                         <button
                             onClick={() =>
-                                setSelectedLocation(selectedLocation === "รับที่หน้าร้าน" ? "all" : "รับที่หน้าร้าน")
+                                setSelectedDelivery(selectedDelivery === "รับที่หน้าร้าน" ? "all" : "รับที่หน้าร้าน")
                             }
-                            className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedLocation === "รับที่หน้าร้าน"
+                            className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedDelivery === "รับที่หน้าร้าน"
                                 ? " bg-teal-500 text-white shadow-xs font-bold"
                                 : " bg-[#96f2eb]/60 text-slate-800 hover:bg-[#82e5dd]"
                                 }`}
@@ -149,9 +148,9 @@ export default function LandingPage() {
                         </button>
                         <button
                             onClick={() =>
-                                setSelectedLocation(selectedLocation === "จัดส่งโดยร้าน" ? "all" : "รับที่หน้าร้าน")
+                                setSelectedDelivery(selectedDelivery === "จัดส่งโดยร้าน" ? "all" : "จัดส่งโดยร้าน")
                             }
-                            className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedLocation === "จัดส่งโดยร้าน"
+                            className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedDelivery === "จัดส่งโดยร้าน"
                                 ? "bg-teal-500 text-white shadow-xs font-bold"
                                 : "bg-[#96f2eb]/60 text-slate-800 hover:bg-[#82e5dd]"
                                 }`}
@@ -181,8 +180,8 @@ export default function LandingPage() {
                             <label className="text-xs font-bold text-slate-500 block">การจัดส่ง</label>
                             <div className="relative">
                                 <select
-                                    value={selectedLocation}
-                                    onChange={(e) => setSelectedLocation(e.target.value)}
+                                    value={selectedDelivery}
+                                    onChange={(e) => setSelectedDelivery(e.target.value)}
                                     className="w-full bg-[#96f2eb]/60 text-slate-800 font-bold text-sm rounded-full px-4 py-2.5 appearance-none hover:bg-[#82e5dd] transition focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer pr-10"
                                 >
                                     <option value="all">ทั้งหมด</option>
@@ -203,8 +202,11 @@ export default function LandingPage() {
                                     className="w-full bg-[#96f2eb]/60 text-slate-800 font-bold text-sm rounded-full px-4 py-2.5 appearance-none hover:bg-[#82e5dd] transition focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer pr-10"
                                 >
                                     <option value="all">ทั้งหมด</option>
-                                    <option value="พรินต์สี">พรินต์สี</option>
-                                    <option value="พรินต์ขาว-ดำ">พรินต์ขาว-ดำ</option>
+                                    {allServiceTypes.map((type) => (
+                                        <option key={type} value={type}>
+                                            {type}
+                                        </option>
+                                    ))}
                                 </select>
                                 <ChevronDown className="w-4 h-4 text-slate-600 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
@@ -222,10 +224,6 @@ export default function LandingPage() {
                                     <option value="all">ทั้งหมด</option>
                                     <option value="open">เปิดทำการตอนนี้</option>
                                     <option value="close">ปิดทำการตอนนี้</option>
-                                    <option value="night">เปิดตอนกลางคืน</option>
-                                    <option value="dayall">เปิดทุกวัน</option>
-                                    <option value="weekend">เปิดวันเสาร์-อาทิตย์</option>
-                                    <option value="weekday">เปิดวันจันทร์-ศุกร์</option>
                                 </select>
                                 <ChevronDown className="w-4 h-4 text-slate-600 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
