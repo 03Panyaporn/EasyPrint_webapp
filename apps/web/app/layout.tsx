@@ -11,6 +11,11 @@ const sarabun = Sarabun({
 export const metadata: Metadata = {
   title: "EasyPrint - ร้านถ่ายเอกสารออนไลน์",
   description: "แพลตฟอร์มบริหารจัดการร้านถ่ายเอกสาร สั่งพิมพ์งานออนไลน์สะดวกรวดเร็ว",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
