@@ -11,9 +11,10 @@ export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, set })
     set.status = 400;
     return { error: "ไม่พบไฟล์ที่อัปโหลด" };
   }
-  if (type !== "shop-photo" && type !== "id-card") {
+  const validTypes: UploadType[] = ["shop-photo", "id-card", "service-image", "delivery-logo"];
+  if (!validTypes.includes(type as UploadType)) {
     set.status = 400;
-    return { error: "type ต้องเป็น shop-photo หรือ id-card" };
+    return { error: `type ต้องเป็นหนึ่งใน ${validTypes.join(", ")}` };
   }
 
   try {

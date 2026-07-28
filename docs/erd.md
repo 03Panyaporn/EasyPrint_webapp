@@ -93,6 +93,7 @@
 | price | numeric(10,2) | หน่วยบาท |
 | unit | text | |
 | estimated_time | text | nullable |
+| image_url | text | nullable — public URL จาก Supabase Storage bucket `shop-photos` อัปโหลดผ่าน `POST /uploads` (`type: "service-image"`) |
 | is_active | boolean | default true |
 | created_at | timestamp | |
 

@@ -88,6 +88,7 @@ export const addOnServices = pgTable("addon_services", {
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   unit: text("unit").notNull(),
   estimatedTime: text("estimated_time"),
+  imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

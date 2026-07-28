@@ -25,6 +25,7 @@ export interface AddOnService {
   price: number;
   unit: string; // e.g., "เล่ม", "แผ่น", "ชิ้น"
   estimatedTime?: string; // e.g., "10 นาที"
+  imageUrl?: string;
   isActive: boolean;
 }
 
