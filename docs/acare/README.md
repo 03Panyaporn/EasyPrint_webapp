@@ -197,40 +197,45 @@
 
 ---
 
-## 6. อัปเดตวันที่ 2026-07-26 — หน้า Orders ฝั่งร้านค้า (Shop) เสร็จ + เปิด PR
+## 6. อัปเดตวันที่ 2026-07-26 — หน้า Orders ฝั่งร้านค้า (Shop) เสร็จสมบูรณ์ + เปิด PR
 
-วันนี้ทำหน้า "รายการคำสั่งซื้อ" (`/shop/orders`) ให้ร้านค้าใช้ดู/อัปเดตสถานะออเดอร์ ตั้งแต่ commit โค้ดที่มีอยู่ในเครื่อง (ยังไม่เคยขึ้น GitHub) ไปจนถึงปรับ UX หลายรอบตามฟีดแบ็กจริง แล้วเปิด Pull Request สำเร็จ
+วันนี้ทำหน้า "รายการคำสั่งซื้อ" (`/shop/orders`) ให้ร้านค้าใช้ดู/อัปเดตสถานะออเดอร์ทั้งหน้าจากศูนย์ (ก่อนหน้านี้เป็นแค่ placeholder "Coming Soon") ไล่ตั้งแต่โครงตาราง ไปจนถึงระบบดูไฟล์งาน/สลิปแบบสมจริง ปรับ UX หลายรอบตามฟีดแบ็กจริง แล้ว commit + เปิด Pull Request สำเร็จ
 
 ### 📌 งานที่ทำเสร็จวันนี้
 
-1.  **Commit หน้า Orders ครั้งแรกและเปิด PR**
-    *   สร้าง branch `feat/shop-orders-page`, commit หน้า [apps/web/app/(shop)/shop/orders/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(shop)/shop/orders/page.tsx) พร้อม component ใหม่ 12 ไฟล์ในโฟลเดอร์ [apps/web/components/shop/orders/](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/) (ตาราง, การ์ดสรุปสถานะ, modal รายละเอียด/อัปเดตสถานะ/ยกเลิก, ตัวดูไฟล์+PDF, mock data) รวม 15 ไฟล์ ~1,850 บรรทัด
-    *   Push ขึ้น GitHub และเปิด PR: **[#6](https://github.com/03Panyaporn/EasyPrint_webapp/pull/6)**
+1.  **สร้างหน้า Orders ทั้งหน้า** — [apps/web/app/(shop)/shop/orders/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(shop)/shop/orders/page.tsx) และ component ใหม่ทั้งหมดในโฟลเดอร์ [apps/web/components/shop/orders/](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/) (types, mock data, การ์ดสรุปสถานะ, ตาราง, modal อัปเดตสถานะ/ยกเลิก/รายละเอียด) ใช้ mock data 6 ออเดอร์ตามภาพต้นแบบที่ได้รับมา
+2.  **ระบบดูไฟล์งาน/สลิปโอนเงินแบบสมจริง** — [FilePreviewContent.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/FilePreviewContent.tsx) จำลองสลิปธนาคาร (ใช้ข้อมูลจริงของออเดอร์: ชื่อลูกค้า/ยอด/วันที่/เลขอ้างอิง), หน้าเอกสาร PDF, และกรอบรูปภาพ แทนไอคอนเปล่าๆ — กดที่ thumbnail เปิดดูภาพขยายได้จริง ([FilePreviewLightbox.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/FilePreviewLightbox.tsx)) ส่วนไฟล์ PDF เปิดเป็น **PDF viewer เต็มรูปแบบ** ([PdfViewerLightbox.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/PdfViewerLightbox.tsx)) มี thumbnail รายหน้า, ซูม, พิมพ์จริง (เปิดหน้าต่างพิมพ์), เต็มจอจริง (Fullscreen API), ดาวน์โหลดไฟล์ PDF จริงที่เปิดได้ ([pdfMock.ts](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/pdfMock.ts) สร้างไฟล์ PDF ให้จริงแบบไบต์ต่อไบต์ ไม่ใช่ไฟล์ปลอม)
+3.  **Business logic เฉพาะร้านพิมพ์**
+    *   ออเดอร์ที่เลือก "มารับเองที่ร้าน" ข้ามสถานะ "กำลังจัดส่ง" ไปเลย (ทั้ง flow ปุ่มอัปเดตสถานะและ stepper)
+    *   สลิปโอนเงินโชว์เป็นตัวอย่างจริงในการ์ดอัปเดตสถานะตอน "รอตรวจสอบ" ด้วย เพื่อเทียบยอดก่อนอนุมัติ
+    *   ปุ่ม "ดูที่อยู่" เปิด popup แสดงที่อยู่จัดส่งเต็ม
+    *   ไอคอนหมายเหตุลูกค้า — โชว์เฉพาะออเดอร์ที่มีหมายเหตุจริงเท่านั้น คลิกดู preview ในตาราง หรือดูเต็มในหน้ารายละเอียดออเดอร์
+4.  **ปรับ popup "หมายเหตุ" / "ที่อยู่" ในตาราง** ([OrdersTable.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrdersTable.tsx)) — เดิมเป็น dropdown เล็กๆ โผล่ใต้ปุ่ม อ่านยาก → เปลี่ยนเป็นการ์ด popover ลอยใต้ปุ่ม ปิดเมื่อคลิกนอกกรอบ
+5.  **แก้การ์ดสถานะ/ปุ่มอัปเดตสถานะออเดอร์** ([UpdateStatusModal.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/UpdateStatusModal.tsx), [statusConfig.ts](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/statusConfig.ts))
+    *   แยก case ให้สถานะขยับทีละขั้น: รอตรวจสอบ → รับงานแล้ว → กำลังดำเนินการ → กำลังจัดส่ง (กรณีจัดส่ง) / เสร็จสิ้น (กรณีมารับเอง) → เสร็จสิ้น
+    *   Stepper แยกภาพชัดเจน 3 ระดับ: สถานะที่ผ่านมาแล้ว (เช็คสีอ่อน), **สถานะปัจจุบัน** (มีกรอบไฮไลต์ + ป้าย "ปัจจุบัน" แยกจากสถานะที่ผ่านมาแล้ว), สถานะเป้าหมายถัดไป (พื้นสีทึบ)
+    *   สีปุ่ม/วงกลม step ทุกจุดอิงตามสีประจำสถานะนั้นๆ จาก `statusConfig` แหล่งเดียวกันทั้งระบบ ไม่ใช้สีที่ตั้งเองแยกกัน
+6.  **เพิ่มปุ่ม "ทั้งหมด" ในการ์ดสรุปสถานะ** ([OrderStatusCards.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrderStatusCards.tsx)) — เดิมกดการ์ดสถานะกรองตารางได้ แต่ไม่มีปุ่มกลับมาดูรายการทั้งหมด (ต้องกดการ์ดเดิมซ้ำเพื่อ toggle ปิด ซึ่งไม่มีใครรู้) → เพิ่มการ์ด "ทั้งหมด" เป็นอันแรกสุด กดแล้วเคลียร์ตัวกรองเสมอ
+7.  **ทำให้ปุ่มที่เคยเป็นแค่ตกแต่งใช้งานได้จริงหมด** — เมนูใน PDF viewer ซ่อน/แสดง sidebar จริง, ปุ่มพิมพ์/เต็มจอ/ดาวน์โหลดทำงานจริงตามข้อ 2, ปุ่ม "ดูที่อยู่" เปิด popover จริง (ไม่ใช่ปุ่มเปล่า)
+8.  **Commit หน้า Orders + push + เปิด PR** — สร้าง branch `feat/shop-orders-page` เปิด PR **[#6](https://github.com/03Panyaporn/EasyPrint_webapp/pull/6)** (สถานะปัจจุบัน: **OPEN**, ยังไม่ merge, +1,948/-4 บรรทัด ใน 16 ไฟล์) แบ่งเป็น 2 commit หลัก (`1a82005` งานสร้างหน้าหลัก, `bc6e193` งานปรับปรุงตามข้อ 4–7) และ commit เอกสารสรุปนี้ (`d64bbb0`)
 
-2.  **ปรับ popup "หมายเหตุ" / "ที่อยู่" ในตาราง** ([OrdersTable.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrdersTable.tsx))
-    *   เดิมเป็น dropdown เล็กๆ โผล่ใต้ปุ่ม อ่านยาก → เปลี่ยนเป็นการ์ดลอยกึ่งกลางจอ (fixed + backdrop มืด) มีปุ่มปิด (X) ชัดเจน
+### ❌ ปัญหา/บั๊กที่พบวันนี้และวิธีแก้
 
-3.  **จัดเนื้อหาในตารางให้อยู่กึ่งกลางใต้หัวข้อคอลัมน์** ([OrdersTable.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrdersTable.tsx), [FileThumbnail.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/FileThumbnail.tsx))
-    *   เจอบั๊กเบราว์เซอร์: ปุ่ม (`<button>`) ที่ตั้ง `display:flex` ไม่ยอมขยายเต็มความกว้างเหมือน `<div>`/`<span>` (ปุ่ม/inputs ใช้ขนาดตามเนื้อหาเสมอ ไม่ว่าจะตั้ง display อะไรก็ตาม) ทำให้ `justify-center` ใช้ไม่ได้ผล ต้องแก้ด้วย `mx-auto` แทน
-    *   ตามคำขอภายหลัง ปรับปุ่ม "ดูที่อยู่" กลับไปชิดซ้ายเหมือนเดิม (ส่วนอื่นในคอลัมน์ยังกึ่งกลาง)
-
-4.  **แก้การ์ดสถานะ/ปุ่มอัปเดตสถานะออเดอร์** ([UpdateStatusModal.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/UpdateStatusModal.tsx), [statusConfig.ts](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/statusConfig.ts))
-    *   **เจอบั๊ก logic เดิม:** โค้ดเดิมรวม case `"accepted"` กับ `"in_progress"` ไว้ด้วยกัน ทำให้กดปุ่มจาก "รับงานแล้ว" แล้วสถานะกระโดดข้าม "กำลังดำเนินการ" ไปที่ "กำลังจัดส่ง" ทันที (สังเกตเจอจากรูปหน้าจอที่ผู้ใช้ส่งมา) → แก้แยก case ให้ขยับทีละสถานะ: รอตรวจสอบ → รับงานแล้ว → กำลังดำเนินการ → กำลังจัดส่ง (กรณีจัดส่ง) / เสร็จสิ้น (กรณีมารับเอง) → เสร็จสิ้น
-    *   ปรับวงกลม step ให้: สถานะปัจจุบัน = พื้นสีเข้มเต็มวง + ติ๊กถูก, สถานะถัดไป = ขอบหนา + เงา 3 มิติ + ขยายเล็กน้อยให้เด่น, สถานะที่เหลือ = วงกลมเทาเรียบ
-    *   ชื่อปุ่มกดหลักเปลี่ยนให้ตรงกับชื่อสถานะถัดไปเป๊ะๆ (ลบ label ที่พิมพ์เองซ้ำซ้อนออก ใช้ `statusConfig[nextStatus].label` แทน) และสีทุกจุด (ปุ่ม, วงกลม step ถัดไป) อิงตามสีประจำของสถานะนั้นๆ เอง
-    *   ทดสอบเดินผ่านทุก transition จริงในเบราว์เซอร์ (ทั้งกรณีจัดส่งและมารับเองที่ร้าน) ผ่านหมด
-
-5.  **เพิ่มปุ่ม "ทั้งหมด" ในการ์ดสรุปสถานะ** ([OrderStatusCards.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrderStatusCards.tsx))
-    *   เดิมกดการ์ดสถานะเพื่อกรองตารางได้ แต่ไม่มีปุ่มกลับมาดูรายการทั้งหมด (ต้องกดการ์ดเดิมซ้ำเพื่อ toggle ปิด ซึ่งไม่มีใครรู้) → เพิ่มการ์ด "ทั้งหมด" เป็นอันแรกสุด กดแล้วเคลียร์ตัวกรองเสมอ
-
-6.  Commit ที่ 2 ของวันนี้รวมข้อ 2–5 ไว้ด้วยกัน push ขึ้น branch เดิม ทำให้ PR #6 อัปเดตอัตโนมัติ (ไม่ต้องเปิด PR ใหม่)
+1.  **`<button display:flex>` ไม่ยอมขยายเต็มความกว้างเหมือน `<div>`/`<span>`** — ปุ่ม/inputs ใช้ขนาดตามเนื้อหาเสมอไม่ว่าจะตั้ง display อะไร ทำให้ `justify-center` ของ parent ไม่ได้ผล → แก้ด้วย `mx-auto` ที่ตัวปุ่มแทน ([FileThumbnail.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/FileThumbnail.tsx))
+2.  **Logic เดิมรวม case `"accepted"` กับ `"in_progress"` ไว้ด้วยกัน** ทำให้กดปุ่มจาก "รับงานแล้ว" แล้วสถานะกระโดดข้าม "กำลังดำเนินการ" ไปที่ "กำลังจัดส่ง" ทันที (สังเกตเจอจากภาพหน้าจอที่ผู้ใช้ส่งมา) → แก้แยก case ให้ขยับทีละสถานะ
+3.  **Stepper ไม่แยกภาพ "สถานะปัจจุบัน" ออกจาก "สถานะที่ผ่านมาแล้ว"** — ทำให้ดูเหมือนออเดอร์ไปถึงขั้นที่ยังไปไม่ถึงจริง (เจอจากภาพหน้าจอ) → เพิ่ม state แยก 3 ระดับตามข้อ 5 ด้านบน
+4.  **Mock data มี `ref` ซ้ำกัน** (#0003 และ #0005 ใช้ `ORD-20260516-B0F2` เดียวกัน) และที่อยู่จัดส่งมีเครื่องหมาย `...` ฝังอยู่ในข้อมูลจริง ทำให้ปุ่ม "ดูที่อยู่" กดแล้วไม่เห็นอะไรเพิ่ม → แก้ให้แต่ละออเดอร์มี ref ไม่ซ้ำ และใส่ที่อยู่เต็มจริงแทน
+5.  **Mock data ขัดกับกฎธุรกิจ** — ออเดอร์ที่ตั้งเป็น "มารับเองที่ร้าน" บางรายการมีสถานะ "กำลังจัดส่ง" ซึ่งไม่ควรเกิดขึ้น (มารับเองไม่มีจัดส่ง) → แก้ทั้ง logic การเปลี่ยนสถานะและข้อมูลตัวอย่างให้สอดคล้องกัน
+6.  **Webpack dev-cache เสียหายระหว่างแก้ไฟล์ต่อเนื่องเร็วๆ** (`ENOENT: rename ...pack.gz_` แล้วตามด้วย `ReferenceError`/`__webpack_require__.C is not a function`) — reload หน้าเว็บอย่างเดียวไม่หาย ต้องหยุดและรัน dev server ใหม่ทั้งหมด (เกิด 2 ครั้งระหว่างวัน ไม่เกี่ยวกับโค้ดที่แก้)
+7.  **React Fast Refresh (HMR) แจ้ง warning "useEffect deps array changed size"** หลังลบ prop `initialReason` ออกจาก `CancelOrderModal` — เป็นแค่ของเก่าที่ค้างจาก HMR ไม่ใช่บั๊กจริงในโค้ด แก้ด้วยการ restart dev server เหมือนข้อ 6
 
 ### 📌 การติดตั้งเพิ่มเติม / สิ่งที่เพื่อนร่วมทีมต้องทำหลัง pull
 
-**ไม่มี** — งานวันนี้เป็นการแก้ไฟล์ React/Tailwind ที่มีอยู่แล้วทั้งหมด ไม่มีแพ็กเกจใหม่ ไม่มีตัวแปร env ใหม่ ไม่มีการแก้ฐานข้อมูล ดึงโค้ดแล้วรัน `bun run dev:web` ตามขั้นตอนเดิมในหัวข้อ 3 ได้เลย
+**ไม่มี** — งานวันนี้ทั้งหมดเป็นไฟล์ React/Tailwind ในฝั่ง `apps/web` เท่านั้น ไม่มีแพ็กเกจใหม่ (ใช้ `lucide-react` ที่มีอยู่แล้ว), ไม่มีตัวแปร env ใหม่, ไม่มีการแก้ฐานข้อมูล ดึงโค้ดแล้วรัน `bun run dev:web` ตามขั้นตอนเดิมในหัวข้อ 3 ได้เลย
 
 ### 🔲 สิ่งที่ยังไม่เสร็จ (เฉพาะส่วน Orders)
 
+*   **ยังไม่ต่อ backend จริง** — ทั้งหมดยังเป็น mock data ฝั่ง frontend ล้วนๆ ยังไม่มี endpoint list/update-status/cancel/approve-payment จริง, ยังไม่ขยาย `order_status` enum ใน DB, ยังไม่มี auto-gen เลขคำสั่งซื้อจริง
 *   ยังไม่มี automated test ให้หน้า Orders/component ที่เกี่ยวข้อง — ตรวจสอบด้วยการรันจริงในเบราว์เซอร์ (manual) เท่านั้น
 *   PR #6 ยังไม่ถูก review/merge
 *   repo นี้ยังไม่มี GitHub Actions (`.github/workflows`) เลย ดังนั้น PR #6 (และ PR อื่นๆ) จะไม่มี CI ตรวจ lint/build ให้อัตโนมัติ
