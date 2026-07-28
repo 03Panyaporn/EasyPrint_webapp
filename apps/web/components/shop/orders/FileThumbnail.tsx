@@ -53,7 +53,6 @@ export default function FileThumbnail({ order, kind, size = "sm", onClick }: Fil
         <p className={`text-[11px] font-medium text-gray-700 truncate ${textWidth[size]}`}>
           {file.name}
         </p>
-        <p className="text-[10px] text-gray-400">({file.sizeLabel})</p>
       </div>
     </button>
   );

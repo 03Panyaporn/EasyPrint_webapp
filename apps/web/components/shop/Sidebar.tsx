@@ -60,7 +60,6 @@ const navItems: NavItem[] = [
     label: "รายการคำสั่งซื้อ",
     href: "/shop/orders",
     icon: ShoppingBag,
-    futureDropdown: true,
   },
   {
     kind: "leaf",
@@ -258,7 +257,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const content = (
     <div
       className={`flex flex-col h-full bg-white border-r border-gray-100 transition-all duration-300 ${
-        collapsed ? "w-[72px]" : "w-64"
+        collapsed ? "w-[72px]" : "w-[184px]"
       }`}
     >
       {/* Logo + toggle */}
