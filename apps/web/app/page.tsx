@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Printer,
   MapPin,
   Clock,
-  Star,
   ChevronDown,
   Phone,
   Mail,
@@ -17,46 +16,57 @@ import {
   User,
   Store,
 } from "lucide-react";
-import { MOCK_SHOPS, type Shop } from "./shopData";
+import { getShops, type PublicShopListItem } from "@/lib/api/shops";
+import { isShopOpenNow, formatTodayHours } from "@/lib/shopHours";
 
 export default function LandingPage() {
-  const [selectedLocation, setSelectedLocation] = useState<string>("all");
+  const [shops, setShops] = useState<PublicShopListItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedDelivery, setSelectedDelivery] = useState<string>("all");
   const [selectedService, setSelectedService] = useState<string>("all");
   const [selectedHours, setSelectedHours] = useState<string>("all");
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
   const [registerModalOpen, setRegisterModalOpen] = useState<boolean>(false);
 
+  useEffect(() => {
+    getShops()
+      .then((res) => setShops(res.shops))
+      .catch(() => setShops([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // รายการ "ประเภทงาน" ในตัวกรอง มาจากบริการจริงที่ร้านที่อนุมัติแล้วให้บริการเท่านั้น
+  const allServiceTypes = [...new Set(shops.flatMap((shop) => shop.serviceTypes ?? []))];
+
   // Dynamic filtering logic
-  const filteredShops = MOCK_SHOPS.filter((shop) => {
-    // Location filter
-    if (selectedLocation === "in_campus" && shop.locationCategory !== "in_campus") {
-      return false;
-    }
-    if (selectedLocation === "off_campus" && shop.locationCategory !== "off_campus") {
+  const filteredShops = shops.filter((shop) => {
+    // Delivery method filter
+    if (selectedDelivery !== "all" && !(shop.deliveryMethods ?? []).includes(selectedDelivery)) {
       return false;
     }
     // Service filter
-    if (selectedService !== "all" && !shop.services.includes(selectedService)) {
+    if (selectedService !== "all" && !(shop.serviceTypes ?? []).includes(selectedService)) {
       return false;
     }
     // Hours filter
-    if (selectedHours === "open" && !shop.isOpen) {
+    const openNow = isShopOpenNow(shop.openingHours);
+    if (selectedHours === "open" && !openNow) {
       return false;
     }
-    if (selectedHours === "close" && shop.isOpen) {
+    if (selectedHours === "close" && openNow) {
       return false;
     }
     return true;
   });
 
   const activeFilterCount =
-    (selectedLocation !== "all" ? 1 : 0) +
+    (selectedDelivery !== "all" ? 1 : 0) +
     (selectedService !== "all" ? 1 : 0) +
     (selectedHours !== "all" ? 1 : 0);
 
   const clearAllFilters = () => {
-    setSelectedLocation("all");
+    setSelectedDelivery("all");
     setSelectedService("all");
     setSelectedHours("all");
   };
@@ -194,8 +204,8 @@ export default function LandingPage() {
           {/* Mobile Quick Tap Chips (Horizontal Scroll on Mobile) */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:hidden scrollbar-none text-xs font-semibold">
             <button
-              onClick={() => setSelectedLocation("all")}
-              className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedLocation === "all"
+              onClick={() => setSelectedDelivery("all")}
+              className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedDelivery === "all"
                 ? "bg-orange-500 text-white shadow-xs font-bold"
                 : "bg-slate-200/70 text-slate-700 hover:bg-slate-300"
                 }`}
@@ -204,9 +214,9 @@ export default function LandingPage() {
             </button>
             <button
               onClick={() =>
-                setSelectedLocation(selectedLocation === "in_campus" ? "all" : "in_campus")
+                setSelectedDelivery(selectedDelivery === "รับที่หน้าร้าน" ? "all" : "รับที่หน้าร้าน")
               }
-              className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedLocation === "in_campus"
+              className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedDelivery === "รับที่หน้าร้าน"
                 ? "bg-teal-500 text-white shadow-xs font-bold"
                 : "bg-[#96f2eb]/60 text-slate-800 hover:bg-[#82e5dd]"
                 }`}
@@ -215,9 +225,9 @@ export default function LandingPage() {
             </button>
             <button
               onClick={() =>
-                setSelectedLocation(selectedLocation === "off_campus" ? "all" : "off_campus")
+                setSelectedDelivery(selectedDelivery === "จัดส่งโดยร้าน" ? "all" : "จัดส่งโดยร้าน")
               }
-              className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedLocation === "off_campus"
+              className={`px-3.5 py-1.5 rounded-full shrink-0 transition ${selectedDelivery === "จัดส่งโดยร้าน"
                 ? "bg-teal-500 text-white shadow-xs font-bold"
                 : "bg-[#96f2eb]/60 text-slate-800 hover:bg-[#82e5dd]"
                 }`}
@@ -247,13 +257,13 @@ export default function LandingPage() {
               <label className="text-xs font-bold text-slate-500 block">การจัดส่ง</label>
               <div className="relative">
                 <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  value={selectedDelivery}
+                  onChange={(e) => setSelectedDelivery(e.target.value)}
                   className="w-full bg-[#96f2eb]/60 text-slate-800 font-bold text-sm rounded-full px-4 py-2.5 appearance-none hover:bg-[#82e5dd] transition focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer pr-10"
                 >
                   <option value="all">ทั้งหมด</option>
-                  <option value="in_campus">รับเอง</option>
-                  <option value="off_campus">ร้านจัดส่งให้</option>
+                  <option value="รับที่หน้าร้าน">รับเอง</option>
+                  <option value="จัดส่งโดยร้าน">ร้านจัดส่งให้</option>
                 </select>
                 <ChevronDown className="w-4 h-4 text-slate-600 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -269,8 +279,11 @@ export default function LandingPage() {
                   className="w-full bg-[#96f2eb]/60 text-slate-800 font-bold text-sm rounded-full px-4 py-2.5 appearance-none hover:bg-[#82e5dd] transition focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer pr-10"
                 >
                   <option value="all">ทั้งหมด</option>
-                  <option value="พรินต์สี">พรินต์สี</option>
-                  <option value="พรินต์ขาว-ดำ">พรินต์ขาว-ดำ</option>
+                  {allServiceTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-slate-600 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -288,10 +301,6 @@ export default function LandingPage() {
                   <option value="all">ทั้งหมด</option>
                   <option value="open">เปิดทำการตอนนี้</option>
                   <option value="close">ปิดทำการตอนนี้</option>
-                  <option value="night">เปิดตอนกลางคืน</option>
-                  <option value="dayall">เปิดทุกวัน</option>
-                  <option value="weekend">เปิดวันเสาร์-อาทิตย์</option>
-                  <option value="weekday">เปิดวันจันทร์-ศุกร์</option>
                 </select>
                 <ChevronDown className="w-4 h-4 text-slate-600 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -313,85 +322,90 @@ export default function LandingPage() {
         </div>
 
         {/* Shop Grid */}
-        {filteredShops.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
+            <p className="text-slate-500 font-semibold text-xs sm:text-base">กำลังโหลดร้านค้า...</p>
+          </div>
+        ) : filteredShops.length === 0 ? (
           <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 space-y-3">
             <p className="text-slate-500 font-semibold text-xs sm:text-base">
-              ไม่พบร้านค้าที่ตรงตามเงื่อนไขที่เลือก
+              {shops.length === 0
+                ? "ยังไม่มีร้านค้าที่เปิดให้บริการในขณะนี้"
+                : "ไม่พบร้านค้าที่ตรงตามเงื่อนไขที่เลือก"}
             </p>
-            <button
-              onClick={clearAllFilters}
-              className="text-orange-500 font-bold text-xs sm:text-sm underline hover:text-orange-600"
-            >
-              ล้างตัวกรองทั้งหมด
-            </button>
+            {shops.length > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-orange-500 font-bold text-xs sm:text-sm underline hover:text-orange-600"
+              >
+                ล้างตัวกรองทั้งหมด
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
-            {filteredShops.map((shop) => (
-              <div
-                key={shop.id}
-                className="group border-2 border-orange-300 hover:border-orange-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 bg-white shadow-xs hover:shadow-md transition-all flex flex-row gap-3 sm:gap-5 relative overflow-hidden"
-              >
-                {/* Shop Image Box (Compact Square on Mobile & Desktop) */}
-                <div className="w-24 sm:w-36 h-24 sm:h-36 bg-slate-200 rounded-xl sm:rounded-2xl shrink-0 flex items-center justify-center relative overflow-hidden group-hover:scale-[1.02] transition">
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
-                    <Printer className="w-8 h-8 sm:w-12 sm:h-12 text-slate-400/70" />
-                  </div>
-                </div>
-
-                {/* Shop Details Right Side */}
-                <div className="flex-1 flex flex-col justify-between space-y-1 sm:space-y-2 overflow-hidden">
-                  <div className="flex items-start justify-between gap-1.5">
-                    <h3 className="text-base sm:text-2xl font-black text-orange-500 group-hover:text-orange-600 transition truncate">
-                      {shop.name}
-                    </h3>
-                    <span
-                      className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full flex items-center gap-1 shrink-0 ${shop.isOpen
-                        ? "bg-emerald-500 text-white shadow-xs"
-                        : "bg-slate-400 text-white"
-                        }`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                      {shop.isOpen ? "เปิดทำการ" : "ปิดทำการ"}
-                    </span>
+            {filteredShops.map((shop) => {
+              const openNow = isShopOpenNow(shop.openingHours);
+              return (
+                <div
+                  key={shop.id}
+                  className="group border-2 border-orange-300 hover:border-orange-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 bg-white shadow-xs hover:shadow-md transition-all flex flex-row gap-3 sm:gap-5 relative overflow-hidden"
+                >
+                  {/* Shop Image Box (Compact Square on Mobile & Desktop) */}
+                  <div className="w-24 sm:w-36 h-24 sm:h-36 bg-slate-200 rounded-xl sm:rounded-2xl shrink-0 flex items-center justify-center relative overflow-hidden group-hover:scale-[1.02] transition">
+                    {shop.shopPhotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={shop.shopPhotoUrl}
+                        alt={shop.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
+                        <Printer className="w-8 h-8 sm:w-12 sm:h-12 text-slate-400/70" />
+                      </div>
+                    )}
                   </div>
 
-                  {/* Service Badge */}
-                  <div>
-                    <span className="inline-block bg-[#96f2eb]/70 text-slate-700 text-[10px] sm:text-xs font-bold px-2.5 py-0.5 sm:px-3.5 sm:py-1 rounded-full truncate max-w-full">
-                      {shop.services}
-                    </span>
-                  </div>
-
-                  {/* Location & Operating Hours */}
-                  <div className="space-y-0.5 sm:space-y-1 text-[11px] sm:text-sm text-slate-600 font-medium">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
-                      <span className="truncate">{shop.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
-                      <span className="truncate">{shop.operatingHours}</span>
-                    </div>
-                  </div>
-
-                  {/* Ratings & Tax Invoice Badge */}
-                  <div className="flex items-center justify-between gap-1 pt-1 sm:pt-2 border-t border-slate-100">
-                    <div className="flex items-center gap-0.5 sm:gap-1">
-                      {[...Array(5)].map((_, idx) => (
-                        <Star
-                          key={idx}
-                          className="w-3 h-3 sm:w-4 sm:h-4 fill-amber-400 text-amber-400"
-                        />
-                      ))}
-                      <span className="text-[10px] sm:text-xs font-bold text-slate-600 ml-1">
-                        ({shop.reviewCount})
+                  {/* Shop Details Right Side */}
+                  <div className="flex-1 flex flex-col justify-between space-y-1 sm:space-y-2 overflow-hidden">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <h3 className="text-base sm:text-2xl font-black text-orange-500 group-hover:text-orange-600 transition truncate">
+                        {shop.name}
+                      </h3>
+                      <span
+                        className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full flex items-center gap-1 shrink-0 ${openNow
+                          ? "bg-emerald-500 text-white shadow-xs"
+                          : "bg-slate-400 text-white"
+                          }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        {openNow ? "เปิดทำการ" : "ปิดทำการ"}
                       </span>
                     </div>
+
+                    {/* Service Badge */}
+                    <div>
+                      <span className="inline-block bg-[#96f2eb]/70 text-slate-700 text-[10px] sm:text-xs font-bold px-2.5 py-0.5 sm:px-3.5 sm:py-1 rounded-full truncate max-w-full">
+                        {(shop.serviceTypes ?? []).join(", ") || "-"}
+                      </span>
+                    </div>
+
+                    {/* Location & Operating Hours */}
+                    <div className="space-y-0.5 sm:space-y-1 text-[11px] sm:text-sm text-slate-600 font-medium">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
+                        <span className="truncate">{shop.address ?? "-"}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
+                        <span className="truncate">{formatTodayHours(shop.openingHours)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

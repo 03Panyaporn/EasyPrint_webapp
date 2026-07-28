@@ -59,6 +59,7 @@ const addOnServiceBaseSchema = z.object({
   price: z.number().nonnegative(),
   unit: serviceUnitSchema,
   estimatedTime: estimatedTimeSchema.optional(),
+  imageUrl: z.string().url().optional(),
   isActive: z.boolean().default(true),
 });
 

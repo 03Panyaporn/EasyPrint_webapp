@@ -1,0 +1,1 @@
+ALTER TABLE "addon_services" ADD COLUMN "image_url" text;
