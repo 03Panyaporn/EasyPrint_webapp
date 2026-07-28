@@ -7,7 +7,7 @@ import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 
 const ROLE_HOME: Record<string, string> = {
-  customer: "/orders",
+  customer: "/Dashboard",
   shop_owner: "/shop",
   admin: "/admin",
 };
@@ -42,9 +42,10 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-800 antialiased flex flex-col lg:flex-row relative overflow-hidden">
-      
+
       {/* Inject custom CSS keyframe animations for floating 3D spheres */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes float-slow {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
           50% { transform: translateY(-25px) rotate(4deg); }
@@ -120,7 +121,7 @@ export default function LoginPage() {
 
         {/* Card Container */}
         <div className="w-full max-w-[480px] bg-white rounded-[24px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.15),0_10px_28px_-10px_rgba(244,106,47,0.15)] p-8 sm:p-10 space-y-8 my-auto relative z-10">
-          
+
           {/* Brand Logo for mobile only */}
           <div className="flex lg:hidden items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F46A2F] to-[#FFB273] flex items-center justify-center text-white font-extrabold shadow-lg shadow-[#F46A2F]/10">
@@ -135,7 +136,7 @@ export default function LoginPage() {
           </div>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
-            
+
             {/* Email Input */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-2">อีเมล</label>
@@ -220,11 +221,10 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!isFormValid || isSubmitting}
-                className={`w-full py-3.5 font-bold rounded-full shadow-lg transition-all duration-300 ${
-                  isFormValid && !isSubmitting
+                className={`w-full py-3.5 font-bold rounded-full shadow-lg transition-all duration-300 ${isFormValid && !isSubmitting
                     ? "bg-[#F46A2F] text-white hover:bg-[#E05B22] hover:-translate-y-0.5 active:translate-y-0 shadow-[#F46A2F]/20 cursor-pointer"
                     : "bg-slate-300 text-white cursor-not-allowed"
-                }`}
+                  }`}
               >
                 {isSubmitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
               </button>
