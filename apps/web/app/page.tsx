@@ -22,6 +22,7 @@ import { isShopOpenNow, formatTodayHours } from "@/lib/shopHours";
 export default function LandingPage() {
   const [shops, setShops] = useState<PublicShopListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string>("");
   const [selectedDelivery, setSelectedDelivery] = useState<string>("all");
   const [selectedService, setSelectedService] = useState<string>("all");
   const [selectedHours, setSelectedHours] = useState<string>("all");
@@ -32,7 +33,10 @@ export default function LandingPage() {
   useEffect(() => {
     getShops()
       .then((res) => setShops(res.shops))
-      .catch(() => setShops([]))
+      .catch((err) => {
+        console.error("โหลดรายชื่อร้านค้าไม่สำเร็จ:", err);
+        setLoadError("โหลดรายชื่อร้านค้าไม่สำเร็จ — เช็คว่า API รันอยู่หรือไม่ (ดู console สำหรับรายละเอียด)");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -325,6 +329,13 @@ export default function LandingPage() {
         {loading ? (
           <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
             <p className="text-slate-500 font-semibold text-xs sm:text-base">กำลังโหลดร้านค้า...</p>
+          </div>
+        ) : loadError ? (
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-1">
+            <p className="text-red-500 font-semibold text-xs sm:text-base">{loadError}</p>
+            <p className="text-slate-400 text-[11px] sm:text-xs">
+              ถ้าเพิ่งดึงโค้ดมาใหม่ ให้เช็คว่ารัน API (`bun dev:api`) อยู่ และ `.env` ตั้งค่าถูกต้อง
+            </p>
           </div>
         ) : filteredShops.length === 0 ? (
           <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 space-y-3">

@@ -34,13 +34,17 @@
   - *Feature พิเศษ:* รองรับการยุบ Sidebar เหลือเฉพาะไอคอน (Collapse mode) พร้อม Tooltip และเปลี่ยนเป็น Drawer เลื่อนบนมือถือ
 * **`Topbar.tsx`**: แถบบนมีช่องค้นหา, ปุ่มแจ้งเตือน (Badge ตัวเลข 3), และ Dropdown โปรไฟล์ "ร้าน EasyPrint" (โปรไฟล์/ตั้งค่า/ออกจากระบบ)
 ### 2. หน้า "บริการและราคา" (Services & Pricing Portal — /shop/services)
-* **`ServicesTabs.tsx`**: ตัวควบคุม 3 แท็บ (**บริการหลัก**, **บริการเสริม**, **ตั้งค่าการจัดส่ง**) พร้อม Badge แสดงจำนวนรายการและเส้นใต้ไฮไลต์สีส้ม
-* **`MainServicesTable.tsx`**: ตารางบริการหลัก แสดงขนาดกระดาษ, สี, ราคา/หน่วย, เวลาทำการ, จำนวนบริการเสริมที่ผูกไว้, สวิตช์ เปิด/ปิด, ปุ่มแก้ไข/ลบ, ช่องค้นหา และ Pagination
-* **`AddOnServicesTable.tsx`**: ตารางบริการเสริมสำหรับตัวเลือกเพิ่มเติม (เข้าเล่ม, เคลือบเอกสาร ฯลฯ)
-* **`DeliverySettingsTable.tsx`**: ตารางตั้งค่าการจัดส่ง พร้อม Banner Toggle เปิด/ปิดระบบจัดส่งทั้งหมด, อัตราค่าจัดส่งเริ่มต้น และเงื่อนไขส่งฟรีเมื่อซื้อขั้นต่ำ
-* **`AddServiceModal.tsx`**: โมดัล เพิ่ม/แก้ไข บริการ (ใช้ร่วมกันทั้งบริการหลักและเสริม) มี Radio สลับประเภท, ฟิลด์ dynamic, การผูกบริการเสริมพร้อมกรอกราคาบวกเพิ่ม (extraPrice) และตารางสรุปแบบเรียลไทม์
-* **`AddDeliveryModal.tsx`**: โมดัล เพิ่ม/แก้ไข ประเภทการจัดส่ง
-* **`types.ts` & `services-mock.ts`**: Data Models (`MainService`, `AddOnService`, `DeliveryOption`) และ Mock Data เริ่มต้น
+
+> ⚠️ **อัปเดต:** ตอนแรกหน้านี้ทั้งหมดต่อกับ mock data ล้วนๆ (`services-mock.ts`) ยังไม่เคยเรียก backend เลย — ตอนนี้**ต่อกับ Supabase จริงครบทั้ง 3 ตารางแล้ว** (ดูหัวข้อ "ต่อหน้า /shop/services เข้ากับ backend จริง" ด้านล่าง) ไฟล์ `services-mock.ts` ถูกลบทิ้งแล้วเพราะไม่มีที่ไหนใช้
+
+* **`ServicesTabs.tsx`**: ตัวควบคุม 3 แท็บ (**บริการหลัก**, **บริการเสริม**, **ตั้งค่าการจัดส่ง**) พร้อม Badge แสดงจำนวนรายการจริงจาก Supabase และเส้นใต้ไฮไลต์สีส้ม
+* **`MainServicesTable.tsx`**: ตารางบริการหลัก (map ตรงกับ DB table `main_services`) แสดงขนาดกระดาษ, สี, ราคา/หน่วย, เวลาทำการ, จำนวนบริการเสริมที่ผูกไว้, สวิตช์ เปิด/ปิด, ปุ่มแก้ไข/ลบ, ช่องค้นหา และ Pagination — ข้อมูลดึงจาก `GET /shops/:shopId/services` จริง แก้ไข/ลบ/เปิดปิด เรียก `PATCH`/`DELETE` จริงทุกครั้ง
+* **`AddOnServicesTable.tsx`**: ตารางบริการเสริม (map ตรงกับ DB table `addon_services`) สำหรับตัวเลือกเพิ่มเติม (เข้าเล่ม, เคลือบเอกสาร ฯลฯ) — ต่อกับ `GET/POST/PATCH/DELETE /shops/:shopId/addons` จริงเหมือนกัน
+* **`DeliverySettingsTable.tsx`**: ตารางตั้งค่าการจัดส่ง (map ตรงกับ DB table `delivery_options`) พร้อม Banner Toggle เปิด/ปิดระบบจัดส่งทั้งหมด (ค่านี้ยังเป็น UI state อย่างเดียว ยังไม่มี endpoint ให้ร้านค้า toggle `shops.delivery_enabled` เอง — ดู TODO ใน `docs/erd.md`), อัตราค่าจัดส่งเริ่มต้น และเงื่อนไขส่งฟรีเมื่อซื้อขั้นต่ำ — ต่อกับ `GET/POST/PATCH/DELETE /shops/:shopId/delivery-options` จริง
+* **`AddServiceModal.tsx`**: โมดัล เพิ่ม/แก้ไข บริการ (ใช้ร่วมกันทั้งบริการหลักและเสริม) มี Radio สลับประเภท, ฟิลด์ dynamic, การผูกบริการเสริมพร้อมกรอกราคาบวกเพิ่ม (extraPrice), ตารางสรุปแบบเรียลไทม์, และ**อัปโหลดรูปภาพจริง**ผ่าน `POST /uploads` (`type: "service-image"`) ขึ้น Supabase Storage bucket `shop-photos` ก่อนบันทึก
+* **`AddDeliveryModal.tsx`**: โมดัล เพิ่ม/แก้ไข ประเภทการจัดส่ง พร้อม**อัปโหลดโลโก้จริง**ผ่าน `POST /uploads` (`type: "delivery-logo"`)
+* **`types.ts`**: Data Models (`MainService`, `AddOnService`, `DeliveryOption`) — shape ตรงกับสิ่งที่ backend serializer คืนมาพอดี (ดูฟังก์ชัน `serializeMainService`/`serializeAddOnService`/`serializeDeliveryOption` ใน `apps/api/src/routes/services.ts`) เพื่อให้ frontend ใช้ type เดียวกันได้เลยไม่ต้อง map ซ้ำ
+* **`lib/api/services.ts`** (ของใหม่): รวมฟังก์ชันเรียก backend ทั้งหมดของหน้านี้ (`getMyShop`, `get/create/update/delete` ครบ 3 กลุ่ม) — หน้า `page.tsx` เรียกใช้ไฟล์นี้ทั้งหมด ไม่ mutate state ตรงๆ เหมือนเดิมอีกต่อไป
 
 ---
 
@@ -131,11 +135,11 @@
 
 สร้าง shop/user ปลอมชั่วคราว → ยิง curl ทดสอบ CRUD ครบทั้ง 3 resource, ทดสอบ cascade delete (ลบ addon แล้ว binding หายจากบริการหลักอัตโนมัติจริง), ทดสอบ duplicate-name ถูกบล็อกที่ server, ทดสอบ shop-scoping (ใช้ `shopId` ผิดแล้วได้ 404 ไม่ใช่แก้ข้ามร้านได้) → ลบข้อมูลทดสอบออกหมดหลังเสร็จ เช็คซ้ำแล้วว่าทุกตารางว่าง 0 แถว ไม่มีอะไรตกค้าง
 
-### 5. สิ่งที่ยังไม่ได้ทำตอนแรก (อัปเดต: ข้อ Auth/JWT ทำเสร็จแล้ว ดูข้อ 6-7 ด้านล่าง)
+### 5. สิ่งที่ยังไม่ได้ทำตอนแรก (อัปเดต: ทำครบทั้ง 3 ข้อแล้ว ดูข้อ 6-7 และ 29-31 ด้านล่าง)
 
 * ~~Auth/JWT — endpoint แก้ไข/ลบยังไม่เช็คว่าผู้เรียกเป็นเจ้าของร้านจริง~~ ✅ ปิดแล้ว (ดูข้อ 6)
-* ยังไม่ต่อ Frontend เข้ากับ API จริง (หน้า `/shop/services` ยังใช้ mock data ในเครื่อง `useState`)
-* ยังไม่มีระบบอัปโหลดรูปภาพจริง (กล่องอัปโหลดในฟอร์มยังเป็น mock UI เฉยๆ)
+* ~~ยังไม่ต่อ Frontend เข้ากับ API จริง (หน้า `/shop/services` ยังใช้ mock data ในเครื่อง `useState`)~~ ✅ ต่อครบแล้ว (ดูข้อ 29-30)
+* ~~ยังไม่มีระบบอัปโหลดรูปภาพจริง (กล่องอัปโหลดในฟอร์มยังเป็น mock UI เฉยๆ)~~ ✅ อัปโหลดจริงครบทั้งบริการหลัก/บริการเสริม/โลโก้จัดส่งแล้ว (ดูข้อ 31-32)
 
 ---
 
