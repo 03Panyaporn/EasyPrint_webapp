@@ -1,4 +1,4 @@
-import { Check, Image as ImageIcon } from "lucide-react";
+import { ArrowDown, Landmark, QrCode, Image as ImageIcon } from "lucide-react";
 import { Order, OrderFileAttachment } from "./types";
 
 export const MOCK_WIDTH = 288; // = w-72 (18rem) — ความกว้างอ้างอิงสำหรับคำนวณ scale ตอนย่อเป็น thumbnail
@@ -17,39 +17,85 @@ function pickGradient(seed: string) {
   return imageGradients[hash % imageGradients.length];
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-gray-400 shrink-0">{label}</span>
-      <span className="text-gray-800 font-medium text-right truncate">{value}</span>
-    </div>
-  );
-}
-
-/** ตัวอย่างสลิปโอนเงิน — สไตล์แอปธนาคารทั่วไป ใช้ข้อมูลจริงของออเดอร์ประกอบ */
+/** ตัวอย่างสลิปโอนเงิน — จำลองสไตล์แอปธนาคาร (พื้นหลังฟ้า, วงกลมธนาคาร/พร้อมเพย์, QR) ด้วยข้อมูลสมมติ ไม่ใช่แบรนด์หรือข้อมูลจริง */
 export function SlipMock({ order }: { order: Order }) {
   return (
-    <div style={{ width: MOCK_WIDTH }} className="rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 select-none">
-      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-5 pt-6 pb-7 text-white text-center">
-        <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-2">
-          <Check size={22} />
+    <div
+      style={{ width: MOCK_WIDTH }}
+      className="rounded-2xl overflow-hidden shadow-lg select-none bg-gradient-to-b from-sky-200 to-sky-100"
+    >
+      <div className="px-4 pt-4 pb-4">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start gap-2">
+            <div className="w-1 self-stretch rounded-full bg-emerald-600" />
+            <div>
+              <p className="text-sm font-bold text-gray-800">โอนเงินสำเร็จ</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">{order.createdAtLabel} น.</p>
+            </div>
+          </div>
+          <div className="flex items-center text-emerald-700 font-extrabold text-sm tracking-tight">
+            PAY<span className="text-orange-500">+</span>
+          </div>
         </div>
-        <p className="text-xs font-medium opacity-90">โอนเงินสำเร็จ</p>
-        <p className="text-3xl font-bold mt-1 tracking-tight">
-          {order.price.toLocaleString()}
-          <span className="text-lg">.00</span>
-        </p>
-        <p className="text-[11px] opacity-80">บาท</p>
-      </div>
-      <div className="px-5 py-4 space-y-2.5 text-xs">
-        <Row label="จาก" value={order.customerName} />
-        <Row label="ไปยัง" value="ร้าน EasyPrint" />
-        <div className="border-t border-dashed border-gray-200 my-1" />
-        <Row label="วันที่ทำรายการ" value={order.createdAtLabel} />
-        <Row label="เลขที่อ้างอิง" value={order.ref} />
-      </div>
-      <div className="px-5 pb-5">
-        <div className="h-8 rounded bg-[repeating-linear-gradient(90deg,#1f2937_0,#1f2937_2px,transparent_2px,transparent_5px)] opacity-70" />
+
+        {/* From */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-white ring-1 ring-emerald-200 flex items-center justify-center shrink-0">
+            <Landmark size={16} className="text-emerald-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-gray-800 truncate">{order.customerName}</p>
+            <p className="text-[9px] text-gray-500">ธ.ตัวอย่าง • xxx-x-x0000-x</p>
+          </div>
+        </div>
+
+        <div className="pl-4 py-1">
+          <ArrowDown size={13} className="text-gray-400" />
+        </div>
+
+        {/* To */}
+        <div className="flex items-center gap-2.5 mb-3.5">
+          <div className="w-9 h-9 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center shrink-0">
+            <span className="text-[6px] font-bold text-gray-500 leading-none text-center">
+              PROMPT
+              <br />
+              PAY
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-gray-800 truncate">ร้าน EasyPrint</p>
+            <p className="text-[9px] text-gray-500">รหัสพร้อมเพย์ • x-xxxx-xxxx0-00-0</p>
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-1.5 text-[10px] border-t border-white/70 pt-3">
+          <div>
+            <p className="text-gray-500">เลขที่รายการ</p>
+            <p className="text-gray-700 font-medium truncate">{order.ref}</p>
+          </div>
+          <div className="flex items-center justify-between pt-0.5">
+            <span className="text-gray-500">จำนวน</span>
+            <span className="text-gray-800 font-bold text-sm">
+              {order.price.toLocaleString()}.00 บาท
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">ค่าธรรมเนียม</span>
+            <span className="text-gray-700 font-medium">0.00 บาท</span>
+          </div>
+        </div>
+
+        {/* QR footer */}
+        <div className="flex justify-end mt-3">
+          <div className="bg-white rounded-lg p-1.5 shadow-sm">
+            <QrCode size={40} className="text-gray-800" strokeWidth={1.5} />
+            <p className="text-[6px] text-gray-400 text-center mt-0.5 leading-tight">
+              สแกนตรวจสอบสลิป
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

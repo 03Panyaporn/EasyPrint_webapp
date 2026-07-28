@@ -59,6 +59,7 @@ export default function OrderDetailModal({
         {/* Info grid */}
         <div className="grid grid-cols-2 gap-4 mb-5">
           <DetailRow label="ชื่อลูกค้า">{order.customerName}</DetailRow>
+          <DetailRow label="เบอร์โทรติดต่อ">{order.customerPhone}</DetailRow>
           <DetailRow label="วันที่สั่งซื้อ">{order.createdAtLabel}</DetailRow>
           <DetailRow label="ประเภทงาน">{order.category}</DetailRow>
           <DetailRow label="ขนาดกระดาษ">{order.paperSize}</DetailRow>
@@ -99,7 +100,7 @@ export default function OrderDetailModal({
           {order.delivery.method === "self_pickup" ? (
             <p className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
               <Store size={15} className="text-gray-400" />
-              มารับเองที่ร้าน
+              มารับที่ร้าน
             </p>
           ) : (
             <p className="flex items-start gap-1.5 text-sm font-medium text-gray-800">
@@ -134,19 +135,12 @@ export default function OrderDetailModal({
         )}
 
         {/* Price */}
-        <div className="flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 mb-6">
+        <div className="flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4">
           <span className="text-sm font-medium text-orange-700">ราคารวม</span>
           <span className="text-xl font-bold text-orange-600">
             {order.price.toLocaleString()} บาท
           </span>
         </div>
-
-        <button
-          onClick={onClose}
-          className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
-        >
-          ปิด
-        </button>
       </div>
     </div>
   );

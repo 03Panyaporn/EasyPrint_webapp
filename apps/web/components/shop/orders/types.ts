@@ -35,6 +35,7 @@ export interface Order {
   code: string; // เลขแสดงในตาราง เช่น #0005
   ref: string; // รหัสอ้างอิงเต็ม เช่น ORD-20260516-B0F2
   customerName: string;
+  customerPhone: string;
   category: string; // ประเภทงาน เช่น "ถ่ายเอกสารขาว-ดำ"
   paperSize: string; // เช่น "A4", "A3"
   copies: number; // จำนวนชุด

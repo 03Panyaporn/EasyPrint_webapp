@@ -54,6 +54,16 @@ export default function OrdersPage() {
     setCancelModal({ order, mode: "reject_payment" });
   };
 
+  const handleConfirmPaymentFromPreview = (order: Order) => {
+    handleAdvanceStatus(order, "accepted");
+    setPreviewFile(null);
+  };
+
+  const handleRejectPaymentFromPreview = (order: Order) => {
+    setPreviewFile(null);
+    handleOpenRejectPayment(order);
+  };
+
   const handleConfirmCancel = (order: Order, reason: string, note: string) => {
     setOrders((prev) =>
       prev.map((o) =>
@@ -76,7 +86,7 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 pb-12">
       {/* Toast */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-gray-900 text-white text-sm rounded-xl shadow-xl animate-fade-in border border-gray-700">
@@ -146,6 +156,8 @@ export default function OrdersPage() {
           order={previewFile?.order ?? null}
           kind={previewFile?.kind ?? null}
           onClose={() => setPreviewFile(null)}
+          onConfirmPayment={handleConfirmPaymentFromPreview}
+          onRejectPayment={handleRejectPaymentFromPreview}
         />
       )}
     </div>
