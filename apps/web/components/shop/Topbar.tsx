@@ -12,12 +12,13 @@ import {
   Store,
   User,
 } from "lucide-react";
-
+import { useRouter } from "next/navigation";
 interface TopbarProps {
   onMobileMenuOpen: () => void;
 }
 
 export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +31,21 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+  const router = useRouter();
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+    }
+  };
   return (
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-100 shadow-sm flex items-center gap-3 px-4">
       {/* Mobile menu button */}
@@ -101,9 +116,8 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
             </div>
             <ChevronDown
               size={14}
-              className={`text-gray-400 shrink-0 hidden sm:block transition-transform duration-200 ${
-                profileOpen ? "rotate-180" : ""
-              }`}
+              className={`text-gray-400 shrink-0 hidden sm:block transition-transform duration-200 ${profileOpen ? "rotate-180" : ""
+                }`}
             />
           </button>
 
@@ -136,7 +150,10 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                  onClick={() => setProfileOpen(false)}
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setLogoutOpen(true);
+                  }}
                 >
                   <LogOut size={15} />
                   ออกจากระบบ
@@ -146,6 +163,55 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
           )}
         </div>
       </div>
+      {logoutOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setLogoutOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-[360px] p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <LogOut className="w-8 h-8 text-red-500" />
+              </div>
+
+              <h2 className="text-xl font-bold text-gray-800">
+                ออกจากระบบ
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-2">
+                คุณต้องการออกจากระบบใช่หรือไม่?
+              </p>
+
+              <div className="flex gap-3 w-full mt-6">
+                <button
+                  onClick={() => setLogoutOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 font-medium hover:bg-gray-100 transition"
+                >
+                  ยกเลิก
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setLogoutOpen(false);
+
+                    // เรียก API Logout ตรงนี้
+                    // await authClient.signOut();
+                    // หรือ await fetch("/api/auth/logout",{method:"POST"});
+
+                    window.location.href = "/login";
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition"
+                >
+                  ออกจากระบบ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

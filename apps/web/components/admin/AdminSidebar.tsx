@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -47,9 +47,23 @@ const navItems: NavItem[] = [
 // Component
 // ─────────────────────────────────────────────────
 export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebarProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
 
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+    }
+  };
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
     return pathname === href || pathname.startsWith(href + "/");
@@ -97,15 +111,13 @@ export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebar
   // ── Sidebar content ────────────────────────────
   const content = (
     <div
-      className={`flex flex-col h-full bg-[#F46A2F] transition-all duration-300 ${
-        collapsed ? "w-[72px]" : "w-64"
-      }`}
+      className={`flex flex-col h-full bg-[#F46A2F] transition-all duration-300 ${collapsed ? "w-[72px]" : "w-64"
+        }`}
     >
       {/* Logo + toggle */}
       <div
-        className={`flex items-center h-16 px-4 border-b border-white/20 shrink-0 ${
-          collapsed ? "justify-center" : "justify-between"
-        }`}
+        className={`flex items-center h-16 px-4 border-b border-white/20 shrink-0 ${collapsed ? "justify-center" : "justify-between"
+          }`}
       >
         {!collapsed ? (
           <Link href="/admin" className="flex items-center gap-2.5">
@@ -157,8 +169,9 @@ export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebar
       {/* Footer: logout */}
       <div className={`px-3 py-4 border-t border-white/20 shrink-0 ${collapsed ? "flex justify-center" : ""}`}>
         <button
+          onClick={() => setLogoutOpen(true)}
           className={[
-            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all group w-full",
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all group w-full relative",
             collapsed ? "justify-center" : "",
           ].join(" ")}
           title={collapsed ? "ออกจากระบบ" : undefined}
@@ -173,6 +186,7 @@ export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebar
         </button>
       </div>
     </div>
+
   );
 
   return (
@@ -191,12 +205,51 @@ export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebar
 
       {/* Mobile drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 lg:hidden flex h-full transition-transform duration-300 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 lg:hidden flex h-full transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         {content}
       </aside>
+      {logoutOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in">
+
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+                <LogOut size={32} className="text-red-500" />
+              </div>
+            </div>
+
+            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+              ออกจากระบบ
+            </h3>
+
+            <p className="text-gray-600 text-center mb-6">
+              คุณต้องการออกจากระบบใช่หรือไม่?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLogoutOpen(false)}
+                className="flex-1 py-3 px-4 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                ยกเลิก
+              </button>
+
+              <button
+                onClick={() => {
+                  setLogoutOpen(false);
+                  handleLogout();
+                }}
+                className="flex-1 py-3 px-4 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors shadow-md"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </>
   );
 }

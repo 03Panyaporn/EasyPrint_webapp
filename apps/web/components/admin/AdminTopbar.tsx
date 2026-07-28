@@ -2,16 +2,30 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Bell, ChevronDown, Menu, LogOut, Settings, User } from "lucide-react";
-
+import { useRouter } from "next/navigation";
 interface AdminTopbarProps {
   onMobileMenuOpen: () => void;
   notificationCount?: number;
 }
 
 export default function AdminTopbar({ onMobileMenuOpen, notificationCount = 3 }: AdminTopbarProps) {
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
 
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+    }
+  };
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -78,9 +92,8 @@ export default function AdminTopbar({ onMobileMenuOpen, notificationCount = 3 }:
             </div>
             <ChevronDown
               size={14}
-              className={`text-gray-400 shrink-0 hidden sm:block transition-transform duration-200 ${
-                profileOpen ? "rotate-180" : ""
-              }`}
+              className={`text-gray-400 shrink-0 hidden sm:block transition-transform duration-200 ${profileOpen ? "rotate-180" : ""
+                }`}
             />
           </button>
 
@@ -103,7 +116,10 @@ export default function AdminTopbar({ onMobileMenuOpen, notificationCount = 3 }:
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                  onClick={() => setProfileOpen(false)}
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setLogoutOpen(true);
+                  }}
                 >
                   <LogOut size={15} />
                   ออกจากระบบ
@@ -113,6 +129,41 @@ export default function AdminTopbar({ onMobileMenuOpen, notificationCount = 3 }:
           )}
         </div>
       </div>
+      {/* Logout Confirmation Modal */}
+      {logoutOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+                <LogOut size={32} className="text-red-500" />
+              </div>
+            </div>
+
+            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">ออกจากระบบ</h3>
+            <p className="text-gray-600 text-center mb-6">
+              คุณต้องการออกจากระบบใช่หรือไม่?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLogoutOpen(false)}
+                className="flex-1 py-3 px-4 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => {
+                  setLogoutOpen(false);
+                  handleLogout();
+                }}
+                className="flex-1 py-3 px-4 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors shadow-md"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
