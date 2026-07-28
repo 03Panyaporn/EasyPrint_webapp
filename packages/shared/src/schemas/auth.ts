@@ -35,16 +35,31 @@ export const resetPasswordSchema = z.object({
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
-// ตรงกับตัวเลือก "ประเภทร้านค้า" ใน apps/web/app/(auth)/register/shop-register/page.tsx — แก้ที่นี่ที่เดียว หน้าเว็บ import ไปใช้
-export const shopTypeSchema = z.enum([
-  "ร้านถ่ายเอกสารทั่วไป",
-  "ร้านพรินต์สี / กราฟิก",
-  "ร้านเข้าเล่ม / ทำสปิไรล์",
-  "ร้านปริ้นต์ขนาดใหญ่ (A0/A1)",
-  "ร้านสติ๊กเกอร์ / ป้าย",
-  "ร้านครบวงจร",
+// ตรงกับตัวเลือก "บริการของร้าน" ใน apps/web/app/(auth)/register/shop-register/page.tsx — แก้ที่นี่ที่เดียว หน้าเว็บ import ไปใช้
+// เลือกได้หลายรายการ (checkbox) แทนที่ dropdown "ประเภทร้านค้า" แบบเดิมที่เลือกได้ทีละ 1
+export const shopServiceTypeSchema = z.enum([
+  "ถ่ายเอกสาร",
+  "ปริ้นเอกสารขาวดำ",
+  "ปริ้นเอกสารสี",
+  "สแกนเอกสาร",
+  "เข้าเล่ม (สันกาว / สันห่วง / สันเกลียว)",
+  "เคลือบเอกสาร",
+  "ตัดกระดาษ",
+  "เจาะรู",
+  "เย็บเอกสาร",
+  "พิมพ์แบบแปลน",
+  "พิมพ์โปสเตอร์",
+  "พิมพ์ไวนิล / แบนเนอร์",
+  "พิมพ์สติ๊กเกอร์",
+  "นามบัตร",
+  "ใบปลิว / โบรชัวร์",
+  "อื่น ๆ",
 ]);
-export const SHOP_TYPES = shopTypeSchema.options;
+export const SHOP_SERVICE_TYPES = shopServiceTypeSchema.options;
+
+// "วิธีรับสินค้า" ตอนสมัครร้าน — เลือกได้หลายรายการเช่นกัน
+export const shopDeliveryMethodSchema = z.enum(["รับที่หน้าร้าน", "จัดส่งโดยร้าน"]);
+export const SHOP_DELIVERY_METHODS = shopDeliveryMethodSchema.options;
 
 const phoneSchema = z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง");
 
@@ -55,7 +70,8 @@ export const registerShopSchema = z.object({
   lastname: z.string().min(1, "กรุณากรอกนามสกุลเจ้าของร้าน"),
   shopName: z.string().min(1, "กรุณากรอกชื่อร้านค้า").max(100),
   phone: phoneSchema,
-  shopType: shopTypeSchema,
+  serviceTypes: z.array(shopServiceTypeSchema).min(1, "กรุณาเลือกบริการของร้านอย่างน้อย 1 รายการ"),
+  deliveryMethods: z.array(shopDeliveryMethodSchema).min(1, "กรุณาเลือกวิธีรับสินค้าอย่างน้อย 1 รายการ"),
   houseNo: z.string().min(1, "กรุณากรอกบ้านเลขที่"),
   village: z.string().optional(),
   street: z.string().optional(),

@@ -45,7 +45,12 @@ export const shops = pgTable("shops", {
   name: text("name").notNull(),
   phone: text("phone"),
   address: text("address"),
-  category: text("category"), // ประเภทร้านค้า เช่น "ร้านถ่ายเอกสารทั่วไป" — ดูค่าที่รองรับที่ shopTypeSchema ใน packages/shared
+  // "บริการของร้าน" เลือกได้หลายรายการตอนสมัคร (เดิมเป็น dropdown ประเภทร้านค้าเลือกได้ทีละ 1 — เลิกใช้แล้ว)
+  // ดูค่าที่รองรับที่ shopServiceTypeSchema ใน packages/shared
+  serviceTypes: text("service_types").array(),
+  // "วิธีรับสินค้า" ตอนสมัคร (รับหน้าร้าน / จัดส่งโดยร้าน) — คนละความหมายกับ deliveryEnabled ด้านล่าง
+  // (deliveryEnabled คือสวิตช์เปิด/ปิดระบบจัดส่งทั้งร้านทีหลังในหน้า /shop/services)
+  deliveryMethods: text("delivery_methods").array(),
   googleMapLink: text("google_map_link"), // ไม่บังคับตอนสมัคร ใส่ทีหลังได้
   idCardUrl: text("id_card_url"), // storage path จาก bucket private "id-cards" (ไม่ใช่ public URL)
   shopPhotoUrl: text("shop_photo_url"), // public URL จาก bucket "shop-photos"

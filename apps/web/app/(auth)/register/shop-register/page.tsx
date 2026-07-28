@@ -11,7 +11,8 @@ import {
   Phone,
   MapPin,
   Link2,
-  Tag,
+  Layers,
+  Truck,
   ChevronDown,
   Printer,
   ArrowRight,
@@ -22,7 +23,7 @@ import {
   Clock,
 } from "lucide-react";
 import { on } from "events";
-import { SHOP_TYPES } from "@easyprint/shared";
+import { SHOP_SERVICE_TYPES, SHOP_DELIVERY_METHODS } from "@easyprint/shared";
 import { registerShop } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { uploadFile } from "@/lib/api/uploads";
@@ -67,10 +68,23 @@ export default function ShopRegisterPage() {
     province: "",
     postcode: "",
     googleMapLink: "",
-    shopType: "",
     socialMedia: "",
   });
   const [schedule, setSchedule] = useState<DaySchedule[]>(INITIAL_SCHEDULE);
+  const [serviceTypes, setServiceTypes] = useState<string[]>([]);
+  const [deliveryMethods, setDeliveryMethods] = useState<string[]>([]);
+
+  const toggleServiceType = (value: string) => {
+    setServiceTypes((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  };
+
+  const toggleDeliveryMethod = (value: string) => {
+    setDeliveryMethods((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  };
 
   const toggleDayOpen = (index: number) => {
     setSchedule((prev) =>
@@ -121,6 +135,14 @@ export default function ShopRegisterPage() {
       setFormError("กรุณาแนบรูปบัตรประชาชนและรูปภาพร้านค้า");
       return;
     }
+    if (serviceTypes.length === 0) {
+      setFormError("กรุณาเลือกบริการของร้านอย่างน้อย 1 รายการ");
+      return;
+    }
+    if (deliveryMethods.length === 0) {
+      setFormError("กรุณาเลือกวิธีรับสินค้าอย่างน้อย 1 รายการ");
+      return;
+    }
 
     setFormError("");
     setIsSubmitting(true);
@@ -139,7 +161,8 @@ export default function ShopRegisterPage() {
         lastname: form.lastname,
         shopName: form.shopName,
         phone: form.phone,
-        shopType: form.shopType as (typeof SHOP_TYPES)[number],
+        serviceTypes: serviceTypes as (typeof SHOP_SERVICE_TYPES)[number][],
+        deliveryMethods: deliveryMethods as (typeof SHOP_DELIVERY_METHODS)[number][],
         houseNo: form.houseNo,
         village: form.village || undefined,
         street: form.street || undefined,
@@ -325,39 +348,82 @@ export default function ShopRegisterPage() {
             />
           </Field>
 
-          {/* Row: เบอร์โทร + ประเภทร้านค้า */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="เบอร์โทรศัพท์" icon={<Phone className="w-4 h-4" />} required>
-              <input
-                type="tel"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="0XX-XXX-XXXX"
-                pattern="[0-9\-]{9,12}"
-                required
-                className={inputCls}
-              />
-            </Field>
-            <Field label="ประเภทร้านค้า" icon={<Tag className="w-4 h-4" />} required>
-              <div className="relative">
-                <select
-                  name="shopType"
-                  value={form.shopType}
-                  onChange={handleChange}
-                  required
-                  className={`${inputCls} appearance-none pr-9 cursor-pointer`}
-                >
-                  <option value="">เลือกประเภทร้านค้า</option>
-                  {SHOP_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </Field>
+          {/* เบอร์โทร */}
+          <Field label="เบอร์โทรศัพท์" icon={<Phone className="w-4 h-4" />} required>
+            <input
+              type="tel"
+              name="phone"
+              value={form.phone}
+              onChange={handleChange}
+              placeholder="0XX-XXX-XXXX"
+              pattern="[0-9\-]{9,12}"
+              required
+              className={inputCls}
+            />
+          </Field>
+
+          {/* บริการของร้าน */}
+          <div>
+            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mb-1">
+              <span className="text-orange-400"><Layers className="w-4 h-4" /></span>
+              บริการของร้าน <span className="text-orange-500">*</span>
+            </p>
+            <p className="text-[11px] text-slate-400 mb-3">เลือกได้มากกว่า 1 รายการ</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {SHOP_SERVICE_TYPES.map((service) => {
+                const selected = serviceTypes.includes(service);
+                return (
+                  <label
+                    key={service}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border cursor-pointer transition-all ${
+                      selected
+                        ? "border-orange-500 bg-orange-50 text-orange-600 font-semibold"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleServiceType(service)}
+                      className="rounded text-orange-500 focus:ring-orange-500"
+                    />
+                    <span>{service}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* วิธีรับสินค้า */}
+          <div>
+            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mb-1">
+              <span className="text-orange-400"><Truck className="w-4 h-4" /></span>
+              วิธีรับสินค้า <span className="text-orange-500">*</span>
+            </p>
+            <p className="text-[11px] text-slate-400 mb-3">เลือกได้มากกว่า 1 รายการ</p>
+            <div className="grid grid-cols-2 gap-2">
+              {SHOP_DELIVERY_METHODS.map((method) => {
+                const selected = deliveryMethods.includes(method);
+                return (
+                  <label
+                    key={method}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border cursor-pointer transition-all ${
+                      selected
+                        ? "border-orange-500 bg-orange-50 text-orange-600 font-semibold"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleDeliveryMethod(method)}
+                      className="rounded text-orange-500 focus:ring-orange-500"
+                    />
+                    <span>{method}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           {/* ที่อยู่ */}

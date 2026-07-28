@@ -89,7 +89,7 @@ export default function AdminShopsPage() {
       );
     }
     if (filterType) {
-      result = result.filter((s) => s.shopType === filterType);
+      result = result.filter((s) => s.serviceTypes.includes(filterType));
     }
     return result;
   }, [shops, activeTab, search, filterType]);
@@ -98,7 +98,7 @@ export default function AdminShopsPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const allTypes = useMemo(
-    () => [...new Set(shops.map((s) => s.shopType))],
+    () => [...new Set(shops.flatMap((s) => s.serviceTypes))],
     [shops]
   );
 
@@ -217,7 +217,7 @@ export default function AdminShopsPage() {
               onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
               className="pl-8 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all appearance-none cursor-pointer text-gray-700"
             >
-              <option value="">ประเภทร้านค้า</option>
+              <option value="">บริการของร้าน</option>
               {allTypes.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -241,7 +241,7 @@ export default function AdminShopsPage() {
             <thead>
               <tr className="bg-gray-50 text-left">
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">ร้านค้า</th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden md:table-cell">ประเภทร้านค้า</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden md:table-cell">บริการของร้าน</th>
                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden lg:table-cell">ผู้มอบ</th>
                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide hidden lg:table-cell">วันที่สมัคร</th>
                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">เอกสาร</th>
@@ -410,8 +410,10 @@ function ShopRow({
       </td>
 
       {/* Type */}
-      <td className="px-4 py-4 hidden md:table-cell">
-        <span className="text-sm text-gray-700">{shop.shopType}</span>
+      <td className="px-4 py-4 hidden md:table-cell max-w-[220px]">
+        <span className="text-sm text-gray-700 truncate block" title={shop.serviceTypes.join(", ")}>
+          {shop.serviceTypes.length > 0 ? shop.serviceTypes.join(", ") : "-"}
+        </span>
       </td>
 
       {/* Owner */}

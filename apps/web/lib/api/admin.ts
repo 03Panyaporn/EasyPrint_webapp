@@ -13,7 +13,8 @@ export type AdminShop = {
   name: string;
   phone: string | null;
   address: string | null;
-  category: string | null;
+  serviceTypes: string[] | null;
+  deliveryMethods: string[] | null;
   googleMapLink: string | null;
   shopPhotoUrl: string | null;
   socialMedia: string | null;

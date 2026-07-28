@@ -24,7 +24,8 @@ export type PublicShop = {
   name: string;
   phone: string | null;
   address: string | null;
-  category: string | null;
+  serviceTypes: string[] | null;
+  deliveryMethods: string[] | null;
   googleMapLink: string | null;
   idCardUrl: string | null;
   shopPhotoUrl: string | null;

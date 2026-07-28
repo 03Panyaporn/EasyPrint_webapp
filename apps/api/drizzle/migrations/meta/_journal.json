@@ -22,6 +22,20 @@
       "when": 1785131339866,
       "tag": "0002_happy_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785174989841,
+      "tag": "0003_fixed_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785175015738,
+      "tag": "0004_organic_dreaming_celestial",
+      "breakpoints": true
     }
   ]
 }
