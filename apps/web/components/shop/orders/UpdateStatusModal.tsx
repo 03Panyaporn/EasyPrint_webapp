@@ -1,6 +1,6 @@
 "use client";
 
-import { X, ShieldCheck, Wrench, Truck, PartyPopper, Store, Check } from "lucide-react";
+import { X, ShieldCheck, Wrench, Truck, PartyPopper, Store, Check, FileText } from "lucide-react";
 import { Order, OrderStatus } from "./types";
 import { progressSteps, statusConfig } from "./statusConfig";
 import FileThumbnail from "./FileThumbnail";
@@ -90,9 +90,7 @@ export default function UpdateStatusModal({
   if (!variant) return null;
 
   const Icon = variant.icon;
-  const currentMeta = statusConfig[order.status];
   const targetMeta = statusConfig[variant.nextStatus];
-  const canCancelOrder = ["accepted", "in_progress", "shipping"].includes(order.status);
   const canRejectPayment = order.status === "pending_review";
 
   const steps = getProgressSteps(order);
@@ -107,7 +105,7 @@ export default function UpdateStatusModal({
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-800">อัปเดตสถานะออเดอร์</h2>
+            <h2 className="text-lg font-bold text-gray-800">อัปเดตสถานะ</h2>
             <p className="text-xs text-gray-400 mt-0.5">ออเดอร์ {order.code}</p>
           </div>
           <button
@@ -133,41 +131,37 @@ export default function UpdateStatusModal({
               const isPast = idx < currentIndex;
               const isCurrent = idx === currentIndex;
               const isTarget = idx === targetIndex;
+              const isReached = isPast || isCurrent; // ถึงสถานะนี้แล้วหรือเสร็จแล้ว — ให้มีสี
 
               return (
                 <div key={step} className="flex items-center flex-1 last:flex-none">
                   <div className="flex flex-col items-center gap-1.5">
-                    <div
-                      className={
-                        isCurrent
-                          ? `w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${currentMeta.solidBg} text-white shadow-md ${currentMeta.solidShadow}`
-                          : isTarget
-                          ? `w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all border-2 ${stepMeta.targetBorder} ${stepMeta.badgeBg} ${stepMeta.badgeText} shadow-md ${stepMeta.solidShadow} scale-110`
-                          : "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-gray-100 text-gray-400"
-                      }
-                    >
-                      {isCurrent ? <Check size={13} /> : isPast ? <Check size={13} /> : idx + 1}
+                    {/* กล่องขนาดคงที่ครอบวงกลมทุกขั้น กันเงา/วงแหวนของขั้นปัจจุบันล้นไปทับข้อความด้านล่าง โดยไม่กระทบความสูงรวมของขั้นอื่น */}
+                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                      <div
+                        className={
+                          isCurrent
+                            ? "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-orange-500 text-white shadow-lg shadow-orange-300 ring-4 ring-orange-100 scale-110"
+                            : isPast
+                            ? "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-orange-200 text-orange-600"
+                            : isTarget
+                            ? "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-white text-orange-600 border-2 border-orange-500"
+                            : "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-gray-100 text-gray-400"
+                        }
+                      >
+                        {isCurrent ? <Check size={13} /> : isPast ? <Check size={13} /> : idx + 1}
+                      </div>
                     </div>
+                    {/* บรรทัดกำกับความสูงคงที่ทุกสถานะ กันไม่ให้ขั้นที่มีคำอธิบายเพิ่ม (ปัจจุบัน)/(ถัดไป) ถูกจัดกึ่งกลางแล้วดูยกสูงกว่าขั้นอื่น */}
                     <span
                       className={`text-[10px] text-center leading-tight max-w-[52px] ${
-                        isTarget
-                          ? `font-semibold ${stepMeta.badgeText}`
-                          : isCurrent
-                          ? "font-semibold text-gray-800"
-                          : "text-gray-400"
+                        isReached ? "font-semibold text-gray-800" : "text-gray-400"
                       }`}
                     >
-                      {stepMeta.label}
-                      {isCurrent && (
-                        <span className="block text-[9px] font-normal text-gray-400">
-                          (ปัจจุบัน)
-                        </span>
-                      )}
-                      {isTarget && (
-                        <span className={`block text-[9px] font-normal ${stepMeta.badgeText}`}>
-                          (ถัดไป)
-                        </span>
-                      )}
+                      <span className="block h-[26px]">{stepMeta.label}</span>
+                      <span className="block h-[13px] text-[9px] font-normal text-gray-400">
+                        {isCurrent ? "(ปัจจุบัน)" : isTarget && !isReached ? "(ถัดไป)" : " "}
+                      </span>
                     </span>
                   </div>
                   {idx < steps.length - 1 && (
@@ -205,45 +199,37 @@ export default function UpdateStatusModal({
           </div>
         )}
 
-        {/* Info box */}
-        <div
-          className={`flex items-center gap-3 rounded-xl border p-3.5 mb-6 ${targetMeta.badgeBg} ${targetMeta.badgeBorder}`}
-        >
-          <Icon size={20} className={`shrink-0 ${targetMeta.badgeText}`} />
-          <p className={`text-sm font-medium ${targetMeta.badgeText}`}>{variant.infoText}</p>
-        </div>
-
-        {/* Primary action */}
-        <button
-          onClick={() => onAdvance(order, variant.nextStatus)}
-          className={`w-full py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:brightness-95 transition-all mb-3 ${targetMeta.solidBg} ${targetMeta.solidShadow}`}
-        >
-          {targetMeta.label}
-        </button>
-
-        {/* Secondary actions */}
-        <div className="flex items-center gap-3">
-          {canRejectPayment && (
-            <button
-              onClick={() => onRejectPayment(order)}
-              className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
-            >
-              ปฏิเสธการชำระเงิน
-            </button>
-          )}
-          {canCancelOrder && (
-            <button
-              onClick={() => onCancelOrder(order)}
-              className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
-            >
-              ยกเลิกงาน
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+        {/* Info box — ข้อความเฉพาะสำหรับรอตรวจสอบ ส่วนสถานะอื่นใช้กล่องแจ้งเตือนกลางแบบเดียวกันหมด */}
+        {order.status === "pending_review" ? (
+          <div
+            className={`flex items-center gap-3 rounded-xl border p-3.5 mb-6 ${targetMeta.badgeBg} ${targetMeta.badgeBorder}`}
           >
-            ยกเลิก
+            <Icon size={20} className={`shrink-0 ${targetMeta.badgeText}`} />
+            <p className={`text-sm font-medium ${targetMeta.badgeText}`}>{variant.infoText}</p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 mb-6">
+            <FileText size={18} className="shrink-0 text-slate-400" />
+            <p className="text-xs font-medium text-slate-600 leading-relaxed">
+              เมื่อคุณกดอัปเดตสถานะ ระบบจะบันทึกข้อมูลและส่งการแจ้งเตือนความคืบหน้าให้ลูกค้าทั่วไป
+              ทราบทันที
+            </p>
+          </div>
+        )}
+
+        {/* Actions: ซ้ายยกเลิกงาน/ปฏิเสธการชำระเงิน, ขวาคือสถานะถัดไป */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => (canRejectPayment ? onRejectPayment(order) : onCancelOrder(order))}
+            className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
+          >
+            {canRejectPayment ? "ปฏิเสธการชำระเงิน" : "ยกเลิกงาน"}
+          </button>
+          <button
+            onClick={() => onAdvance(order, variant.nextStatus)}
+            className="flex-1 py-3 rounded-2xl text-white font-semibold text-sm shadow-[0_10px_24px_-6px_rgba(249,115,22,0.45),0_4px_10px_-4px_rgba(249,115,22,0.3)] bg-orange-500 hover:brightness-95 transition-all"
+          >
+            {targetMeta.label}
           </button>
         </div>
 
