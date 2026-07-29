@@ -28,7 +28,9 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ | ยังไม่ใส่ (TODO) |
+| POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ — `customerId` ดึงจาก JWT เท่านั้น ห้ามรับจาก body (กัน spoof) | ต้อง login เป็น customer |
+
+⚠️ **TODO ที่ยังเหลือ (ไม่ใช่ช่องโหว่ แต่เป็นฟีเจอร์ที่ยังไม่มี):** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่ได้อิงราคาจริงจาก `main_services`/`main_service_price_options`/`main_service_area_rates` ของร้าน เพราะยังไม่มีหน้า/flow ให้ลูกค้าเลือกบริการ+ขนาด+สีจริงจากร้าน (endpoint นี้เดิมเป็นแค่ตัวอย่างจาก scaffold เริ่มต้นโปรเจกต์ ก่อนระบบ services/pricing จริงจะถูกสร้างขึ้นทีหลัง) **⚠️ ตอนสร้าง flow จริง ต้องคำนวณราคาฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** โดยเฉพาะกรณี `pricingMode: "area"` ที่ลูกค้ากรอกกว้าง/สูงเอง (ราคารวม = กว้าง(ม.) x สูง(ม.) x `ratePerSqm` ต้องคำนวณเซิร์ฟเวอร์เอง)
 
 ## Shops (สาธารณะฝั่งลูกค้า)
 
@@ -43,10 +45,16 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| GET | `/shops/:shopId/services` | list บริการหลักของร้าน พร้อม `availableAddOns` ที่ผูกไว้ | ไม่ต้อง |
-| POST | `/shops/:shopId/services` | สร้างบริการหลัก (เช็คชื่อซ้ำในร้านเดียวกัน) | ต้อง login เป็น shop_owner ของร้านนี้ |
-| PATCH | `/shops/:shopId/services/:id` | แก้ไข/toggle `isActive`, แก้ addOns binding ทั้งชุด | ต้อง login เป็น shop_owner ของร้านนี้ |
-| DELETE | `/shops/:shopId/services/:id` | ลบ (cascade ลบ `main_service_addons` ที่ผูกอยู่อัตโนมัติ) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/shops/:shopId/services` | list บริการหลักของร้าน พร้อม `availableAddOns`, `priceOptions`, `areaRates` ที่ผูกไว้ | ไม่ต้อง |
+| POST | `/shops/:shopId/services` | สร้างบริการหลัก (เช็คชื่อซ้ำในร้านเดียวกัน) — บังคับส่ง `pricingMode` + รายการราคาของโหมดนั้นอย่างน้อย 1 รายการ | ต้อง login เป็น shop_owner ของร้านนี้ |
+| PATCH | `/shops/:shopId/services/:id` | แก้ไข/toggle `isActive`, แก้ addOns binding ทั้งชุด, แก้ `priceOptions`/`areaRates` ทั้งชุด (ลบของเดิมแล้วใส่ใหม่ — สลับ `pricingMode` แล้วรายการฝั่งเดิมจะถูกล้างทิ้งไปในตัว) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| DELETE | `/shops/:shopId/services/:id` | ลบ (cascade ลบ `main_service_addons` + `main_service_price_options` + `main_service_area_rates` ที่ผูกอยู่อัตโนมัติ) | ต้อง login เป็น shop_owner ของร้านนี้ |
+
+**`pricingMode`**: `"fixed" | "area"` (default `"fixed"`) — `fixed` ใช้ `priceOptions`, `area` ใช้ `areaRates` (validate คู่กับ `pricingMode` — ส่งโหมดไหนต้องมีรายการราคาของโหมดนั้นอย่างน้อย 1 รายการ)
+
+**`priceOptions`** (โหมด `fixed`): `{ paperSize: string, color: "ขาวดำ" | "สี", price: number }[]` — `paperSize` เป็น free text ไม่ใช่ enum ร้านค้าพิมพ์ขนาดกำหนดเองได้อิสระ ไม่ต้องเลือกจาก preset (A4/A3/A5 เป็นแค่ปุ่มลัดในฟอร์ม) ห้ามมีคู่ `paperSize`+`color` ซ้ำกันในรายการเดียวกัน (validate ทั้งฝั่ง Zod และ DB unique constraint)
+
+**`areaRates`** (โหมด `area`): `{ color: "ขาวดำ" | "สี", ratePerSqm: number }[]` — อัตราบาทต่อตารางเมตร ลูกค้ากรอกกว้าง/สูงเองตอนสั่งซื้อจริง (endpoint สั่งซื้อยังไม่มี — ดู TODO ในหัวข้อ Orders ด้านบน) ห้ามมี `color` ซ้ำในรายการเดียวกัน
 
 ## Add-on Services (บริการเสริม)
 

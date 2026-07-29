@@ -73,15 +73,39 @@
 | shop_id | uuid (FK → shops.id) | |
 | name | text | |
 | description | text | nullable |
-| paper_sizes | text[] | เช่น ["A4","A3"] |
-| custom_paper_size | text | nullable, ใช้เมื่อ paper_sizes มี "กำหนดเอง" |
-| colors | text[] | เช่น ["ขาวดำ","สี"] |
-| price | numeric(10,2) | หน่วยบาท (ไม่ใช่สตางค์แบบ orders.total_price) |
+| pricing_mode | enum: `fixed` / `area` | default `fixed` — `fixed` = ราคาตั้งไว้ล่วงหน้าตามขนาด/สี (`main_service_price_options`), `area` = ลูกค้ากรอกกว้าง/สูงเอง คิดตามพื้นที่ (`main_service_area_rates`) |
 | unit | text | เช่น "แผ่น", "เล่ม" |
 | estimated_time | text | nullable |
 | image_url | text | nullable |
 | is_active | boolean | default true |
 | created_at | timestamp | |
+
+**ราคาไม่ได้อยู่ในตารางนี้แล้ว** — ย้ายไปตาราง `main_service_price_options`/`main_service_area_rates` ด้านล่างแทน ตามค่า `pricing_mode` (เดิมมีคอลัมน์ `paper_sizes`/`custom_paper_size`/`colors`/`price` แต่ปัญหาคือทั้งบริการมีราคาเดียวใช้ร่วมกันทุกขนาด/สี ทั้งที่ร้านค้าอยากตั้งราคาแยกกัน เช่น A4 ขาวดำ ถูกกว่า A4 สี — แก้ผ่าน migration `0006`/`0007` แยกเป็น 2 ขั้น: เพิ่มตารางใหม่ก่อน + migrate ข้อมูลเดิม (ใช้ราคาเดิมเป็นราคาเริ่มต้นให้ทุกขนาด/สีที่เคยเลือกไว้) แล้วค่อยลบคอลัมน์เก่าออก ไม่มีข้อมูลสูญหาย)
+
+### `main_service_price_options`
+ราคาแยกตาม "ขนาดกระดาษ x สี" ของบริการหลักแต่ละอัน — ใช้เมื่อ `main_services.pricing_mode = "fixed"` เท่านั้น — 1 บริการหลักมีได้หลายแถว
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| main_service_id | uuid (FK → main_services.id, ON DELETE CASCADE) | |
+| paper_size | text | free text ไม่ใช่ enum — ร้านค้าพิมพ์ขนาดกำหนดเองได้อิสระ (เช่น "B5", "โปสเตอร์ A2") ไม่ต้องเลือกจาก preset A4/A3/A5 เท่านั้น |
+| color | text | "ขาวดำ" หรือ "สี" |
+| price | numeric(10,2) | หน่วยบาท (ไม่ใช่สตางค์แบบ orders.total_price) |
+| created_at | timestamp | |
+
+unique constraint (`main_service_id`, `paper_size`, `color`) กันร้านค้าเผลอเพิ่มขนาด+สีซ้ำอันเดิมในบริการเดียวกัน — เช็คซ้ำอีกชั้นด้วย Zod `.refine()` ฝั่ง validate ก่อนบันทึกด้วย
+
+### `main_service_area_rates`
+อัตราราคาต่อตารางเมตร แยกตามสี — ใช้เมื่อ `main_services.pricing_mode = "area"` เท่านั้น (ลูกค้ากรอกกว้าง/สูงเองตอนสั่งซื้อ เช่น พิมพ์โปสเตอร์/ไวนิลขนาดตามสั่ง)
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| main_service_id | uuid (FK → main_services.id, ON DELETE CASCADE) | |
+| color | text | "ขาวดำ" หรือ "สี" |
+| rate_per_sqm | numeric(10,2) | บาทต่อตารางเมตร |
+| created_at | timestamp | |
+
+unique constraint (`main_service_id`, `color`) กันเพิ่มสีซ้ำ — **⚠️ เมื่อสร้างระบบสั่งซื้อจริงที่ใช้ตารางนี้ ต้องคำนวณราคารวม = กว้าง(ม.) x สูง(ม.) x rate_per_sqm ฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** (ดู TODO ใน `docs/api-spec.md` หัวข้อ Orders)
 
 ### `addon_services`
 | column | type | note |
@@ -130,6 +154,8 @@ shops (1) ──< addon_services (shop_id)
 shops (1) ──< delivery_options (shop_id)
 main_services (1) ──< main_service_addons (main_service_id) [ON DELETE CASCADE]
 addon_services (1) ──< main_service_addons (addon_service_id) [ON DELETE CASCADE]
+main_services (1) ──< main_service_price_options (main_service_id) [ON DELETE CASCADE]
+main_services (1) ──< main_service_area_rates (main_service_id) [ON DELETE CASCADE]
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)

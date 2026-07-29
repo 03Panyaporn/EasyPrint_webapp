@@ -41,10 +41,9 @@ function toMainServiceInput(service: MainService): CreateMainServiceInput {
   return {
     name: service.name,
     description: service.description,
-    paperSizes: service.paperSizes as CreateMainServiceInput["paperSizes"],
-    customPaperSize: service.customPaperSize,
-    colors: service.colors as CreateMainServiceInput["colors"],
-    price: service.price,
+    pricingMode: service.pricingMode,
+    priceOptions: service.priceOptions as CreateMainServiceInput["priceOptions"],
+    areaRates: service.areaRates as CreateMainServiceInput["areaRates"],
     unit: service.unit as CreateMainServiceInput["unit"],
     estimatedTime: service.estimatedTime as CreateMainServiceInput["estimatedTime"],
     imageUrl: service.imageUrl,

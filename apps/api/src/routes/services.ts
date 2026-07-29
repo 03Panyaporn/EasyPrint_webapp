@@ -9,7 +9,15 @@ import {
   updateDeliveryOptionSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { mainServices, addOnServices, mainServiceAddOns, deliveryOptions, shops } from "../../drizzle/schema";
+import {
+  mainServices,
+  addOnServices,
+  mainServiceAddOns,
+  mainServicePriceOptions,
+  mainServiceAreaRates,
+  deliveryOptions,
+  shops,
+} from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 
 // เช็คว่า request มี JWT ที่ login เป็น shop_owner ของร้าน :shopId นี้จริง ก่อนให้แก้ไข/ลบข้อมูล
@@ -66,16 +74,17 @@ async function canViewShopPublicly(
 
 function serializeMainService(
   row: typeof mainServices.$inferSelect,
-  addOns: { addOnId: string; extraPrice: number }[]
+  addOns: { addOnId: string; extraPrice: number }[],
+  priceOptions: { paperSize: string; color: string; price: number }[],
+  areaRates: { color: string; ratePerSqm: number }[]
 ) {
   return {
     id: row.id,
     name: row.name,
     description: row.description ?? undefined,
-    paperSizes: row.paperSizes,
-    customPaperSize: row.customPaperSize ?? undefined,
-    colors: row.colors,
-    price: Number(row.price),
+    pricingMode: row.pricingMode,
+    priceOptions,
+    areaRates,
     unit: row.unit,
     estimatedTime: row.estimatedTime ?? undefined,
     availableAddOns: addOns,
@@ -118,6 +127,22 @@ async function fetchAddOnBindings(mainServiceId: string) {
   return rows.map((b) => ({ addOnId: b.addOnServiceId, extraPrice: Number(b.extraPrice) }));
 }
 
+async function fetchPriceOptions(mainServiceId: string) {
+  const rows = await db
+    .select()
+    .from(mainServicePriceOptions)
+    .where(eq(mainServicePriceOptions.mainServiceId, mainServiceId));
+  return rows.map((r) => ({ paperSize: r.paperSize, color: r.color, price: Number(r.price) }));
+}
+
+async function fetchAreaRates(mainServiceId: string) {
+  const rows = await db
+    .select()
+    .from(mainServiceAreaRates)
+    .where(eq(mainServiceAreaRates.mainServiceId, mainServiceId));
+  return rows.map((r) => ({ color: r.color, ratePerSqm: Number(r.ratePerSqm) }));
+}
+
 export const servicesRoutes = new Elysia()
   // ── บริการหลัก ──────────────────────────────
   .get("/shops/:shopId/services", async ({ params, cookie }) => {
@@ -127,13 +152,15 @@ export const servicesRoutes = new Elysia()
 
     const rows = await db.query.mainServices.findMany({
       where: eq(mainServices.shopId, params.shopId),
-      with: { addOns: true },
+      with: { addOns: true, priceOptions: true, areaRates: true },
     });
     return {
       services: rows.map((row) =>
         serializeMainService(
           row,
-          row.addOns.map((b) => ({ addOnId: b.addOnServiceId, extraPrice: Number(b.extraPrice) }))
+          row.addOns.map((b) => ({ addOnId: b.addOnServiceId, extraPrice: Number(b.extraPrice) })),
+          row.priceOptions.map((p) => ({ paperSize: p.paperSize, color: p.color, price: Number(p.price) })),
+          row.areaRates.map((r) => ({ color: r.color, ratePerSqm: Number(r.ratePerSqm) }))
         )
       ),
     };
@@ -169,16 +196,34 @@ export const servicesRoutes = new Elysia()
         shopId: params.shopId,
         name: parsed.data.name,
         description: parsed.data.description,
-        paperSizes: parsed.data.paperSizes,
-        customPaperSize: parsed.data.customPaperSize,
-        colors: parsed.data.colors,
-        price: parsed.data.price.toFixed(2),
+        pricingMode: parsed.data.pricingMode,
         unit: parsed.data.unit,
         estimatedTime: parsed.data.estimatedTime,
         imageUrl: parsed.data.imageUrl,
         isActive: parsed.data.isActive,
       })
       .returning();
+
+    if (parsed.data.priceOptions.length > 0) {
+      await db.insert(mainServicePriceOptions).values(
+        parsed.data.priceOptions.map((p) => ({
+          mainServiceId: service.id,
+          paperSize: p.paperSize,
+          color: p.color,
+          price: p.price.toFixed(2),
+        }))
+      );
+    }
+
+    if (parsed.data.areaRates.length > 0) {
+      await db.insert(mainServiceAreaRates).values(
+        parsed.data.areaRates.map((r) => ({
+          mainServiceId: service.id,
+          color: r.color,
+          ratePerSqm: r.ratePerSqm.toFixed(2),
+        }))
+      );
+    }
 
     if (parsed.data.addOns.length > 0) {
       await db.insert(mainServiceAddOns).values(
@@ -190,7 +235,9 @@ export const servicesRoutes = new Elysia()
       );
     }
 
-    return { service: serializeMainService(service, parsed.data.addOns) };
+    return {
+      service: serializeMainService(service, parsed.data.addOns, parsed.data.priceOptions, parsed.data.areaRates),
+    };
   })
 
   .patch("/shops/:shopId/services/:id", async ({ params, body, set, cookie }) => {
@@ -220,11 +267,11 @@ export const servicesRoutes = new Elysia()
       }
     }
 
-    const { addOns, price, ...rest } = parsed.data;
+    const { addOns, priceOptions, areaRates, ...rest } = parsed.data;
 
     const [service] = await db
       .update(mainServices)
-      .set({ ...rest, ...(price !== undefined ? { price: price.toFixed(2) } : {}) })
+      .set(rest)
       .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
       .returning();
 
@@ -246,15 +293,46 @@ export const servicesRoutes = new Elysia()
       }
     }
 
+    if (priceOptions !== undefined) {
+      // ลบของเดิมแล้วใส่ใหม่ทั้งหมด — ง่ายกว่า diff ทีละแถว และจำนวนรายการต่อบริการปกติไม่เยอะ
+      // (ถ้าร้านค้าสลับโหมดราคาจาก fixed ไป area จะได้ล้าง priceOptions เดิมทิ้งไปด้วยในตัว)
+      await db.delete(mainServicePriceOptions).where(eq(mainServicePriceOptions.mainServiceId, service.id));
+      if (priceOptions.length > 0) {
+        await db.insert(mainServicePriceOptions).values(
+          priceOptions.map((p) => ({
+            mainServiceId: service.id,
+            paperSize: p.paperSize,
+            color: p.color,
+            price: p.price.toFixed(2),
+          }))
+        );
+      }
+    }
+
+    if (areaRates !== undefined) {
+      await db.delete(mainServiceAreaRates).where(eq(mainServiceAreaRates.mainServiceId, service.id));
+      if (areaRates.length > 0) {
+        await db.insert(mainServiceAreaRates).values(
+          areaRates.map((r) => ({
+            mainServiceId: service.id,
+            color: r.color,
+            ratePerSqm: r.ratePerSqm.toFixed(2),
+          }))
+        );
+      }
+    }
+
     const currentAddOns = addOns ?? (await fetchAddOnBindings(service.id));
-    return { service: serializeMainService(service, currentAddOns) };
+    const currentPriceOptions = priceOptions ?? (await fetchPriceOptions(service.id));
+    const currentAreaRates = areaRates ?? (await fetchAreaRates(service.id));
+    return { service: serializeMainService(service, currentAddOns, currentPriceOptions, currentAreaRates) };
   })
 
   .delete("/shops/:shopId/services/:id", async ({ params, set, cookie }) => {
     const authError = await requireShopOwner(cookie, params.shopId, set);
     if (authError) return authError;
 
-    // ON DELETE CASCADE บน main_service_addons ลบ binding ที่ผูกกับบริการนี้ให้อัตโนมัติ
+    // ON DELETE CASCADE บน main_service_addons + main_service_price_options + main_service_area_rates ลบข้อมูลที่ผูกกับบริการนี้ให้อัตโนมัติ
     const [deleted] = await db
       .delete(mainServices)
       .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
@@ -264,7 +342,7 @@ export const servicesRoutes = new Elysia()
       set.status = 404;
       return { error: "ไม่พบบริการนี้" };
     }
-    return { service: serializeMainService(deleted, []) };
+    return { service: serializeMainService(deleted, [], [], []) };
   })
 
   // ── บริการเสริม ──────────────────────────────

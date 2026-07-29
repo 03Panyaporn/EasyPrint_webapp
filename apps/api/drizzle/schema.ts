@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // โครงสร้างเริ่มต้น อ้างอิงจาก docs/proposal.md หัวข้อ 1.3
@@ -17,6 +17,9 @@ export const shopApprovalStatusEnum = pgEnum("shop_approval_status", [
   "approved",
   "rejected",
 ]);
+// fixed = ราคาคงที่ตามขนาด/สีที่ร้านตั้งไว้ล่วงหน้า (main_service_price_options)
+// area = ลูกค้ากรอกกว้าง/สูงเอง คิดราคาตามพื้นที่ (ตร.ม.) x อัตราต่อสี (main_service_area_rates)
+export const mainServicePricingModeEnum = pgEnum("main_service_pricing_mode", ["fixed", "area"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -69,16 +72,49 @@ export const mainServices = pgTable("main_services", {
   shopId: uuid("shop_id").references(() => shops.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
-  paperSizes: text("paper_sizes").array().notNull(),
-  customPaperSize: text("custom_paper_size"),
-  colors: text("colors").array().notNull(),
-  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  pricingMode: mainServicePricingModeEnum("pricing_mode").notNull().default("fixed"),
   unit: text("unit").notNull(),
   estimatedTime: text("estimated_time"),
   imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ราคาแยกตาม "ขนาดกระดาษ x สี" ของบริการหลักแต่ละอัน — 1 บริการหลักมีได้หลายแถว
+// paperSize เป็น free text (ไม่ enum) เพราะร้านค้าต้องเพิ่มขนาดกำหนดเองได้ไม่จำกัด (เช่น "B5", "โปสเตอร์ A2")
+// ไม่ใช่แค่ A4/A3/A5 ที่มีให้เลือกเป็นปุ่มลัดในฟอร์มเท่านั้น
+export const mainServicePriceOptions = pgTable(
+  "main_service_price_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
+    paperSize: text("paper_size").notNull(),
+    color: text("color").notNull(), // "ขาวดำ" | "สี"
+    price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // กันร้านค้าเผลอเพิ่มขนาด+สีซ้ำอันเดิมในบริการเดียวกัน (เช็คซ้ำอีกชั้นด้วย Zod .refine() ฝั่ง validate ก่อนบันทึกด้วย)
+    uniqueSizeColor: unique().on(table.mainServiceId, table.paperSize, table.color),
+  })
+);
+
+// อัตราราคาต่อตารางเมตร แยกตามสี — ใช้ตอน pricingMode = "area" เท่านั้น (ลูกค้ากรอกกว้าง/สูงเอง ตอนสั่งซื้อจริง)
+// ⚠️ ตอนสร้างระบบสั่งซื้อจริงทีหลัง ต้องคำนวณราคารวม = กว้าง(ม.) x สูง(ม.) x ratePerSqm ฝั่ง server เท่านั้น
+// ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด กัน customer แก้ราคาเองผ่าน request ตรงๆ
+export const mainServiceAreaRates = pgTable(
+  "main_service_area_rates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
+    color: text("color").notNull(), // "ขาวดำ" | "สี"
+    ratePerSqm: numeric("rate_per_sqm", { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueColor: unique().on(table.mainServiceId, table.color),
+  })
+);
 
 export const addOnServices = pgTable("addon_services", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -124,6 +160,22 @@ export const deliveryOptions = pgTable("delivery_options", {
 
 export const mainServicesRelations = relations(mainServices, ({ many }) => ({
   addOns: many(mainServiceAddOns),
+  priceOptions: many(mainServicePriceOptions),
+  areaRates: many(mainServiceAreaRates),
+}));
+
+export const mainServicePriceOptionsRelations = relations(mainServicePriceOptions, ({ one }) => ({
+  mainService: one(mainServices, {
+    fields: [mainServicePriceOptions.mainServiceId],
+    references: [mainServices.id],
+  }),
+}));
+
+export const mainServiceAreaRatesRelations = relations(mainServiceAreaRates, ({ one }) => ({
+  mainService: one(mainServices, {
+    fields: [mainServiceAreaRates.mainServiceId],
+    references: [mainServices.id],
+  }),
 }));
 
 export const addOnServicesRelations = relations(addOnServices, ({ many }) => ({
