@@ -74,9 +74,7 @@ export default function MainServicesTable({
           <thead>
             <tr className="bg-gray-50/80 text-gray-600 font-semibold border-b border-gray-100">
               <th className="py-3.5 px-4 sm:px-6">ชื่อบริการ</th>
-              <th className="py-3.5 px-4">ขนาดกระดาษ</th>
-              <th className="py-3.5 px-4">สี</th>
-              <th className="py-3.5 px-4">ราคา (บาท)</th>
+              <th className="py-3.5 px-4">ราคา</th>
               <th className="py-3.5 px-4">หน่วย</th>
               <th className="py-3.5 px-4">เวลาทำการ</th>
               <th className="py-3.5 px-4 text-center">บริการเสริม</th>
@@ -87,7 +85,7 @@ export default function MainServicesTable({
           <tbody className="divide-y divide-gray-100">
             {paginatedServices.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-gray-400">
+                <td colSpan={7} className="py-12 text-center text-gray-400">
                   <FileText size={32} className="mx-auto mb-2 opacity-50" />
                   <p className="text-sm font-medium">ไม่พบข้อมูลบริการหลัก</p>
                 </td>
@@ -110,43 +108,35 @@ export default function MainServicesTable({
                     )}
                   </td>
 
-                  {/* Paper sizes */}
+                  {/* Price (ขนาด x สี หรือ ราคาต่อพื้นที่) */}
                   <td className="py-4 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {service.paperSizes.map((size) => (
-                        <span
-                          key={size}
-                          className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-md font-medium"
-                        >
-                          {size === "กำหนดเอง" && service.customPaperSize
-                            ? service.customPaperSize
-                            : size}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Colors */}
-                  <td className="py-4 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {service.colors.map((c) => (
-                        <span
-                          key={c}
-                          className={`px-2 py-0.5 text-xs rounded-md font-medium ${
-                            c === "สี"
-                              ? "bg-purple-50 text-purple-600 border border-purple-100"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Price */}
-                  <td className="py-4 px-4 font-bold text-orange-600">
-                    ฿{service.price.toLocaleString()}
+                    {service.pricingMode === "area" ? (
+                      service.areaRates.length === 0 ? (
+                        <span className="text-xs text-gray-400">ยังไม่มีอัตราราคา</span>
+                      ) : (
+                        <div title={service.areaRates.map((r) => `${r.color} ฿${r.ratePerSqm}/ตร.ม.`).join(", ")}>
+                          <div className="font-bold text-orange-600">
+                            เริ่มต้น ฿{Math.min(...service.areaRates.map((r) => r.ratePerSqm)).toLocaleString()}/ตร.ม.
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">ตามพื้นที่ที่ลูกค้ากรอก</div>
+                        </div>
+                      )
+                    ) : service.priceOptions.length === 0 ? (
+                      <span className="text-xs text-gray-400">ยังไม่มีราคา</span>
+                    ) : (
+                      <div
+                        title={service.priceOptions
+                          .map((p) => `${p.paperSize} (${p.color}) ฿${p.price}`)
+                          .join(", ")}
+                      >
+                        <div className="font-bold text-orange-600">
+                          เริ่มต้น ฿{Math.min(...service.priceOptions.map((p) => p.price)).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {service.priceOptions.length} รายการ
+                        </div>
+                      </div>
+                    )}
                   </td>
 
                   {/* Unit */}

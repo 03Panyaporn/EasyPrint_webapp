@@ -3,14 +3,26 @@ export interface AddOnPriceBinding {
   extraPrice: number;
 }
 
+export interface PriceOption {
+  paperSize: string; // เช่น "A4", "A3" หรือขนาดกำหนดเองที่ร้านค้าพิมพ์เอง เช่น "B5"
+  color: string; // "ขาวดำ" | "สี"
+  price: number;
+}
+
+export interface AreaRate {
+  color: string; // "ขาวดำ" | "สี"
+  ratePerSqm: number; // บาทต่อตารางเมตร — ลูกค้ากรอกกว้าง/สูงเองตอนสั่งซื้อ ราคารวม = กว้าง x สูง x ratePerSqm
+}
+
+export type MainServicePricingMode = "fixed" | "area";
+
 export interface MainService {
   id: string;
   name: string;
   description?: string;
-  paperSizes: string[]; // e.g., ["A4"], ["A4", "A3"], etc.
-  customPaperSize?: string;
-  colors: string[]; // e.g., ["ขาวดำ"], ["สี"], ["ขาวดำ", "สี"]
-  price: number;
+  pricingMode: MainServicePricingMode;
+  priceOptions: PriceOption[]; // ใช้เมื่อ pricingMode = "fixed" — ราคาแยกตาม ขนาด x สี มีได้หลายรายการ
+  areaRates: AreaRate[]; // ใช้เมื่อ pricingMode = "area" — อัตราต่อตร.ม. แยกตามสี
   unit: string; // e.g., "แผ่น", "เล่ม", "ชิ้น", "หน้า", "งาน"
   estimatedTime?: string; // e.g., "5 นาที", "30 นาที"
   availableAddOns: AddOnPriceBinding[];
