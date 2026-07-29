@@ -240,3 +240,84 @@
 *   PR #6 ยังไม่ถูก review/merge
 *   repo นี้ยังไม่มี GitHub Actions (`.github/workflows`) เลย ดังนั้น PR #6 (และ PR อื่นๆ) จะไม่มี CI ตรวจ lint/build ให้อัตโนมัติ
 *   รายการ "สิ่งที่ยังไม่เสร็จ" จากหัวข้อ 5 (route protection, ปุ่ม Logout, หน้า Change Password, Shop Register) ยังคงค้างอยู่เหมือนเดิม ไม่เกี่ยวกับงานวันนี้
+
+---
+
+## 7. อัปเดตวันที่ 2026-07-30 — ระบบจัดการออเดอร์ (Orders) Backend เสร็จสมบูรณ์ + เชื่อมต่อ Frontend เข้ากับ API จริง
+
+ต่อจากหัวข้อ 6 (หน้า Orders ฝั่งร้านค้าที่ยังเป็น mock data ล้วนๆ) วันนี้ทำ backend ทั้งชุดของระบบออเดอร์ตั้งแต่ศูนย์ แล้วต่อ frontend เข้ากับ API จริง ทดสอบ end-to-end ผ่านเบราว์เซอร์จริงสำเร็จทุกจุด ครอบคลุม 3 กลุ่มฟีเจอร์หลัก: **สร้างเลขที่คำสั่งซื้ออัตโนมัติ**, **ตรวจสอบออเดอร์/รายละเอียด/เปลี่ยนสถานะ/ยกเลิก**, **ตรวจสอบสลิป/อนุมัติ-ปฏิเสธการชำระเงิน**
+
+### 📌 งานที่ทำเสร็จวันนี้
+
+**1. ปรับ UI หน้าออเดอร์ร้านค้าต่อจากเดิม** (ก่อนต่อ backend)
+*   สร้างการ์ดตรวจสอบสลิปโอนเงินแบบใหม่ ([FilePreviewLightbox.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/FilePreviewLightbox.tsx)) — ซูมรูปสลิปอัตโนมัติเมื่อเปิด, แถบยืนยันยอด, ปุ่มอนุมัติ/ปฏิเสธ โทนสีส้ม ใช้ทั้งตอนกดจากคอลัมน์ "สลิปโอนเงิน" และปุ่มสถานะ "รอตรวจสอบ" (เปิดการ์ดเดียวกัน)
+*   ปรับ [UpdateStatusModal.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/UpdateStatusModal.tsx) ทั้งชุด — สเต็ปเปอร์แยกสีชัดเจน 3 ระดับ (ผ่านแล้ว/ปัจจุบัน/ถัดไป), แก้บั๊กวงกลมเรียงไม่ตรงแนว, ปุ่มด้านล่างเหลือ 2 ปุ่ม, ข้อความกล่องอธิบายกลาง, ปุ่มขอบมนขึ้น+เงากระจายขึ้น
+*   ปรับ [OrdersTable.tsx](file:///d:/EasyPrint_webapp/apps/web/components/shop/orders/OrdersTable.tsx) — ตัดคำคอลัมน์หมายเหตุ/จัดส่งสั้นลง, ขยายกรอบตารางให้กว้างขึ้น
+
+**2. สร้าง Backend orders module ทั้งชุด**
+*   แก้ [apps/api/drizzle/schema.ts](file:///d:/EasyPrint_webapp/apps/api/drizzle/schema.ts) — เปลี่ยน `orderStatusEnum` เป็น `pending_review/accepted/in_progress/shipping/completed/cancelled` ให้ตรงกับ frontend, เพิ่มคอลัมน์ `code`/`ref`/`selectedAddOns`/`deliveryMethod`/`deliveryAddress`/`slipUrl`/`slipUploadedAt`/`cancelReason`/`cancelNote`, เพิ่ม enum ใหม่ `cancelReasonEnum`/`deliveryMethodEnum`, unique constraint (`shopId`+`code`)
+*   สร้าง [apps/api/src/routes/orders.ts](file:///d:/EasyPrint_webapp/apps/api/src/routes/orders.ts) — endpoint `POST /orders` (สร้างออเดอร์ใหม่ รันเลข `code`/`ref` อัตโนมัติ กันชนด้วย retry), `GET /shops/:shopId/orders` (list + filter สถานะ), `GET /orders/:id` (รายละเอียด), `PATCH /orders/:id/status` (เปลี่ยนสถานะ/ยกเลิก/ปฏิเสธการชำระเงินรวมใน endpoint เดียว มี state machine กันข้ามขั้นสถานะ)
+*   สร้าง [apps/api/src/notifications.ts](file:///d:/EasyPrint_webapp/apps/api/src/notifications.ts) — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะ 3 เหตุการณ์: สั่งซื้อสำเร็จ, ร้านปฏิเสธการชำระเงิน, ร้านยกเลิกงาน (ไม่ส่งตอนเปลี่ยนสถานะปกติ — ลูกค้าติดตามผ่านหน้าเว็บแทนตามที่ระบุใน `docs/proposal.md` หัวข้อ 1.3.2)
+*   เพิ่ม bucket `payment-slips` (private) ใน [apps/api/src/storage.ts](file:///d:/EasyPrint_webapp/apps/api/src/storage.ts)
+*   สร้าง [apps/api/src/seed.ts](file:///d:/EasyPrint_webapp/apps/api/src/seed.ts) — สคริปต์ใส่ออเดอร์จำลอง 6 รายการลง database จริง (รันซ้ำได้ ไม่สร้างข้อมูลซ้ำ) ไว้ทดสอบเพราะหน้าฟอร์มสั่งซื้อของลูกค้ายังไม่มี
+*   อัปเดต [packages/shared/src/schemas/order.ts](file:///d:/EasyPrint_webapp/packages/shared/src/schemas/order.ts) — schema ใหม่ครบ (`createOrderSchema` ขยาย, `updateOrderStatusSchema`, `cancelReasonSchema`, `orderListQuerySchema`)
+*   อัปเดต [docs/erd.md](file:///d:/EasyPrint_webapp/docs/erd.md), [docs/api-spec.md](file:///d:/EasyPrint_webapp/docs/api-spec.md) ให้ตรงกับ schema/endpoint ใหม่
+
+**3. เชื่อม Frontend เข้ากับ Backend จริง**
+*   สร้าง [apps/web/lib/api/orders.ts](file:///d:/EasyPrint_webapp/apps/web/lib/api/orders.ts) — API client (`listShopOrders`, `getOrder`, `updateOrderStatus`)
+*   สร้าง [apps/web/lib/ordersAdapter.ts](file:///d:/EasyPrint_webapp/apps/web/lib/ordersAdapter.ts) — แปลงข้อมูลจาก API ให้เข้ากับ `Order` type เดิมที่ component ใช้อยู่แล้ว (ไม่ต้องแก้ UI component เลยสักไฟล์)
+*   แก้ [apps/web/app/(shop)/shop/orders/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(shop)/shop/orders/page.tsx) — เลิกใช้ `initialOrders` mock ทั้งหมด ดึง `shopId` ผ่าน `getMyShop()` แล้วโหลด/บันทึกออเดอร์จริงผ่าน API พร้อม loading/error state
+*   เพิ่ม config `api` ใน `.claude/launch.json` ให้เปิด backend ควบคู่กับ preview ได้
+
+### 📌 Database (Supabase จริง — apply ให้แล้ว ไม่ต้องรันซ้ำ)
+*   ตาราง `orders` มี 0 rows ก่อน migrate จึงปลอดภัย ไม่กระทบข้อมูลเดิม
+*   Apply ผ่าน `drizzle-kit generate` (สร้างไฟล์ [apps/api/drizzle/migrations/0006_modern_squirrel_girl.sql](file:///d:/EasyPrint_webapp/apps/api/drizzle/migrations/0006_modern_squirrel_girl.sql)) แล้วรัน SQL เองทีละ statement ผ่าน `postgres.js` — **ไม่ได้ใช้ `drizzle-kit push`** เพราะเจอบั๊ก (ดูหัวข้อปัญหาด้านล่าง)
+
+### ❌ ปัญหา/บั๊กที่พบวันนี้และวิธีแก้
+
+1.  **วงกลมสเต็ปเปอร์ใน UpdateStatusModal เรียงไม่ตรงแนว** — สาเหตุ: ป้ายชื่อสถานะ "กำลังดำเนินการ" ยาวกว่าคำอื่น ตัดขึ้น 2 บรรทัดในกรอบแคบ ทำให้คอลัมน์นั้นสูงกว่าคอลัมน์อื่นแล้วโดน `items-center` ดันให้ดูยกสูงขึ้น → แก้ด้วยกำหนดความสูงคงที่ให้ทุกคอลัมน์เท่ากันหมด
+2.  **เงา/วงแหวนของวงกลมสถานะปัจจุบันล้นไปทับตัวหนังสือด้านล่าง** — สาเหตุ: ไม่มีพื้นที่เผื่อรอบวงกลมสำหรับเอฟเฟกต์ `ring`/`shadow` → แก้ด้วยเพิ่มกล่องขนาดคงที่ (40×40px) ครอบวงกลมทุกขั้นไว้
+3.  **`drizzle-kit push` crash: `Cannot read properties of undefined (reading 'endsWith')`** — สาเหตุ: บั๊กจริงใน `drizzle-kit@0.24.2` ตอนอ่านคอลัมน์ array ที่ไม่มีค่า default (`column_default` เป็น `undefined` ไม่ใช่ `null`) → ลองอัปเกรด `drizzle-kit` เวอร์ชันใหม่แล้วแต่ติด incompatibility กับ `drizzle-orm@0.33.0` ที่ล็อกไว้ (ต้องการ module `drizzle-orm/casing` ที่ยังไม่มีในเวอร์ชันนี้) → แก้ชั่วคราวด้วยแพตช์ไฟล์ `node_modules/.bun/drizzle-kit@0.24.2/.../bin.cjs` ตรงๆ (**ไม่ถูก commit ขึ้น git เพราะ `node_modules` ไม่ถูกเก็บ — แพตช์นี้จะหายไปทันทีที่มีคน `bun install` ใหม่**)
+4.  **`drizzle-kit push` ค้างที่ "Pulling schema from database..." ไม่จบแม้แพตช์บั๊กข้อ 3 แล้ว** — สาเหตุ: ไล่สแกน schema ภายในของ Supabase ทั้งหมด (`auth`, `storage`, `realtime` ฯลฯ) ไม่ใช่แค่ `public` → เพิ่ม `schemaFilter: ["public"]` ใน [apps/api/drizzle.config.ts](file:///d:/EasyPrint_webapp/apps/api/drizzle.config.ts) แต่ยังไม่พอ (ยังค้างต่อ) → สุดท้ายเปลี่ยนวิธีเป็นใช้ `drizzle-kit generate` (ไม่ต้องต่อ DB จริงตอนสร้างไฟล์ migration) แล้วรัน SQL เองแทน `push` ตามที่อธิบายในหัวข้อ Database ด้านบน
+5.  **ข้อความภาษาไทยเพี้ยนเป็น `?????` ตอนทดสอบ endpoint ผ่าน `curl -d '...'` ใน Git Bash** — ตรวจสอบแล้วเป็นแค่ปัญหา encoding ของ argument ฝั่ง terminal เอง ไม่ใช่บั๊กจริงในโค้ด (ยืนยันด้วยการส่งผ่านไฟล์ `--data-binary @file` แทน พบว่าข้อมูลถูกต้องสมบูรณ์ทั้งใน response และใน database)
+
+### 📌 ทดสอบ End-to-End แล้ว (ผ่านทุกจุด)
+
+**ผ่าน curl:**
+1.  สร้างออเดอร์ใหม่ → ได้ `code`/`ref` ที่ไม่ซ้ำถูกต้อง
+2.  list/filter ออเดอร์ตามสถานะ, ดูรายละเอียดออเดอร์เดียว
+3.  เปลี่ยนสถานะข้ามขั้น → ถูกบล็อก (400) พร้อมข้อความบอกว่าต้องไปสถานะไหนก่อน
+4.  ยกเลิกไม่ใส่เหตุผล → ถูกบล็อก (400), ยกเลิกออเดอร์ที่จบสถานะแล้วซ้ำ → ถูกบล็อก
+5.  สิทธิ์การเข้าถึง: ร้านอื่นดูออเดอร์ร้านนี้ไม่ได้ (403), ลูกค้าดูออเดอร์คนอื่นไม่ได้ (403), ไม่ login เรียก endpoint ที่ต้อง auth ไม่ได้ (401)
+6.  อีเมลแจ้งเตือน: log ขึ้นเฉพาะตอนสั่งซื้อสำเร็จ/ปฏิเสธการชำระเงิน/ยกเลิกงาน — ตอนเปลี่ยนสถานะปกติไม่มี log ใดๆ ตรงตามที่ตั้งใจ
+
+**ผ่านเบราว์เซอร์จริง (หลังต่อ frontend):**
+1.  ล็อกอินด้วยบัญชีร้าน `seed-shop@easyprint.test` แล้วเข้า `/shop/orders` → เห็นออเดอร์จริง 8 รายการจาก database (ไม่ใช่ mock)
+2.  กดอนุมัติสลิปออเดอร์หนึ่ง → สถานะเปลี่ยนเป็น "รับงานแล้ว" ทันทีในหน้าจอ
+3.  รีเฟรชหน้า (F5) → สถานะที่เปลี่ยนยังอยู่ (ยืนยันว่าบันทึกจริงลง database ไม่ใช่แค่ state ในเบราว์เซอร์)
+4.  ไม่มี error ทั้งใน browser console และ server log ตลอดการทดสอบ
+
+### 📌 การติดตั้งเพิ่มเติม / สิ่งที่เพื่อนร่วมทีมต้องทำหลัง pull
+
+**ไม่ต้องติดตั้งอะไรเพิ่ม** — ไม่มี dependency ใหม่ในงานวันนี้ (`bun install` ตามปกติพอ) และ schema ที่เปลี่ยนก็ apply ขึ้น Supabase กลางเรียบร้อยแล้ว ทุกคนที่ต่อ DB เดียวกันเห็นคอลัมน์/ตารางใหม่ทันทีไม่ต้องรัน migration เอง
+
+แต่มี 2 เรื่องที่ควรรู้:
+1.  **ถ้าใครต้องแก้ schema เพิ่มในอนาคตแล้วรัน `bun --cwd apps/api drizzle-kit push` (หรือ `bun run db:push` ที่ root) อาจเจอบั๊กเดิมซ้ำ** (ค้างที่ "Pulling schema from database..." หรือ crash) เพราะบั๊กอยู่ใน `drizzle-kit@0.24.2` ที่ล็อกไว้ใน `package.json` ไม่ใช่โค้ดเรา แพตช์ที่ใช้แก้ (แก้ตรงใน `node_modules`) จะหายไปทันทีที่ `bun install` ใหม่ — **แนะนำให้ใช้ `drizzle-kit generate` สร้างไฟล์ SQL แล้วรันเองแทน `push`** ถ้าเจอปัญหาเดิม (ดูตัวอย่างวิธีทำในหัวข้อปัญหาข้อ 3–4 ด้านบน)
+2.  อยากทดสอบออเดอร์ให้รัน `bun --cwd apps/api run seed` เพื่อใส่ข้อมูลจำลองก่อน (login ทดสอบด้วย `seed-shop@easyprint.test` / `Seed1234!` ฝั่งร้าน หรือ `seed-customer-1@easyprint.test` / `Seed1234!` ฝั่งลูกค้า)
+
+### ✅ สถานะยืนยัน ณ วันที่ 2026-07-30
+
+**3 กลุ่มฟีเจอร์ที่ทำวันนี้เสร็จสมบูรณ์ครบวงจรแล้วทั้งหมด** (UI + backend + เชื่อมต่อกันจริง ทดสอบผ่านหน้าเว็บแล้ว):
+*   สร้างเลขที่คำสั่งซื้ออัตโนมัติ (ระบบ)
+*   ตรวจสอบออเดอร์ / ตรวจสอบรายละเอียดออเดอร์ / เปลี่ยนสถานะงาน / ยกเลิกคำสั่งซื้อ (ฝั่งร้าน)
+*   ตรวจสอบสลิป / Approve การชำระเงิน / Reject การชำระเงิน (ฝั่งร้าน)
+
+### 🔲 สิ่งที่ยังไม่เสร็จ (เฉพาะส่วน Orders)
+
+*   **หน้าฟอร์มสั่งซื้อของลูกค้า** ([apps/web/app/(customer)/orders/new/page.tsx](file:///d:/EasyPrint_webapp/apps/web/app/(customer)/orders/new/page.tsx)) — ยังเป็น stub เปล่า (12 บรรทัด) แม้ backend `POST /orders` พร้อมรับแล้ว
+*   **หน้าติดตามสถานะของลูกค้า** ([apps/web/app/(customer)/orders/[orderId]/page.tsx](<file:///d:/EasyPrint_webapp/apps/web/app/(customer)/orders/%5BorderId%5D/page.tsx>)) — ยังเป็น stub เปล่าเช่นกัน แม้ backend `GET /orders/:id` รองรับลูกค้าดูออเดอร์ตัวเองแล้ว
+*   ยังไม่มีช่องทางให้ลูกค้าอัปโหลดสลิปจริงผ่านหน้าเว็บ — endpoint อัปโหลด (`/uploads` type `payment-slip`) พร้อมแล้ว แต่รอฟอร์มลูกค้ามาเรียกใช้
+*   คำนวณราคาออเดอร์จริงตามอัตราร้าน — `POST /orders` ยังใช้สูตรชั่วคราว (`pages * copies * 100`)
+*   ส่งอีเมลแจ้งเตือนจริง (ไม่ใช่แค่ log console) — ต้องตั้งค่า `RESEND_API_KEY` ใน `.env` ก่อน (ตอนนี้ยังว่างอยู่)
+*   (ไม่บังคับ) ระบบอ่านยอด/ธนาคารในสลิปอัตโนมัติด้วย OCR — ตั้งใจเลื่อนไว้เพราะซับซ้อนเกินจำเป็นในเฟสแรก
+*   (ไม่บังคับ) ตาราง `order_status_history` (audit log ประวัติเปลี่ยนสถานะ) และ Dashboard สรุปยอดขาย (`GET /shops/:id/dashboard`) — ยังไม่ทำ ไม่กระทบ flow หลัก

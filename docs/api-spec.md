@@ -18,9 +18,9 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/uploads` | อัปโหลดไฟล์รูปภาพ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"`) จำกัด JPG/PNG/WEBP ไม่เกิน 5MB — คืน `{ path, url }`, `url` เป็น `null` ถ้า type เป็น `id-card` (bucket private) | ไม่ต้อง (เรียกได้ก่อน login เพราะใช้ตอนสมัครร้านค้า) |
+| POST | `/uploads` | อัปโหลดไฟล์รูปภาพ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"` / `"payment-slip"`) จำกัด JPG/PNG/WEBP ไม่เกิน 5MB — คืน `{ path, url }`, `url` เป็น `null` ถ้า type เป็น `id-card`/`payment-slip` (bucket private) | ไม่ต้อง (เรียกได้ก่อน login เพราะใช้ตอนสมัครร้านค้า) |
 
-โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง 2 bucket: `shop-photos` (public) และ `id-cards` (private) สร้างไว้แล้วบน Supabase — `service-image`/`delivery-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่
+โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง bucket: `shop-photos` (public), `id-cards` (private), `payment-slips` (private, สร้างอัตโนมัติผ่าน `ensureSlipBucket()` ใน `apps/api/src/seed.ts` ถ้ายังไม่มี) — `service-image`/`delivery-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่
 
 ⚠️ endpoint นี้เปิดสาธารณะโดยไม่มี rate limit — กันได้แค่ระดับ mime type + ขนาดไฟล์ ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้
 
@@ -28,7 +28,12 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ | ยังไม่ใส่ (TODO) |
+| POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ (ลูกค้า) — รันเลขที่ออเดอร์ (`code` ต่อร้าน + `ref` ทั้งระบบ) อัตโนมัติ, ลองใหม่ 3 ครั้งถ้าเลขชนกัน (unique constraint `shop_id`+`code`), ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้าแบบ best-effort หลังบันทึกสำเร็จ | ต้อง login เป็น customer |
+| GET | `/shops/:shopId/orders` | list ออเดอร์ของร้าน เรียงใหม่สุดก่อน, filter ด้วย `?status=` ได้ (ไม่ใส่ = เอาทุกสถานะ) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/orders/:id` | รายละเอียดออเดอร์เดียว | shop_owner ของร้านนี้ หรือ customer เจ้าของออเดอร์เอง หรือ admin |
+| PATCH | `/orders/:id/status` | เปลี่ยนสถานะออเดอร์ — ใช้ endpoint เดียวกันทั้ง "เดินหน้า" (`{ status }`), "ยกเลิก", และ "ปฏิเสธการชำระเงิน" (`{ status: "cancelled", cancelReason, cancelNote? }` บังคับ `cancelReason` เมื่อ `status: "cancelled"`) — บังคับเดินตามลำดับ `pending_review → accepted → in_progress → shipping/completed` (ข้าม `shipping` อัตโนมัติถ้า `deliveryMethod: "self_pickup"`) ห้ามข้ามขั้น (400 ถ้าข้าม), ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ `completed`/`cancelled` — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะตอนยกเลิกเท่านั้น (แยกข้อความ "ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอนสถานะยังเป็น `pending_review` กับ "ยกเลิกงาน" ถ้ายกเลิกตอนอื่น) ส่วนเดินหน้าสถานะปกติ (accepted/in_progress/shipping/completed) **ไม่ส่งอีเมล** ลูกค้าติดตามผ่านหน้าเว็บของลูกค้าแทน (ตาม `docs/proposal.md` หัวข้อ 1.3.2) | ต้อง login เป็น shop_owner ของร้านนี้ |
+
+โค้ดอยู่ที่ `apps/api/src/routes/orders.ts` — Zod schema อยู่ที่ `packages/shared/src/schemas/order.ts` (`createOrderSchema`, `updateOrderStatusSchema`, `orderListQuerySchema`) — มี seed script (`bun --cwd apps/api run seed`) ไว้ใส่ออเดอร์จำลองทดสอบ เพราะหน้าสั่งซื้อจริงฝั่งลูกค้ายังไม่เสร็จ (ดู `apps/api/src/seed.ts`)
 
 ## Shops (สาธารณะฝั่งลูกค้า)
 
@@ -84,7 +89,9 @@
 ## ยังไม่ได้ทำ (ตาม scope ในข้อเสนอโครงการ)
 
 - Shops: `GET /shops/:id`, `PATCH /shops/:id` (รวมถึง toggle `delivery_enabled` ทั้งร้าน)
-- Orders: `GET /orders/:id`, `PATCH /orders/:id/status`, `GET /shops/:id/orders`
 - Dashboard: `GET /shops/:id/dashboard` (สรุปรายได้ตาม 1.3.1.6)
-- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล)
+- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว)
+- หน้าสั่งซื้อของลูกค้าจริง (`apps/web/app/(customer)/orders/new`) ยังเป็น stub เปล่า — `POST /orders` backend พร้อมใช้แล้วแต่ยังไม่มีฟอร์มเรียกจริง
+- คำนวณ `total_price` จริงตามอัตราร้าน (ตอนนี้ `POST /orders` ใช้สูตรชั่วคราว)
+- ระบบ auto-verify สลิป (OCR อ่านยอด/ธนาคารอัตโนมัติ) — ตอนนี้ร้านต้องดูสลิปด้วยตาแล้วกดอนุมัติ/ปฏิเสธเอง
 - อัปโหลดรูปภาพจริงผ่าน Supabase Storage (ตอนนี้ frontend เป็นกล่อง mock)
