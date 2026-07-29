@@ -75,7 +75,7 @@ export default function OrdersTable({
   }, [notePopover]);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_32px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.8)] overflow-hidden">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_32px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.8)] overflow-hidden -mx-2 md:-mx-3 lg:-mx-4">
       {/* Header bar */}
       <div className="p-4 sm:p-6 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-800">รายการคำสั่งซื้อทั้งหมด</h2>
@@ -146,7 +146,7 @@ export default function OrdersTable({
                     </td>
 
                     {/* หมายเหตุ */}
-                    <td className="py-4 px-4 text-gray-600 max-w-[130px]">
+                    <td className="py-4 px-4 text-gray-600 max-w-[100px]">
                       {order.note ? (
                         <div className="relative" data-note-popover>
                           <p className="truncate text-center tracking-tight">{order.note}</p>
@@ -197,7 +197,7 @@ export default function OrdersTable({
                     </td>
 
                     {/* การจัดส่ง */}
-                    <td className="py-4 px-4 text-gray-700 max-w-[130px]">
+                    <td className="py-4 px-4 text-gray-700 max-w-[100px]">
                       {order.delivery.method === "self_pickup" ? (
                         <span className="flex items-center justify-center gap-1.5">
                           <Store size={14} className="text-gray-400 shrink-0" />
@@ -297,8 +297,12 @@ export default function OrdersTable({
                         </span>
                       ) : (
                         <button
-                          onClick={() => onOpenStatusModal(order)}
-                          className={`group inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap transition-all duration-200 ease-out shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:shadow-[0_6px_14px_-4px_rgba(0,0,0,0.18),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] active:shadow-[0_1px_1px_rgba(0,0,0,0.08)] ${meta.badgeBg} ${meta.badgeText} ${meta.targetBorder}`}
+                          onClick={() =>
+                            order.status === "pending_review"
+                              ? onPreviewFile(order, "slip")
+                              : onOpenStatusModal(order)
+                          }
+                          className={`group inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap transition-all duration-200 ease-out shadow-[0_2px_0_rgba(0,0,0,0.12),0_3px_6px_-2px_rgba(0,0,0,0.18),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:shadow-[0_3px_0_rgba(0,0,0,0.12),0_6px_14px_-4px_rgba(0,0,0,0.22),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97] active:shadow-[0_1px_1px_rgba(0,0,0,0.15)] ${meta.badgeBg} ${meta.badgeText} ${meta.targetBorder}`}
                         >
                           {meta.label}
                           <span className="flex items-center justify-center w-4 h-4 rounded-md bg-white/70 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
