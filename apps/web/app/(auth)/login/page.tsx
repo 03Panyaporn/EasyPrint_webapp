@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
@@ -12,8 +12,25 @@ const ROLE_HOME: Record<string, string> = {
   admin: "/admin",
 };
 
+// กัน open redirect — ยอมรับเฉพาะ path ภายในเว็บที่ขึ้นต้นด้วย "/" เดี่ยว (ไม่ใช่ "//evil.com" ที่เบราว์เซอร์ตีความเป็น protocol-relative URL ออกนอกเว็บได้)
+function safeRedirectPath(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectPath(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +48,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const { user } = await login({ email, password, rememberMe });
-      router.push(ROLE_HOME[user.role] ?? "/");
+      router.push(redirectTo ?? ROLE_HOME[user.role] ?? "/");
       router.refresh();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

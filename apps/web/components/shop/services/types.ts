@@ -3,26 +3,36 @@ export interface AddOnPriceBinding {
   extraPrice: number;
 }
 
-export interface PriceOption {
-  paperSize: string; // เช่น "A4", "A3" หรือขนาดกำหนดเองที่ร้านค้าพิมพ์เอง เช่น "B5"
-  color: string; // "ขาวดำ" | "สี"
-  price: number;
+// วิธีคิดราคาพื้นฐาน — ดู comment เต็มที่ apps/api/drizzle/schema.ts pricingModelEnum
+export type PricingModel = "per_page" | "per_piece" | "per_sqm" | "fixed";
+
+export type ServiceOptionType = "dropdown" | "radio" | "checkbox" | "number" | "text";
+
+export type AllowedFileType = "pdf" | "jpg" | "png" | "ai" | "psd";
+
+export interface ServiceOptionValue {
+  id?: string; // ไม่มีตอนกำลังกรอกในฟอร์ม แต่มีเสมอตอนดึงจาก backend จริง — ลูกค้าใช้ id นี้ตอนเพิ่มลงตะกร้า
+  name: string;
+  extraPrice: number; // ห้ามติดลบ
 }
 
-export interface AreaRate {
-  color: string; // "ขาวดำ" | "สี"
-  ratePerSqm: number; // บาทต่อตารางเมตร — ลูกค้ากรอกกว้าง/สูงเองตอนสั่งซื้อ ราคารวม = กว้าง x สูง x ratePerSqm
+export interface ServiceOption {
+  id?: string;
+  name: string;
+  type: ServiceOptionType;
+  // ใช้กับ type = dropdown/radio/checkbox เท่านั้น — number/text ต้องเป็น array ว่าง (ลูกค้ากรอกเอง ไม่มีราคาเพิ่ม)
+  values: ServiceOptionValue[];
 }
-
-export type MainServicePricingMode = "fixed" | "area";
 
 export interface MainService {
   id: string;
   name: string;
   description?: string;
-  pricingMode: MainServicePricingMode;
-  priceOptions: PriceOption[]; // ใช้เมื่อ pricingMode = "fixed" — ราคาแยกตาม ขนาด x สี มีได้หลายรายการ
-  areaRates: AreaRate[]; // ใช้เมื่อ pricingMode = "area" — อัตราต่อตร.ม. แยกตามสี
+  pricingModel: PricingModel;
+  basePrice: number;
+  requiresFileUpload: boolean;
+  allowedFileTypes: AllowedFileType[];
+  options: ServiceOption[];
   unit: string; // e.g., "แผ่น", "เล่ม", "ชิ้น", "หน้า", "งาน"
   estimatedTime?: string; // e.g., "5 นาที", "30 นาที"
   availableAddOns: AddOnPriceBinding[];

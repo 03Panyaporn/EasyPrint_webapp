@@ -64,6 +64,34 @@
       "when": 1785323357684,
       "tag": "0008_public_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785327771637,
+      "tag": "0009_narrow_mauler",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785339217849,
+      "tag": "0010_whole_triton",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785344007744,
+      "tag": "0011_white_kitty_pryde",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785349099214,
+      "tag": "0012_fantastic_sumo",
+      "breakpoints": true
     }
   ]
 }

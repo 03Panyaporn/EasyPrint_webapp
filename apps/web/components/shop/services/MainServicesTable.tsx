@@ -1,14 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { MainService, AddOnService } from "./types";
-import { Pencil, Trash2, Plus, Clock, FileText } from "lucide-react";
+import { MainService, AddOnService, PricingModel } from "./types";
+import { Pencil, Trash2, Copy, Plus, Clock, FileText } from "lucide-react";
+
+const PRICING_MODEL_LABEL: Record<PricingModel, string> = {
+  per_page: "/หน้า",
+  per_piece: "/ชิ้น",
+  per_sqm: "/ตร.ม.",
+  fixed: " เหมาจ่าย",
+};
+const PRICING_MODEL_HINT: Record<PricingModel, string> = {
+  per_page: "ตามจำนวนหน้า PDF ที่นับได้",
+  per_piece: "ตามจำนวนชุดที่สั่ง",
+  per_sqm: "ตามพื้นที่ที่ลูกค้ากรอก",
+  fixed: "ราคาเดียวทั้งงาน",
+};
 
 interface MainServicesTableProps {
   services: MainService[];
   allAddOns: AddOnService[];
   onAddClick: () => void;
   onEditClick: (service: MainService) => void;
+  onDuplicateClick: (service: MainService) => void;
   onDeleteClick: (id: string) => void;
   onToggleActive: (id: string) => void;
 }
@@ -18,6 +32,7 @@ export default function MainServicesTable({
   allAddOns,
   onAddClick,
   onEditClick,
+  onDuplicateClick,
   onDeleteClick,
   onToggleActive,
 }: MainServicesTableProps) {
@@ -108,35 +123,18 @@ export default function MainServicesTable({
                     )}
                   </td>
 
-                  {/* Price (ขนาด x สี หรือ ราคาต่อพื้นที่) */}
+                  {/* Price (ราคาพื้นฐานตาม pricingModel + จำนวนตัวเลือก) */}
                   <td className="py-4 px-4">
-                    {service.pricingMode === "area" ? (
-                      service.areaRates.length === 0 ? (
-                        <span className="text-xs text-gray-400">ยังไม่มีอัตราราคา</span>
-                      ) : (
-                        <div title={service.areaRates.map((r) => `${r.color} ฿${r.ratePerSqm}/ตร.ม.`).join(", ")}>
-                          <div className="font-bold text-orange-600">
-                            เริ่มต้น ฿{Math.min(...service.areaRates.map((r) => r.ratePerSqm)).toLocaleString()}/ตร.ม.
-                          </div>
-                          <div className="text-xs text-gray-400 mt-0.5">ตามพื้นที่ที่ลูกค้ากรอก</div>
-                        </div>
-                      )
-                    ) : service.priceOptions.length === 0 ? (
-                      <span className="text-xs text-gray-400">ยังไม่มีราคา</span>
-                    ) : (
-                      <div
-                        title={service.priceOptions
-                          .map((p) => `${p.paperSize} (${p.color}) ฿${p.price}`)
-                          .join(", ")}
-                      >
-                        <div className="font-bold text-orange-600">
-                          เริ่มต้น ฿{Math.min(...service.priceOptions.map((p) => p.price)).toLocaleString()}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {service.priceOptions.length} รายการ
-                        </div>
+                    <div>
+                      <div className="font-bold text-orange-600">
+                        ฿{service.basePrice.toLocaleString()}
+                        {PRICING_MODEL_LABEL[service.pricingModel]}
                       </div>
-                    )}
+                      <div className="text-xs text-gray-400 mt-0.5">{PRICING_MODEL_HINT[service.pricingModel]}</div>
+                      {service.options.length > 0 && (
+                        <div className="text-[11px] text-gray-400 mt-0.5">{service.options.length} ตัวเลือกเสริม</div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Unit */}
@@ -199,8 +197,19 @@ export default function MainServicesTable({
                         <Pencil size={16} />
                       </button>
                       <button
+                        onClick={() => onDuplicateClick(service)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                        title="คัดลอกบริการ"
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <button
                         onClick={() => {
-                          if (confirm(`คุณต้องการลบบริการ "${service.name}" หรือไม่?`)) {
+                          if (
+                            confirm(
+                              `คุณต้องการลบบริการ "${service.name}" หรือไม่?\n\nข้อมูลตัวเลือก/ราคาที่ตั้งไว้ของบริการนี้จะถูกลบทั้งหมด และลูกค้าจะไม่เห็นบริการนี้อีก`
+                            )
+                          ) {
                             onDeleteClick(service.id);
                           }
                         }}

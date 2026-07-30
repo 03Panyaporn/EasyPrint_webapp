@@ -3,9 +3,6 @@ import { z } from "zod";
 // สคีมานี้ใช้ทั้งฝั่ง apps/web (ตอน validate ฟอร์มหน้า /shop/services) และ apps/api (ตอน validate ก่อนบันทึก DB)
 // แก้ที่นี่ที่เดียว ทั้งสองฝั่งจะตรวจสอบข้อมูลตรงกันเสมอ
 
-// ปุ่มลัดที่มีให้เลือกในฟอร์ม — ร้านค้ายังพิมพ์ขนาดเองได้อิสระ (เช่น "B5", "โปสเตอร์ A2") ไม่ได้ผูกกับ enum นี้
-export const commonPaperSizes = ["A4", "A3", "A5"] as const;
-export const colorSchema = z.enum(["ขาวดำ", "สี"]);
 export const serviceUnitSchema = z.enum(["แผ่น", "เล่ม", "ชิ้น", "หน้า", "งาน"]);
 export const estimatedTimeSchema = z.enum([
   "2 นาที",
@@ -23,49 +20,85 @@ export const addOnBindingSchema = z.object({
   extraPrice: z.number().nonnegative(),
 });
 
-// ราคาแยกตาม "ขนาดกระดาษ x สี" — ร้านค้าเพิ่มได้กี่รายการก็ได้ ขนาดพิมพ์เองได้อิสระ ไม่ผูกกับ preset
-export const priceOptionSchema = z.object({
-  paperSize: z.string().trim().min(1, "กรุณากรอกขนาด").max(30, "ชื่อขนาดยาวเกินไป"),
-  color: colorSchema,
-  price: z.number().nonnegative(),
+// วิธีคิดราคาพื้นฐาน — ดู comment เต็มที่ apps/api/drizzle/schema.ts pricingModelEnum
+export const pricingModelSchema = z.enum(["per_page", "per_piece", "per_sqm", "fixed"]);
+
+export const allowedFileTypeSchema = z.enum(["pdf", "jpg", "png", "ai", "psd"]);
+
+// ตัวเลือกบริการ (service option) ที่ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ"
+export const serviceOptionTypeSchema = z.enum(["dropdown", "radio", "checkbox", "number", "text"]);
+
+// ค่าที่ลูกค้าเลือกได้ของตัวเลือกแบบ dropdown/radio/checkbox — number/text ไม่มี values (ลูกค้ากรอกเองอิสระ ไม่มีราคาเพิ่ม)
+export const serviceOptionValueSchema = z.object({
+  id: z.string().uuid().optional(), // ไม่มีตอนกำลังกรอกในฟอร์ม แต่มีเสมอตอนดึงจาก backend จริง
+  name: z.string().trim().min(1, "กรุณากรอกชื่อค่าตัวเลือก").max(100),
+  extraPrice: z.number().nonnegative("ราคาเพิ่มต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
 });
-export type PriceOptionInput = z.infer<typeof priceOptionSchema>;
+export type ServiceOptionValueInput = z.infer<typeof serviceOptionValueSchema>;
 
-// อัตราราคาต่อตารางเมตร แยกตามสี — ใช้ตอน pricingMode = "area" (ลูกค้ากรอกกว้าง/สูงเองตอนสั่งซื้อจริง)
-export const areaRateSchema = z.object({
-  color: colorSchema,
-  ratePerSqm: z.number().nonnegative(),
-});
-export type AreaRateInput = z.infer<typeof areaRateSchema>;
-
-export const mainServicePricingModeSchema = z.enum(["fixed", "area"]);
-
-function hasDuplicatePriceOptions(options: { paperSize: string; color: string }[]) {
+function hasDuplicateNames(items: { name: string }[]) {
   const seen = new Set<string>();
-  for (const o of options) {
-    const key = `${o.paperSize.trim().toLowerCase()}|${o.color}`;
+  for (const i of items) {
+    const key = i.name.trim().toLowerCase();
     if (seen.has(key)) return true;
     seen.add(key);
   }
   return false;
 }
 
-function hasDuplicateAreaRateColors(rates: { color: string }[]) {
-  const seen = new Set<string>();
-  for (const r of rates) {
-    if (seen.has(r.color)) return true;
-    seen.add(r.color);
-  }
-  return false;
-}
+export const serviceOptionSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1, "กรุณากรอกชื่อตัวเลือก").max(100),
+    type: serviceOptionTypeSchema,
+    // ใช้กับ type = dropdown/radio/checkbox เท่านั้น — number/text ต้องเป็น array ว่าง
+    values: z.array(serviceOptionValueSchema).default([]),
+  })
+  .superRefine((d, ctx) => {
+    // checkbox = toggle เดียว (เช่น "พิมพ์ 2 หน้า +10 บาท") จึงบังคับมีค่าเดียวพอดี — เก็บได้ 1 แถวต่อ 1 ตัวเลือกในตะกร้า (ไม่รองรับ multi-select)
+    if (d.type === "checkbox") {
+      if (d.values.length !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ตัวเลือกแบบ checkbox "${d.name || "-"}" ต้องมีค่าเดียวพอดี (ราคาเพิ่มตอนติ๊กเลือก)`,
+          path: ["values"],
+        });
+      }
+      return;
+    }
+    const needsValues = d.type === "dropdown" || d.type === "radio";
+    if (needsValues) {
+      if (d.values.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ตัวเลือก "${d.name || "-"}" ต้องมีค่าให้เลือกอย่างน้อย 1 รายการ`,
+          path: ["values"],
+        });
+      } else if (hasDuplicateNames(d.values)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ตัวเลือก "${d.name || "-"}" มีชื่อค่าซ้ำกัน กรุณาตรวจสอบ`,
+          path: ["values"],
+        });
+      }
+    } else if (d.values.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `ตัวเลือกแบบ "${d.type}" ไม่ต้องมีรายการค่า (ลูกค้ากรอกเองอิสระ)`,
+        path: ["values"],
+      });
+    }
+  });
+export type ServiceOptionInput = z.infer<typeof serviceOptionSchema>;
 
-const mainServiceBaseSchema = z.object({
+const mainServiceObjectSchema = z.object({
   name: z.string().trim().min(1, "กรุณากรอกชื่อบริการ").max(100),
   description: z.string().trim().max(500).optional(),
-  pricingMode: mainServicePricingModeSchema.default("fixed"),
-  // priceOptions ใช้เมื่อ pricingMode = "fixed", areaRates ใช้เมื่อ pricingMode = "area" — validate คู่กับ pricingMode ด้านล่าง
-  priceOptions: z.array(priceOptionSchema).default([]),
-  areaRates: z.array(areaRateSchema).default([]),
+  pricingModel: pricingModelSchema.default("fixed"),
+  basePrice: z.number().nonnegative("ราคาต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
+  requiresFileUpload: z.boolean().default(true),
+  allowedFileTypes: z.array(allowedFileTypeSchema).default(["pdf", "jpg", "png"]),
+  options: z.array(serviceOptionSchema).default([]),
   unit: serviceUnitSchema,
   estimatedTime: estimatedTimeSchema.optional(),
   imageUrl: z.string().url().optional(),
@@ -73,45 +106,18 @@ const mainServiceBaseSchema = z.object({
   addOns: z.array(addOnBindingSchema).default([]),
 });
 
-function refinePricingData(
-  d: { pricingMode?: "fixed" | "area"; priceOptions?: PriceOptionInput[]; areaRates?: AreaRateInput[] },
-  ctx: z.RefinementCtx
-) {
-  if (d.pricingMode === undefined) return; // update ที่ไม่ได้แตะโหมดราคาเลย ข้ามการเช็คนี้ไป
-
-  if (d.pricingMode === "fixed") {
-    if (!d.priceOptions || d.priceOptions.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "กรุณาเพิ่มราคาอย่างน้อย 1 รายการ (ขนาด + สี + ราคา)",
-        path: ["priceOptions"],
-      });
-    } else if (hasDuplicatePriceOptions(d.priceOptions)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "มีขนาด+สีซ้ำกันในรายการราคา กรุณาตรวจสอบ",
-        path: ["priceOptions"],
-      });
-    }
-  } else {
-    if (!d.areaRates || d.areaRates.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "กรุณาเพิ่มอัตราราคาต่อตารางเมตรอย่างน้อย 1 สี",
-        path: ["areaRates"],
-      });
-    } else if (hasDuplicateAreaRateColors(d.areaRates)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "มีสีซ้ำกันในรายการอัตราราคา กรุณาตรวจสอบ",
-        path: ["areaRates"],
-      });
-    }
+function refineNoDuplicateOptionNames(d: { options?: ServiceOptionInput[] }, ctx: z.RefinementCtx) {
+  if (d.options && hasDuplicateNames(d.options)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "มีชื่อตัวเลือกซ้ำกันในบริการนี้ กรุณาตรวจสอบ",
+      path: ["options"],
+    });
   }
 }
 
-export const createMainServiceSchema = mainServiceBaseSchema.superRefine(refinePricingData);
-export const updateMainServiceSchema = mainServiceBaseSchema.partial().superRefine(refinePricingData);
+export const createMainServiceSchema = mainServiceObjectSchema.superRefine(refineNoDuplicateOptionNames);
+export const updateMainServiceSchema = mainServiceObjectSchema.partial().superRefine(refineNoDuplicateOptionNames);
 
 export type CreateMainServiceInput = z.infer<typeof createMainServiceSchema>;
 export type UpdateMainServiceInput = z.infer<typeof updateMainServiceSchema>;

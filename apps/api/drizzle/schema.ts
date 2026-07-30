@@ -17,9 +17,17 @@ export const shopApprovalStatusEnum = pgEnum("shop_approval_status", [
   "approved",
   "rejected",
 ]);
-// fixed = ราคาคงที่ตามขนาด/สีที่ร้านตั้งไว้ล่วงหน้า (main_service_price_options)
-// area = ลูกค้ากรอกกว้าง/สูงเอง คิดราคาตามพื้นที่ (ตร.ม.) x อัตราต่อสี (main_service_area_rates)
-export const mainServicePricingModeEnum = pgEnum("main_service_pricing_mode", ["fixed", "area"]);
+// วิธีคิด "ราคาพื้นฐาน" ของบริการหลัก (base_price คูณกับหน่วยตามโหมดนี้):
+//   per_page  = base_price x จำนวนหน้า PDF ที่นับได้จริง (server นับเองเสมอ)
+//   per_piece = base_price x quantity (จำนวนชุดที่ลูกค้ากรอก)
+//   per_sqm   = base_price x พื้นที่ (ตร.ม.) จากกว้าง/สูงที่ลูกค้ากรอกเอง
+//   fixed     = base_price เหมาจ่ายทั้งงาน ไม่คูณด้วยหน่วยใดๆ (ต่างจาก per_piece ตรงที่ไม่การันตีคูณตาม quantity)
+// ราคารวมจริง = (base_price + ผลรวม extraPrice ของตัวเลือก (options) ที่ลูกค้าเลือก) x หน่วยตามโหมด
+export const pricingModelEnum = pgEnum("pricing_model", ["per_page", "per_piece", "per_sqm", "fixed"]);
+
+// รูปแบบการเลือกของ "ตัวเลือกบริการ" (service option) ที่ร้านค้าสร้างเองได้ไม่จำกัด
+// กฎบังคับกรอกอัตโนมัติ: dropdown/radio/number ต้องเลือก/กรอกก่อนสั่งซื้อ, checkbox/text ไม่บังคับ
+export const serviceOptionTypeEnum = pgEnum("service_option_type", ["dropdown", "radio", "checkbox", "number", "text"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -67,12 +75,20 @@ export const shops = pgTable("shops", {
 
 // ราคาทุกตารางในกลุ่มบริการ/จัดส่งเก็บเป็นหน่วยบาท (numeric) ไม่ใช่สตางค์แบบ orders.total_price
 // เหตุผล: ฟอร์มฝั่ง web กรอก/แสดงผลเป็นบาทตรงๆ อยู่แล้ว เลี่ยงการแปลงหน่วยไปมาโดยไม่จำเป็น
+//
+// ออกแบบใหม่ (2026-07): เปลี่ยนจากราคาคงที่ตาม paperSize/color hardcode (fixed/area/per_page 3 โหมดแยกตาราง)
+// มาเป็นระบบทั่วไป — ร้านค้าเลือก "วิธีคิดราคาพื้นฐาน" (pricingModel) 1 แบบ + ตั้ง basePrice เดียว
+// แล้วเพิ่ม "ตัวเลือกบริการ" (service_options) ได้ไม่จำกัดจำนวนเอง ไม่ hardcode ประเภทกระดาษ/สี/วัสดุอีกต่อไป
 export const mainServices = pgTable("main_services", {
   id: uuid("id").primaryKey().defaultRandom(),
   shopId: uuid("shop_id").references(() => shops.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
-  pricingMode: mainServicePricingModeEnum("pricing_mode").notNull().default("fixed"),
+  pricingModel: pricingModelEnum("pricing_model").notNull().default("fixed"),
+  basePrice: numeric("base_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  requiresFileUpload: boolean("requires_file_upload").notNull().default(true),
+  // นามสกุลไฟล์ที่ร้านรับ เช่น ["pdf","jpg","png","ai","psd"] — ใช้แค่ตอน requiresFileUpload = true
+  allowedFileTypes: text("allowed_file_types").array(),
   unit: text("unit").notNull(),
   estimatedTime: text("estimated_time"),
   imageUrl: text("image_url"),
@@ -80,41 +96,26 @@ export const mainServices = pgTable("main_services", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ราคาแยกตาม "ขนาดกระดาษ x สี" ของบริการหลักแต่ละอัน — 1 บริการหลักมีได้หลายแถว
-// paperSize เป็น free text (ไม่ enum) เพราะร้านค้าต้องเพิ่มขนาดกำหนดเองได้ไม่จำกัด (เช่น "B5", "โปสเตอร์ A2")
-// ไม่ใช่แค่ A4/A3/A5 ที่มีให้เลือกเป็นปุ่มลัดในฟอร์มเท่านั้น
-export const mainServicePriceOptions = pgTable(
-  "main_service_price_options",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
-    paperSize: text("paper_size").notNull(),
-    color: text("color").notNull(), // "ขาวดำ" | "สี"
-    price: numeric("price", { precision: 10, scale: 2 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    // กันร้านค้าเผลอเพิ่มขนาด+สีซ้ำอันเดิมในบริการเดียวกัน (เช็คซ้ำอีกชั้นด้วย Zod .refine() ฝั่ง validate ก่อนบันทึกด้วย)
-    uniqueSizeColor: unique().on(table.mainServiceId, table.paperSize, table.color),
-  })
-);
+// ตัวเลือกของบริการหลัก — ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ" (ไม่ hardcode field ตายตัวอีกต่อไป)
+export const serviceOptions = pgTable("service_options", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(), // ชื่อตัวเลือกที่ลูกค้าเห็น เช่น "ประเภทกระดาษ"
+  type: serviceOptionTypeEnum("type").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
-// อัตราราคาต่อตารางเมตร แยกตามสี — ใช้ตอน pricingMode = "area" เท่านั้น (ลูกค้ากรอกกว้าง/สูงเอง ตอนสั่งซื้อจริง)
-// ⚠️ ตอนสร้างระบบสั่งซื้อจริงทีหลัง ต้องคำนวณราคารวม = กว้าง(ม.) x สูง(ม.) x ratePerSqm ฝั่ง server เท่านั้น
-// ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด กัน customer แก้ราคาเองผ่าน request ตรงๆ
-export const mainServiceAreaRates = pgTable(
-  "main_service_area_rates",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
-    color: text("color").notNull(), // "ขาวดำ" | "สี"
-    ratePerSqm: numeric("rate_per_sqm", { precision: 10, scale: 2 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    uniqueColor: unique().on(table.mainServiceId, table.color),
-  })
-);
+// ค่าที่ลูกค้าเลือกได้ของแต่ละตัวเลือก — ใช้กับ type dropdown/radio/checkbox เท่านั้น
+// (number/text ให้ลูกค้ากรอกเองอิสระ ไม่มีราคาเพิ่มผูกกับ type นี้)
+export const serviceOptionValues = pgTable("service_option_values", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  optionId: uuid("option_id").references(() => serviceOptions.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(), // เช่น "A4", "กระดาษ 80 แกรม", "ขาวดำ"
+  extraPrice: numeric("extra_price", { precision: 10, scale: 2 }).notNull().default("0"), // ห้ามติดลบ (บังคับที่ Zod)
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const addOnServices = pgTable("addon_services", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -160,21 +161,21 @@ export const deliveryOptions = pgTable("delivery_options", {
 
 export const mainServicesRelations = relations(mainServices, ({ many }) => ({
   addOns: many(mainServiceAddOns),
-  priceOptions: many(mainServicePriceOptions),
-  areaRates: many(mainServiceAreaRates),
+  options: many(serviceOptions),
 }));
 
-export const mainServicePriceOptionsRelations = relations(mainServicePriceOptions, ({ one }) => ({
+export const serviceOptionsRelations = relations(serviceOptions, ({ one, many }) => ({
   mainService: one(mainServices, {
-    fields: [mainServicePriceOptions.mainServiceId],
+    fields: [serviceOptions.mainServiceId],
     references: [mainServices.id],
   }),
+  values: many(serviceOptionValues),
 }));
 
-export const mainServiceAreaRatesRelations = relations(mainServiceAreaRates, ({ one }) => ({
-  mainService: one(mainServices, {
-    fields: [mainServiceAreaRates.mainServiceId],
-    references: [mainServices.id],
+export const serviceOptionValuesRelations = relations(serviceOptionValues, ({ one }) => ({
+  option: one(serviceOptions, {
+    fields: [serviceOptionValues.optionId],
+    references: [serviceOptions.id],
   }),
 }));
 
@@ -191,6 +192,86 @@ export const mainServiceAddOnsRelations = relations(mainServiceAddOns, ({ one })
     fields: [mainServiceAddOns.addOnServiceId],
     references: [addOnServices.id],
   }),
+}));
+
+// ตะกร้าสินค้าของลูกค้า — 1 ลูกค้ามีได้หลายตะกร้า แต่ "1 ตะกร้าผูกกับร้านเดียวเท่านั้น" (unique customerId+shopId)
+// เช่น สั่งจากร้าน A และร้าน B พร้อมกันได้ แต่ในตะกร้าของร้าน A จะมีแต่สินค้าร้าน A เท่านั้น ไม่ปนกับร้าน B
+export const carts = pgTable(
+  "carts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id").references(() => users.id).notNull(),
+    shopId: uuid("shop_id").references(() => shops.id).notNull(),
+    deliveryOptionId: uuid("delivery_option_id").references(() => deliveryOptions.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueCustomerShop: unique().on(table.customerId, table.shopId),
+  })
+);
+
+// รายการสินค้าในตะกร้า — "ราคา" ไม่เก็บไว้ที่นี่เด็ดขาด คำนวณสดจาก main_services/service_options/service_option_values ทุกครั้งที่อ่าน
+// widthCm/heightCm ใช้ตอน pricingModel = "per_sqm" เท่านั้น (ลูกค้ากรอกเอง), pageCount ใช้ตอน pricingModel = "per_page" เท่านั้น
+// ⚠️ pageCount นับจากไฟล์จริงด้วย pdf-lib ฝั่ง server เสมอตอนเพิ่ม/แก้ไข ไม่เคยรับค่าที่ client ส่งมาโดยตรง
+export const cartItems = pgTable("cart_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cartId: uuid("cart_id").references(() => carts.id, { onDelete: "cascade" }).notNull(),
+  mainServiceId: uuid("main_service_id").references(() => mainServices.id).notNull(),
+  widthCm: numeric("width_cm", { precision: 10, scale: 2 }),
+  heightCm: numeric("height_cm", { precision: 10, scale: 2 }),
+  pageCount: integer("page_count"),
+  quantity: integer("quantity").notNull().default(1),
+  fileUrl: text("file_url"), // storage path จาก bucket private "order-files" — ไฟล์งานพิมพ์ของลูกค้า
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// บริการเสริมที่เลือกต่อรายการในตะกร้า — extraPrice ไม่เก็บที่นี่ อ่านสดจาก main_service_addons เสมอ
+export const cartItemAddOns = pgTable(
+  "cart_item_addons",
+  {
+    cartItemId: uuid("cart_item_id").references(() => cartItems.id, { onDelete: "cascade" }).notNull(),
+    addOnServiceId: uuid("addon_service_id").references(() => addOnServices.id).notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.cartItemId, table.addOnServiceId] }),
+  })
+);
+
+// ค่าที่ลูกค้าเลือก/กรอกของแต่ละ service_option ต่อรายการในตะกร้า
+// valueId มีค่าเมื่อ option type เป็น dropdown/radio/checkbox (อ้าง service_option_values แถวที่เลือก)
+// textValue มีค่าเมื่อ option type เป็น number/text (ลูกค้ากรอกเอง ไม่มีผลต่อราคา)
+export const cartItemOptionSelections = pgTable(
+  "cart_item_option_selections",
+  {
+    cartItemId: uuid("cart_item_id").references(() => cartItems.id, { onDelete: "cascade" }).notNull(),
+    optionId: uuid("option_id").references(() => serviceOptions.id, { onDelete: "cascade" }).notNull(),
+    valueId: uuid("value_id").references(() => serviceOptionValues.id),
+    textValue: text("text_value"),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.cartItemId, table.optionId] }),
+  })
+);
+
+export const cartsRelations = relations(carts, ({ many }) => ({
+  items: many(cartItems),
+}));
+
+export const cartItemsRelations = relations(cartItems, ({ one, many }) => ({
+  cart: one(carts, { fields: [cartItems.cartId], references: [carts.id] }),
+  addOns: many(cartItemAddOns),
+  optionSelections: many(cartItemOptionSelections),
+}));
+
+export const cartItemAddOnsRelations = relations(cartItemAddOns, ({ one }) => ({
+  cartItem: one(cartItems, { fields: [cartItemAddOns.cartItemId], references: [cartItems.id] }),
+}));
+
+export const cartItemOptionSelectionsRelations = relations(cartItemOptionSelections, ({ one }) => ({
+  cartItem: one(cartItems, { fields: [cartItemOptionSelections.cartItemId], references: [cartItems.id] }),
+  option: one(serviceOptions, { fields: [cartItemOptionSelections.optionId], references: [serviceOptions.id] }),
+  value: one(serviceOptionValues, { fields: [cartItemOptionSelections.valueId], references: [serviceOptionValues.id] }),
 }));
 
 export const orders = pgTable("orders", {

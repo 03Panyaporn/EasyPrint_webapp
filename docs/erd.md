@@ -66,6 +66,49 @@
 | note | text | |
 | created_at | timestamp | |
 
+⚠️ ตารางนี้เป็น placeholder เก่าจาก scaffold เริ่มโปรเจกต์ ยังไม่เชื่อมกับระบบ `main_services`/`service_options`/`service_option_values` จริงเลย (ดู TODO ใน `docs/api-spec.md` หัวข้อ Orders) — ระบบสั่งซื้อจริงที่แปลงจากตะกร้า (`carts`) เป็นออเดอร์ยังไม่ได้สร้าง เป็นงาน phase ถัดไป
+
+### `carts`
+ตะกร้าสินค้าของลูกค้า — **1 ลูกค้ามีได้หลายตะกร้าพร้อมกัน แต่ 1 ตะกร้าผูกกับ 1 ร้านเท่านั้น** (unique composite `(customer_id, shop_id)`) ห้ามผสมสินค้าจากหลายร้านในตะกร้าเดียว แต่ลูกค้าช้อปจากร้าน A และร้าน B พร้อมกันได้ (คนละตะกร้า ไม่ชนกัน) — เพิ่มสินค้าจากร้านไหนก็ find-or-create ตะกร้าของร้านนั้นให้อัตโนมัติ ไม่มี conflict/replace อีกต่อไป
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| customer_id | uuid (FK → users.id) | ร่วมกับ shop_id เป็น unique composite |
+| shop_id | uuid (FK → shops.id) | ร่วมกับ customer_id เป็น unique composite |
+| delivery_option_id | uuid (FK → delivery_options.id) | nullable — เลือกทีหลังตอนดูตะกร้าได้ |
+| created_at | timestamp | |
+
+### `cart_items`
+รายการสินค้าในตะกร้า — **ไม่เก็บราคาไว้เลย** คำนวณสดจาก `main_services`/`service_options`/`service_option_values` ทุกครั้งที่อ่าน (กันราคาไม่ตรงกับของจริงถ้าร้านเปลี่ยนราคาทีหลัง)
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| cart_id | uuid (FK → carts.id, ON DELETE CASCADE) | |
+| main_service_id | uuid (FK → main_services.id) | |
+| width_cm | numeric(10,2) | ใช้เมื่อ `pricing_model` ของบริการ = `per_sqm` เท่านั้น — ลูกค้ากรอกเอง จำกัดไว้ 1-1000 ซม. ที่ Zod |
+| height_cm | numeric(10,2) | ใช้เมื่อ `pricing_model` = `per_sqm` เท่านั้น |
+| page_count | integer | ใช้เมื่อ `pricing_model` = `per_page` เท่านั้น — **server นับเองจากไฟล์ PDF จริงด้วย pdf-lib เสมอ ไม่เคยรับค่าจาก client** |
+| quantity | integer | default 1 — คูณกับราคาต่อหน่วยเสมอไม่ว่า pricing_model ไหน |
+| file_url | text | nullable — storage path จาก bucket private `order-files` |
+| note | text | nullable |
+| created_at | timestamp | |
+
+### `cart_item_addons`
+บริการเสริมที่เลือกต่อรายการในตะกร้า — `extraPrice` ไม่เก็บที่นี่ อ่านสดจาก `main_service_addons` เสมอ (เหตุผลเดียวกับที่ `cart_items` ไม่เก็บราคา)
+| column | type | note |
+|---|---|---|
+| cart_item_id | uuid (FK → cart_items.id, ON DELETE CASCADE) | ส่วนหนึ่งของ PK ร่วม |
+| addon_service_id | uuid (FK → addon_services.id) | ส่วนหนึ่งของ PK ร่วม |
+
+### `cart_item_option_selections`
+ค่าที่ลูกค้าเลือก/กรอกของแต่ละ `service_options` ต่อรายการในตะกร้า — 1 รายการมีได้อย่างมาก 1 แถวต่อ 1 ตัวเลือก (PK ร่วม `cart_item_id`+`option_id`)
+| column | type | note |
+|---|---|---|
+| cart_item_id | uuid (FK → cart_items.id, ON DELETE CASCADE) | ส่วนหนึ่งของ PK ร่วม |
+| option_id | uuid (FK → service_options.id, ON DELETE CASCADE) | ส่วนหนึ่งของ PK ร่วม |
+| value_id | uuid (FK → service_option_values.id) | nullable — มีค่าเมื่อ option type เป็น `dropdown`/`radio`/`checkbox` (checkbox ติ๊กเลือก = มีค่า, ไม่ติ๊ก = ไม่มีแถวนี้เลย) |
+| text_value | text | nullable — มีค่าเมื่อ option type เป็น `number`/`text` (ลูกค้ากรอกเอง ไม่มีผลต่อราคา) |
+
 ### `main_services`
 | column | type | note |
 |---|---|---|
@@ -73,39 +116,41 @@
 | shop_id | uuid (FK → shops.id) | |
 | name | text | |
 | description | text | nullable |
-| pricing_mode | enum: `fixed` / `area` | default `fixed` — `fixed` = ราคาตั้งไว้ล่วงหน้าตามขนาด/สี (`main_service_price_options`), `area` = ลูกค้ากรอกกว้าง/สูงเอง คิดตามพื้นที่ (`main_service_area_rates`) |
-| unit | text | เช่น "แผ่น", "เล่ม" |
+| pricing_model | enum: `per_page` / `per_piece` / `per_sqm` / `fixed` | default `fixed` — วิธีคิด "หน่วย" ที่ `base_price` จะถูกคูณด้วย: `per_page` = จำนวนหน้า PDF ที่นับได้จริง, `per_piece`/`fixed` = 1 (คูณด้วย quantity เหมือนกันทั้งคู่ที่ชั้นถัดไป), `per_sqm` = พื้นที่ (ตร.ม.) ที่ลูกค้ากรอกเอง |
+| base_price | numeric(10,2) | ราคาพื้นฐานต่อหน่วยตาม `pricing_model` (หรือราคาเหมาจ่ายทั้งงานถ้าเป็น `fixed`) — ราคารวมจริง = `(base_price + ผลรวม extraPrice ของตัวเลือกที่เลือก) x หน่วยตาม pricing_model x quantity` |
+| requires_file_upload | boolean | default true — ปิดได้ถ้าบริการนี้ไม่ต้องใช้ไฟล์จากลูกค้า |
+| allowed_file_types | text[] | nullable — เช่น `["pdf","jpg","png"]` ใช้ตอน requires_file_upload = true เท่านั้น |
+| unit | text | เช่น "แผ่น", "เล่ม" — ใช้แสดงผลเฉยๆ ไม่กระทบการคำนวณราคา |
 | estimated_time | text | nullable |
 | image_url | text | nullable |
 | is_active | boolean | default true |
 | created_at | timestamp | |
 
-**ราคาไม่ได้อยู่ในตารางนี้แล้ว** — ย้ายไปตาราง `main_service_price_options`/`main_service_area_rates` ด้านล่างแทน ตามค่า `pricing_mode` (เดิมมีคอลัมน์ `paper_sizes`/`custom_paper_size`/`colors`/`price` แต่ปัญหาคือทั้งบริการมีราคาเดียวใช้ร่วมกันทุกขนาด/สี ทั้งที่ร้านค้าอยากตั้งราคาแยกกัน เช่น A4 ขาวดำ ถูกกว่า A4 สี — แก้ผ่าน migration `0006`/`0007` แยกเป็น 2 ขั้น: เพิ่มตารางใหม่ก่อน + migrate ข้อมูลเดิม (ใช้ราคาเดิมเป็นราคาเริ่มต้นให้ทุกขนาด/สีที่เคยเลือกไว้) แล้วค่อยลบคอลัมน์เก่าออก ไม่มีข้อมูลสูญหาย)
+**ออกแบบใหม่ (2026-07):** เปลี่ยนจากราคาคงที่ตาม paperSize/color hardcode (`fixed`/`area`/`per_page` 3 โหมดแยกตาราง `main_service_price_options`/`main_service_area_rates`/`main_service_page_rates`) มาเป็นระบบทั่วไป — ร้านค้าเลือก "วิธีคิดราคาพื้นฐาน" (`pricing_model`) 1 แบบ + ตั้ง `base_price` เดียว แล้วเพิ่ม "ตัวเลือกบริการ" (`service_options`) ได้ไม่จำกัดจำนวนเอง ไม่ hardcode ประเภทกระดาษ/สี/วัสดุอีกต่อไป — migration ลบตาราง `main_service_price_options`/`main_service_area_rates`/`main_service_page_rates` ทิ้งทั้งหมด (dev data เท่านั้น ยังไม่มีลูกค้าจริง จึงไม่ทำ migration แปลงข้อมูลเก่า)
 
-### `main_service_price_options`
-ราคาแยกตาม "ขนาดกระดาษ x สี" ของบริการหลักแต่ละอัน — ใช้เมื่อ `main_services.pricing_mode = "fixed"` เท่านั้น — 1 บริการหลักมีได้หลายแถว
+### `service_options`
+ตัวเลือกของบริการหลัก — ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ"
 | column | type | note |
 |---|---|---|
 | id | uuid (PK) | |
 | main_service_id | uuid (FK → main_services.id, ON DELETE CASCADE) | |
-| paper_size | text | free text ไม่ใช่ enum — ร้านค้าพิมพ์ขนาดกำหนดเองได้อิสระ (เช่น "B5", "โปสเตอร์ A2") ไม่ต้องเลือกจาก preset A4/A3/A5 เท่านั้น |
-| color | text | "ขาวดำ" หรือ "สี" |
-| price | numeric(10,2) | หน่วยบาท (ไม่ใช่สตางค์แบบ orders.total_price) |
+| name | text | ชื่อตัวเลือกที่ลูกค้าเห็น เช่น "ประเภทกระดาษ" |
+| type | enum: `dropdown` / `radio` / `checkbox` / `number` / `text` | กฎบังคับกรอกอัตโนมัติ: `dropdown`/`radio`/`number` ต้องเลือก/กรอกก่อนสั่งซื้อ, `checkbox`/`text` ไม่บังคับ |
+| sort_order | integer | default 0 — ลำดับแสดงผล |
 | created_at | timestamp | |
 
-unique constraint (`main_service_id`, `paper_size`, `color`) กันร้านค้าเผลอเพิ่มขนาด+สีซ้ำอันเดิมในบริการเดียวกัน — เช็คซ้ำอีกชั้นด้วย Zod `.refine()` ฝั่ง validate ก่อนบันทึกด้วย
+**หมายเหตุเรื่อง `checkbox`:** ออกแบบเป็น toggle เดียว (ไม่ใช่ multi-select) — 1 ตัวเลือก type `checkbox` ต้องมี `service_option_values` แถวเดียวพอดี (บังคับด้วย Zod) ติ๊กเลือก = ใช้ราคาเพิ่มของแถวนั้น ไม่ติ๊ก = ไม่มีผลต่อราคา
 
-### `main_service_area_rates`
-อัตราราคาต่อตารางเมตร แยกตามสี — ใช้เมื่อ `main_services.pricing_mode = "area"` เท่านั้น (ลูกค้ากรอกกว้าง/สูงเองตอนสั่งซื้อ เช่น พิมพ์โปสเตอร์/ไวนิลขนาดตามสั่ง)
+### `service_option_values`
+ค่าที่ลูกค้าเลือกได้ของแต่ละตัวเลือก — ใช้กับ type `dropdown`/`radio`/`checkbox` เท่านั้น (`number`/`text` ให้ลูกค้ากรอกเองอิสระ ไม่มีค่าตายตัว/ไม่มีราคาเพิ่ม)
 | column | type | note |
 |---|---|---|
 | id | uuid (PK) | |
-| main_service_id | uuid (FK → main_services.id, ON DELETE CASCADE) | |
-| color | text | "ขาวดำ" หรือ "สี" |
-| rate_per_sqm | numeric(10,2) | บาทต่อตารางเมตร |
+| option_id | uuid (FK → service_options.id, ON DELETE CASCADE) | |
+| name | text | เช่น "A4", "กระดาษ 80 แกรม", "ขาวดำ" |
+| extra_price | numeric(10,2) | default 0 — **ห้ามติดลบ** (บังคับที่ Zod) |
+| sort_order | integer | default 0 |
 | created_at | timestamp | |
-
-unique constraint (`main_service_id`, `color`) กันเพิ่มสีซ้ำ — **⚠️ เมื่อสร้างระบบสั่งซื้อจริงที่ใช้ตารางนี้ ต้องคำนวณราคารวม = กว้าง(ม.) x สูง(ม.) x rate_per_sqm ฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** (ดู TODO ใน `docs/api-spec.md` หัวข้อ Orders)
 
 ### `addon_services`
 | column | type | note |
@@ -154,8 +199,18 @@ shops (1) ──< addon_services (shop_id)
 shops (1) ──< delivery_options (shop_id)
 main_services (1) ──< main_service_addons (main_service_id) [ON DELETE CASCADE]
 addon_services (1) ──< main_service_addons (addon_service_id) [ON DELETE CASCADE]
-main_services (1) ──< main_service_price_options (main_service_id) [ON DELETE CASCADE]
-main_services (1) ──< main_service_area_rates (main_service_id) [ON DELETE CASCADE]
+main_services (1) ──< service_options (main_service_id) [ON DELETE CASCADE]
+service_options (1) ──< service_option_values (option_id) [ON DELETE CASCADE]
+users (1) ──< carts (customer_id) [unique ร่วมกับ shop_id — 1 คนได้หลายตะกร้า คนละร้าน]
+shops (1) ──< carts (shop_id) [unique ร่วมกับ customer_id — 1 ร้านต่อ 1 ตะกร้าต่อลูกค้า]
+delivery_options (1) ──< carts (delivery_option_id)
+carts (1) ──< cart_items (cart_id) [ON DELETE CASCADE]
+main_services (1) ──< cart_items (main_service_id)
+cart_items (1) ──< cart_item_addons (cart_item_id) [ON DELETE CASCADE]
+addon_services (1) ──< cart_item_addons (addon_service_id)
+cart_items (1) ──< cart_item_option_selections (cart_item_id) [ON DELETE CASCADE]
+service_options (1) ──< cart_item_option_selections (option_id) [ON DELETE CASCADE]
+service_option_values (1) ──< cart_item_option_selections (value_id)
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)

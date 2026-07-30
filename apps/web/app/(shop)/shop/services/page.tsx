@@ -19,6 +19,7 @@ import {
   createMainService,
   updateMainService,
   deleteMainService,
+  duplicateMainService,
   getAddOnServices,
   createAddOnService,
   updateAddOnService,
@@ -41,9 +42,11 @@ function toMainServiceInput(service: MainService): CreateMainServiceInput {
   return {
     name: service.name,
     description: service.description,
-    pricingMode: service.pricingMode,
-    priceOptions: service.priceOptions as CreateMainServiceInput["priceOptions"],
-    areaRates: service.areaRates as CreateMainServiceInput["areaRates"],
+    pricingModel: service.pricingModel,
+    basePrice: service.basePrice,
+    requiresFileUpload: service.requiresFileUpload,
+    allowedFileTypes: service.allowedFileTypes as CreateMainServiceInput["allowedFileTypes"],
+    options: service.options as CreateMainServiceInput["options"],
     unit: service.unit as CreateMainServiceInput["unit"],
     estimatedTime: service.estimatedTime as CreateMainServiceInput["estimatedTime"],
     imageUrl: service.imageUrl,
@@ -152,6 +155,17 @@ export default function ServicesPage() {
       showToast(`บันทึกบริการหลัก "${service.name}" เรียบร้อยแล้ว`);
     } catch (err) {
       showApiError(err, "บันทึกบริการหลักไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  const handleDuplicateMainService = async (service: MainService) => {
+    if (!shop) return;
+    try {
+      const { service: saved } = await duplicateMainService(shop.id, service.id);
+      setMainServices((prev) => [saved, ...prev]);
+      showToast(`คัดลอกบริการ "${service.name}" เป็น "${saved.name}" แล้ว (ปิดใช้งานไว้ก่อน)`);
+    } catch (err) {
+      showApiError(err, "คัดลอกบริการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -375,6 +389,7 @@ export default function ServicesPage() {
           allAddOns={addOnServices}
           onAddClick={() => openAddServiceModal("main")}
           onEditClick={openEditMainServiceModal}
+          onDuplicateClick={handleDuplicateMainService}
           onDeleteClick={handleDeleteMainService}
           onToggleActive={handleToggleMainActive}
         />
