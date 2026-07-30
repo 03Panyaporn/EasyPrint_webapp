@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ShoppingBag, CheckCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ShoppingBag, CheckCircle, Loader2 } from "lucide-react";
 import OrderStatusCards from "@/components/shop/orders/OrderStatusCards";
 import OrdersTable from "@/components/shop/orders/OrdersTable";
 import UpdateStatusModal from "@/components/shop/orders/UpdateStatusModal";
@@ -10,10 +10,17 @@ import OrderDetailModal from "@/components/shop/orders/OrderDetailModal";
 import FilePreviewLightbox from "@/components/shop/orders/FilePreviewLightbox";
 import PdfViewerLightbox from "@/components/shop/orders/PdfViewerLightbox";
 import { CancelModalMode, CancelReason, Order, OrderStatus } from "@/components/shop/orders/types";
-import { initialOrders } from "@/lib/mock-data/orders-mock";
+import { getMyShop } from "@/lib/api/services";
+import { listShopOrders, updateOrderStatus } from "@/lib/api/orders";
+import { toOrder } from "@/lib/ordersAdapter";
+import { ApiError } from "@/lib/api/client";
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
   const [activeStatus, setActiveStatus] = useState<OrderStatus | null>(null);
 
   const [statusModalOrder, setStatusModalOrder] = useState<Order | null>(null);
@@ -31,17 +38,44 @@ export default function OrdersPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const showApiError = (err: unknown, fallback: string) => {
+    window.alert(err instanceof ApiError ? err.message : fallback);
+  };
+
+  // ── โหลดข้อมูลจริงตอนเข้าหน้า ────────────────
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const { shop } = await getMyShop();
+      setShopId(shop.id);
+      const { orders: apiOrders } = await listShopOrders(shop.id);
+      setOrders(apiOrders.map(toOrder));
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "โหลดข้อมูลออเดอร์ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
   const filteredOrders = activeStatus
     ? orders.filter((o) => o.status === activeStatus)
     : orders;
 
   // ── Update status flow ─────────────────────────
-  const handleAdvanceStatus = (order: Order, nextStatus: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o))
-    );
-    setStatusModalOrder(null);
-    showToast(`อัปเดตสถานะออเดอร์ ${order.code} เรียบร้อยแล้ว`);
+  const handleAdvanceStatus = async (order: Order, nextStatus: OrderStatus) => {
+    try {
+      const { order: updated } = await updateOrderStatus(order.id, { status: nextStatus });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? toOrder(updated) : o)));
+      setStatusModalOrder(null);
+      showToast(`อัปเดตสถานะออเดอร์ ${order.code} เรียบร้อยแล้ว`);
+    } catch (err) {
+      showApiError(err, "อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   const handleOpenCancelFromStatus = (order: Order) => {
@@ -64,26 +98,42 @@ export default function OrdersPage() {
     handleOpenRejectPayment(order);
   };
 
-  const handleConfirmCancel = (order: Order, reason: string, note: string) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === order.id
-          ? {
-              ...o,
-              status: "cancelled",
-              cancelReason: reason as CancelReason,
-              cancelNote: note || undefined,
-            }
-          : o
-      )
-    );
-    setCancelModal(null);
-    showToast(
-      cancelModal?.mode === "reject_payment"
-        ? `ปฏิเสธการชำระเงินออเดอร์ ${order.code} เรียบร้อยแล้ว`
-        : `ยกเลิกออเดอร์ ${order.code} เรียบร้อยแล้ว`
-    );
+  const handleConfirmCancel = async (order: Order, reason: string, note: string) => {
+    const mode = cancelModal?.mode;
+    try {
+      const { order: updated } = await updateOrderStatus(order.id, {
+        status: "cancelled",
+        cancelReason: reason as CancelReason,
+        cancelNote: note || undefined,
+      });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? toOrder(updated) : o)));
+      setCancelModal(null);
+      showToast(
+        mode === "reject_payment"
+          ? `ปฏิเสธการชำระเงินออเดอร์ ${order.code} เรียบร้อยแล้ว`
+          : `ยกเลิกออเดอร์ ${order.code} เรียบร้อยแล้ว`
+      );
+    } catch (err) {
+      showApiError(err, "ดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-400">
+        <Loader2 size={24} className="animate-spin" />
+        <p className="text-sm">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
+
+  if (loadError || !shopId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center px-4">
+        <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบร้านค้าของบัญชีนี้"}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12">

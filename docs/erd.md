@@ -53,6 +53,8 @@
 | id | uuid (PK) | |
 | shop_id | uuid (FK → shops.id) | |
 | customer_id | uuid (FK → users.id) | |
+| code | text | เลขที่แสดงสั้นๆ ต่อร้าน เช่น `#0005` — unique เฉพาะภายในร้านเดียวกัน (`unique(shop_id, code)`) รันเลขอัตโนมัติที่ `generateOrderCode()` ใน `apps/api/src/routes/orders.ts` |
+| ref | text (unique ทั้งระบบ) | รหัสอ้างอิงเต็ม เช่น `ORD-20260516-B0F2` (วันที่ + สุ่ม 4 ตัวอักษร) |
 | service_type | text | photocopy / color_print / poster |
 | pages | integer | |
 | copies | integer | |
@@ -60,10 +62,17 @@
 | paper_size | text | A4 / A3 / letter |
 | binding | boolean | |
 | lamination | boolean | |
-| file_url | text | ลิงก์ไฟล์ใน Supabase Storage |
+| selected_add_ons | text[] | nullable — ชื่อบริการเสริมที่ลูกค้าเลือกตอนสั่ง (denormalized ไว้แสดงผล ไม่ผูก FK เพราะราคา ณ ตอนสั่งอาจต่างจากราคาปัจจุบันของร้าน) |
+| file_url | text | ลิงก์ไฟล์งานใน Supabase Storage |
 | total_price | integer | หน่วยสตางค์ กันปัญหา floating point |
-| status | enum | pending_payment / in_progress / completed / cancelled |
-| note | text | |
+| status | enum | pending_review / accepted / in_progress / shipping / completed / cancelled — **ต้องตรงกับ `OrderStatus` ฝั่ง frontend (`apps/web/components/shop/orders/types.ts`) เสมอ** |
+| note | text | nullable |
+| delivery_method | enum | shop_delivery / self_pickup, default `self_pickup` |
+| delivery_address | text | nullable — ใช้เมื่อ delivery_method = shop_delivery เท่านั้น |
+| slip_url | text | storage path จาก bucket private `payment-slips` — ลูกค้าต้องแนบสลิปมาพร้อมตอนสั่งเสมอ |
+| slip_uploaded_at | timestamp | nullable |
+| cancel_reason | enum | nullable — customer_request / invalid_payment_slip / amount_mismatch / no_transfer_found / invalid_file / shop_unavailable / other (ใส่ตอนสถานะเป็น cancelled เท่านั้น รวมถึงกรณีปฏิเสธการชำระเงิน) |
+| cancel_note | text | nullable |
 | created_at | timestamp | |
 
 ⚠️ ตารางนี้เป็น placeholder เก่าจาก scaffold เริ่มโปรเจกต์ ยังไม่เชื่อมกับระบบ `main_services`/`service_options`/`service_option_values` จริงเลย (ดู TODO ใน `docs/api-spec.md` หัวข้อ Orders) — ระบบสั่งซื้อจริงที่แปลงจากตะกร้า (`carts`) เป็นออเดอร์ยังไม่ได้สร้าง เป็นงาน phase ถัดไป
@@ -217,3 +226,5 @@ service_option_values (1) ──< cart_item_option_selections (value_id)
 
 - ตารางวัน-เวลาทำการของร้าน (`shop_hours`) — ตาม 1.3.1.2.2
 - Dashboard/สรุปรายได้ — อาจทำเป็น query แบบ aggregate แทนตารางแยก — ตาม 1.3.1.6
+- ตาราง `order_status_history` (audit log การเปลี่ยนสถานะออเดอร์) — ยังไม่ได้ทำ ตอนนี้ `orders.status` เก็บแค่สถานะปัจจุบันอันเดียว ไม่มีประวัติย้อนหลัง
+- คำนวณ `total_price` จริงตามอัตราร้าน — ตอนนี้ `POST /orders` ยังใช้สูตรชั่วคราว (`pages * copies * 100`) ดู TODO ใน `apps/api/src/routes/orders.ts`

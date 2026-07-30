@@ -7,6 +7,12 @@
       "runtimeArgs": ["--cwd", "apps/web", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["--cwd", "apps/api", "dev"],
+      "port": 3001
     }
   ]
 }

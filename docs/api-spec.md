@@ -18,19 +18,26 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/uploads` | อัปโหลดไฟล์ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"` / `"order-file"`) — คืน `{ path, url }`, `url` เป็น `null` ถ้า bucket private (`id-card`, `order-file`) | ไม่ต้อง ยกเว้น `order-file` ที่ต้อง login เป็น customer |
+| POST | `/uploads` | อัปโหลดไฟล์ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"` / `"payment-slip"` / `"order-file"`) — คืน `{ path, url }`, `url` เป็น `null` ถ้า bucket private (`id-card`, `payment-slip`, `order-file`) | ไม่ต้อง ยกเว้น `order-file` ที่ต้อง login เป็น customer |
 
-โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง 3 bucket: `shop-photos` (public), `id-cards` (private), `order-files` (private, สร้างใหม่ตอนทำระบบตะกร้า) — `service-image`/`delivery-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่ ส่วน `order-file` (ไฟล์งานพิมพ์ในตะกร้า/ออเดอร์) รับ JPG/PNG/WEBP/PDF ไม่เกิน 20MB ต่างจาก type อื่นที่รับแค่รูปไม่เกิน 5MB และเป็น private เพราะอาจมีข้อมูลส่วนตัวในไฟล์
+โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง bucket: `shop-photos` (public), `id-cards` (private), `payment-slips` (private), `order-files` (private, สร้างใหม่ตอนทำระบบตะกร้า) — `service-image`/`delivery-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่ ส่วน `order-file` (ไฟล์งานพิมพ์ในตะกร้า/ออเดอร์) รับ JPG/PNG/WEBP/PDF ไม่เกิน 20MB ต่างจาก type อื่นที่รับแค่รูปไม่เกิน 5MB และเป็น private เพราะอาจมีข้อมูลส่วนตัวในไฟล์
 
 ⚠️ endpoint นี้เปิดสาธารณะโดยไม่มี rate limit (ยกเว้น `order-file` ที่บังคับ login แล้ว) — กันได้แค่ระดับ mime type + ขนาดไฟล์ ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้
+
+⚠️ **TODO ที่ยังเหลือจากการ merge:** `apps/api/src/routes/uploads.ts` ยัง whitelist แค่ `["shop-photo", "id-card", "service-image", "delivery-logo", "order-file"]` — ขาด `"payment-slip"` (และฝั่ง frontend `apps/web/lib/api/uploads.ts` ก็ยังไม่มี type นี้ใน union) ทั้งที่ `storage.ts` เตรียม bucket ไว้แล้ว ต้องเพิ่มก่อนฟีเจอร์อัปโหลดสลิปจะใช้งานได้จริง
 
 ## Orders
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ — `customerId` ดึงจาก JWT เท่านั้น ห้ามรับจาก body (กัน spoof) | ต้อง login เป็น customer |
+| POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ (ลูกค้า) — `customerId` ดึงจาก JWT เท่านั้น ห้ามรับจาก body (กัน spoof), รันเลขที่ออเดอร์ (`code` ต่อร้าน + `ref` ทั้งระบบ) อัตโนมัติ, ลองใหม่ 3 ครั้งถ้าเลขชนกัน (unique constraint `shop_id`+`code`), ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้าแบบ best-effort หลังบันทึกสำเร็จ | ต้อง login เป็น customer |
+| GET | `/shops/:shopId/orders` | list ออเดอร์ของร้าน เรียงใหม่สุดก่อน, filter ด้วย `?status=` ได้ (ไม่ใส่ = เอาทุกสถานะ) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/orders/:id` | รายละเอียดออเดอร์เดียว | shop_owner ของร้านนี้ หรือ customer เจ้าของออเดอร์เอง หรือ admin |
+| PATCH | `/orders/:id/status` | เปลี่ยนสถานะออเดอร์ — ใช้ endpoint เดียวกันทั้ง "เดินหน้า" (`{ status }`), "ยกเลิก", และ "ปฏิเสธการชำระเงิน" (`{ status: "cancelled", cancelReason, cancelNote? }` บังคับ `cancelReason` เมื่อ `status: "cancelled"`) — บังคับเดินตามลำดับ `pending_review → accepted → in_progress → shipping/completed` (ข้าม `shipping` อัตโนมัติถ้า `deliveryMethod: "self_pickup"`) ห้ามข้ามขั้น (400 ถ้าข้าม), ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ `completed`/`cancelled` — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะตอนยกเลิกเท่านั้น (แยกข้อความ "ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอนสถานะยังเป็น `pending_review` กับ "ยกเลิกงาน" ถ้ายกเลิกตอนอื่น) ส่วนเดินหน้าสถานะปกติ (accepted/in_progress/shipping/completed) **ไม่ส่งอีเมล** ลูกค้าติดตามผ่านหน้าเว็บของลูกค้าแทน (ตาม `docs/proposal.md` หัวข้อ 1.3.2) | ต้อง login เป็น shop_owner ของร้านนี้ |
 
-⚠️ **TODO ที่ยังเหลือ (ไม่ใช่ช่องโหว่ แต่เป็นฟีเจอร์ที่ยังไม่มี):** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่ได้อิงราคาจริงจาก `main_services`/`service_options`/`service_option_values` ของร้าน — endpoint นี้เดิมเป็นแค่ตัวอย่างจาก scaffold เริ่มต้นโปรเจกต์ ยังไม่ได้เชื่อมกับระบบตะกร้า (`carts`) ที่สร้างขึ้นทีหลัง ต้องมี endpoint ใหม่ (เช่น `POST /cart/checkout`) แปลงตะกร้าเป็นออเดอร์จริง คำนวณราคา + snapshot ราคา ณ ตอนสั่งไว้ในออเดอร์ (ต่างจากตะกร้าที่คำนวณสดตลอด) — เป็นงาน phase ถัดไป **⚠️ ตอนสร้าง flow จริง ต้องคำนวณราคาฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** โดยเฉพาะกรณี `pricingModel: "per_sqm"` ที่ลูกค้ากรอกกว้าง/สูงเอง (ราคารวม = กว้าง(ม.) x สูง(ม.) x `basePrice` ต้องคำนวณเซิร์ฟเวอร์เอง — ดูตัวอย่างวิธีทำที่ `apps/api/src/routes/cart.ts` `buildCartResponse()`)
+โค้ดอยู่ที่ `apps/api/src/routes/orders.ts` — Zod schema อยู่ที่ `packages/shared/src/schemas/order.ts` (`createOrderSchema`, `updateOrderStatusSchema`, `orderListQuerySchema`) — มี seed script (`bun --cwd apps/api run seed`) ไว้ใส่ออเดอร์จำลองทดสอบ เพราะหน้าสั่งซื้อจริงฝั่งลูกค้ายังไม่เสร็จ (ดู `apps/api/src/seed.ts`)
+
+⚠️ **TODO ที่ยังเหลือ (ไม่ใช่ช่องโหว่ แต่เป็นฟีเจอร์ที่ยังไม่มี):** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่ได้อิงราคาจริงจาก `main_services`/`service_options`/`service_option_values` ของร้าน — `POST /orders` ยังไม่ได้เชื่อมกับระบบตะกร้า (`carts`) ที่สร้างขึ้นทีหลัง ต้องมี endpoint ใหม่ (เช่น `POST /cart/checkout`) แปลงตะกร้าเป็นออเดอร์จริง คำนวณราคา + snapshot ราคา ณ ตอนสั่งไว้ในออเดอร์ (ต่างจากตะกร้าที่คำนวณสดตลอด) — เป็นงาน phase ถัดไป **⚠️ ตอนสร้าง flow จริง ต้องคำนวณราคาฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** โดยเฉพาะกรณี `pricingModel: "per_sqm"` ที่ลูกค้ากรอกกว้าง/สูงเอง (ราคารวม = กว้าง(ม.) x สูง(ม.) x `basePrice` ต้องคำนวณเซิร์ฟเวอร์เอง — ดูตัวอย่างวิธีทำที่ `apps/api/src/routes/cart.ts` `buildCartResponse()`)
 
 ## Shops (สาธารณะฝั่งลูกค้า)
 
@@ -124,7 +131,9 @@
 ## ยังไม่ได้ทำ (ตาม scope ในข้อเสนอโครงการ)
 
 - Shops: `PATCH /shops/:id` (toggle `delivery_enabled` ทั้งร้าน)
-- Cart: `POST /cart/checkout` (แปลงตะกร้าเป็นออเดอร์จริง คำนวณ+snapshot ราคา) — งาน phase ถัดไปหลังตะกร้า
-- Orders: ออกแบบตาราง `orders`/`order_items`/`order_item_addons` ใหม่ให้เชื่อมกับระบบราคาจริง (ของเดิมเป็น placeholder ไม่เชื่อมกันเลย), `GET /orders/:id`, `PATCH /orders/:id/status`, `GET /shops/:id/orders`, `GET /orders/mine` (ประวัติสั่งซื้อของลูกค้า)
+- Cart: `POST /cart/checkout` (แปลงตะกร้าเป็นออเดอร์จริง คำนวณ+snapshot ราคา, เชื่อม `POST /orders` เข้ากับระบบราคาจริงของตะกร้าแทนสูตรชั่วคราว) — งาน phase ถัดไปหลังตะกร้า
+- `GET /orders/mine` (ประวัติสั่งซื้อของลูกค้า)
 - Dashboard: `GET /shops/:id/dashboard` (สรุปรายได้ตาม 1.3.1.6)
-- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล)
+- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว)
+- ระบบ auto-verify สลิป (OCR อ่านยอด/ธนาคารอัตโนมัติ) — ตอนนี้ร้านต้องดูสลิปด้วยตาแล้วกดอนุมัติ/ปฏิเสธเอง
+- เพิ่ม `"payment-slip"` เข้า whitelist ของ `POST /uploads` (ดูหัวข้อ Uploads ด้านบน) — ตอนนี้ bucket พร้อมแต่ endpoint ยังปฏิเสธ type นี้อยู่
