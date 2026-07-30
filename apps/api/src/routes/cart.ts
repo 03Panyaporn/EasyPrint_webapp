@@ -11,6 +11,8 @@ import {
   mainServices,
   serviceOptions,
   serviceOptionValues,
+  serviceColorTiers,
+  serviceQuantityTiers,
   mainServiceAddOns,
   addOnServices,
   deliveryOptions,
@@ -18,6 +20,7 @@ import {
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { supabaseAdmin } from "../storage";
+import { calculateLineItem, type ScopedAmount } from "../pricing/engine";
 
 // นับจำนวนหน้าจริงจากไฟล์ PDF ที่อัปโหลดไว้ใน Storage — ใช้เสมอตอนเพิ่ม/แก้ไขรายการ pricingModel = per_page
 // ⚠️ ห้ามรับ pageCount จาก client มาใช้คำนวณราคาโดยตรงเด็ดขาด (กัน customer แก้ตัวเลขใน request เพื่อกดราคาถูกลง)
@@ -131,6 +134,7 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         .from(cartItemOptionSelections)
         .where(eq(cartItemOptionSelections.cartItemId, row.id));
 
+      const optionDeltas: ScopedAmount[] = [];
       const optionSelections = await Promise.all(
         selectionRows.map(async (sel) => {
           const [option] = await db.select().from(serviceOptions).where(eq(serviceOptions.id, sel.optionId));
@@ -141,6 +145,7 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
             if (value) {
               valueName = value.name;
               extraPrice = Number(value.extraPrice);
+              optionDeltas.push({ scope: value.priceScope, amount: extraPrice });
             }
           }
           return {
@@ -154,22 +159,20 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         })
       );
 
-      const basePrice = mainService ? Number(mainService.basePrice) : 0;
-      const optionsExtraTotal = optionSelections.reduce((sum, s) => sum + s.extraPrice, 0);
-      const unitBase = basePrice + optionsExtraTotal;
-
-      let subtotalPerQuantity = unitBase;
-      let unitBreakdown: { mode: "per_page"; pageCount: number } | { mode: "per_sqm"; widthCm: number; heightCm: number } | null = null;
-      if (mainService?.pricingModel === "per_page" && row.pageCount) {
-        subtotalPerQuantity = unitBase * row.pageCount;
-        unitBreakdown = { mode: "per_page", pageCount: row.pageCount };
-      } else if (mainService?.pricingModel === "per_sqm" && row.widthCm && row.heightCm) {
-        const area = (Number(row.widthCm) / 100) * (Number(row.heightCm) / 100);
-        subtotalPerQuantity = unitBase * area;
-        unitBreakdown = { mode: "per_sqm", widthCm: Number(row.widthCm), heightCm: Number(row.heightCm) };
+      let colorTier: { id: string; label: string; pricePerUnit: number } | undefined;
+      if (row.colorTierId) {
+        const [tier] = await db.select().from(serviceColorTiers).where(eq(serviceColorTiers.id, row.colorTierId));
+        if (tier) colorTier = { id: tier.id, label: tier.label, pricePerUnit: Number(tier.pricePerUnit) };
       }
 
+      const quantityTierRows =
+        mainService?.pricingModel === "per_piece"
+          ? await db.select().from(serviceQuantityTiers).where(eq(serviceQuantityTiers.mainServiceId, row.mainServiceId))
+          : [];
+      const quantityTiers = quantityTierRows.map((t) => ({ minQty: t.minQty, maxQty: t.maxQty, unitPrice: Number(t.unitPrice) }));
+
       const addOnBindings = await db.select().from(cartItemAddOns).where(eq(cartItemAddOns.cartItemId, row.id));
+      const addOnCharges: ScopedAmount[] = [];
       const addOns = await Promise.all(
         addOnBindings.map(async (b) => {
           const [binding] = await db
@@ -177,16 +180,39 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
             .from(mainServiceAddOns)
             .where(and(eq(mainServiceAddOns.mainServiceId, row.mainServiceId), eq(mainServiceAddOns.addOnServiceId, b.addOnServiceId)));
           const [addOnService] = await db.select().from(addOnServices).where(eq(addOnServices.id, b.addOnServiceId));
+          const extraPrice = binding ? Number(binding.extraPrice) : 0;
+          if (addOnService) addOnCharges.push({ scope: addOnService.scope, amount: extraPrice });
           return {
             addOnServiceId: b.addOnServiceId,
             name: addOnService?.name ?? "-",
-            extraPrice: binding ? Number(binding.extraPrice) : 0,
+            extraPrice,
           };
         })
       );
 
-      const unitPrice = subtotalPerQuantity + addOns.reduce((sum, a) => sum + a.extraPrice, 0);
-      const lineTotal = unitPrice * row.quantity;
+      const pricingModel = mainService?.pricingModel ?? "fixed";
+      const calc = calculateLineItem({
+        pricingModel,
+        basePrice: mainService ? Number(mainService.basePrice) : 0,
+        colorTierPricePerUnit: colorTier?.pricePerUnit,
+        quantity: row.quantity,
+        pageCountingMode: mainService?.pageCountingMode,
+        rawPageCount: row.pageCount ?? 0,
+        widthCm: row.widthCm ? Number(row.widthCm) : undefined,
+        heightCm: row.heightCm ? Number(row.heightCm) : undefined,
+        minArea: mainService?.minArea != null ? Number(mainService.minArea) : undefined,
+        areaRoundingIncrement: mainService ? Number(mainService.areaRoundingIncrement) : undefined,
+        quantityTiers,
+        optionDeltas,
+        addOnCharges,
+      });
+
+      let unitBreakdown: { mode: "per_page"; pageCount: number } | { mode: "per_sqm"; widthCm: number; heightCm: number } | null = null;
+      if (pricingModel === "per_page" && calc.billedPages != null) {
+        unitBreakdown = { mode: "per_page", pageCount: calc.billedPages };
+      } else if (pricingModel === "per_sqm" && row.widthCm && row.heightCm) {
+        unitBreakdown = { mode: "per_sqm", widthCm: Number(row.widthCm), heightCm: Number(row.heightCm) };
+      }
 
       return {
         id: row.id,
@@ -194,13 +220,15 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         mainServiceName: mainService?.name ?? "-",
         imageUrl: mainService?.imageUrl ?? undefined,
         isServiceActive: mainService?.isActive ?? false,
-        pricingModel: mainService?.pricingModel ?? "fixed",
+        pricingModel,
+        colorTierId: colorTier?.id,
+        colorTierLabel: colorTier?.label,
         unitBreakdown,
         optionSelections,
         addOns,
         quantity: row.quantity,
-        unitPrice,
-        lineTotal,
+        unitPrice: calc.perCopyAmount,
+        lineTotal: calc.lineTotal,
         fileUrl: row.fileUrl ?? undefined,
         note: row.note ?? undefined,
       };
@@ -336,6 +364,18 @@ export const cartRoutes = new Elysia()
       }
     }
 
+    // เช็คว่า ColorTier ที่เลือกมา ผูกกับบริการหลักนี้จริง (กันส่ง colorTierId มั่วๆ ข้ามร้าน/ข้ามบริการ)
+    if (parsed.data.colorTierId) {
+      const [tier] = await db
+        .select({ id: serviceColorTiers.id })
+        .from(serviceColorTiers)
+        .where(and(eq(serviceColorTiers.id, parsed.data.colorTierId), eq(serviceColorTiers.mainServiceId, mainService.id)));
+      if (!tier) {
+        set.status = 400;
+        return { error: "ไม่พบระดับสีนี้ในบริการนี้" };
+      }
+    }
+
     // 1 ลูกค้ามีได้หลายตะกร้า แต่ 1 ตะกร้าผูกกับร้านเดียว — หาตะกร้าของร้านนี้ก่อน ถ้ายังไม่มีค่อยสร้างใหม่
     let [cart] = await db
       .select()
@@ -351,6 +391,7 @@ export const cartRoutes = new Elysia()
       .values({
         cartId: cart.id,
         mainServiceId: mainService.id,
+        colorTierId: parsed.data.colorTierId,
         widthCm: parsed.data.widthCm?.toFixed(2),
         heightCm: parsed.data.heightCm?.toFixed(2),
         pageCount: serverPageCount,
@@ -434,9 +475,21 @@ export const cartRoutes = new Elysia()
       }
     }
 
+    if (parsed.data.colorTierId) {
+      const [tier] = await db
+        .select({ id: serviceColorTiers.id })
+        .from(serviceColorTiers)
+        .where(and(eq(serviceColorTiers.id, parsed.data.colorTierId), eq(serviceColorTiers.mainServiceId, mainService.id)));
+      if (!tier) {
+        set.status = 400;
+        return { error: "ไม่พบระดับสีนี้ในบริการนี้" };
+      }
+    }
+
     await db
       .update(cartItems)
       .set({
+        colorTierId: parsed.data.colorTierId ?? null,
         widthCm: parsed.data.widthCm?.toFixed(2) ?? null,
         heightCm: parsed.data.heightCm?.toFixed(2) ?? null,
         pageCount: serverPageCount ?? null,

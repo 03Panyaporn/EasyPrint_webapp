@@ -1,5 +1,5 @@
-import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb, unique } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 
 // โครงสร้างเริ่มต้น อ้างอิงจาก docs/proposal.md หัวข้อ 1.3
 // แก้/เพิ่มตารางได้ตามที่ทีมออกแบบ ERD จริงใน docs/erd.md
@@ -28,6 +28,16 @@ export const pricingModelEnum = pgEnum("pricing_model", ["per_page", "per_piece"
 // รูปแบบการเลือกของ "ตัวเลือกบริการ" (service option) ที่ร้านค้าสร้างเองได้ไม่จำกัด
 // กฎบังคับกรอกอัตโนมัติ: dropdown/radio/number ต้องเลือก/กรอกก่อนสั่งซื้อ, checkbox/text ไม่บังคับ
 export const serviceOptionTypeEnum = pgEnum("service_option_type", ["dropdown", "radio", "checkbox", "number", "text"]);
+
+// หมวดราคาของ Option — 1 หมวดมีได้แค่ 1 Option ต่อบริการ (กันสร้าง Option ซ้ำซ้อนกันโดยไม่ตั้งใจ) ยกเว้น "other" ที่ซ้ำได้
+// 'color' ไม่อยู่ใน enum นี้โดยเจตนา — สีอยู่ที่ service_color_tiers เพียงจุดเดียวเท่านั้น ห้ามสร้าง Option เกี่ยวกับสี
+export const optionPriceCategoryEnum = pgEnum("option_price_category", ["paper", "printing_side", "size", "other"]);
+
+// ขอบเขตการคูณราคาเพิ่ม — ใช้ทั้งกับ OptionValue.extraPrice และ AdditionalService.scope
+export const priceScopeEnum = pgEnum("price_scope", ["per_item", "per_page", "per_piece", "per_sqm"]);
+
+// วิธีนับหน้าเมื่อ pricingModel = per_page: by_file_page = นับหน้าไฟล์ตรงๆ, by_sheet = ปัดขึ้นครึ่งหนึ่ง (พิมพ์สองหน้า)
+export const pageCountingModeEnum = pgEnum("page_counting_mode", ["by_file_page", "by_sheet"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -89,6 +99,12 @@ export const mainServices = pgTable("main_services", {
   requiresFileUpload: boolean("requires_file_upload").notNull().default(true),
   // นามสกุลไฟล์ที่ร้านรับ เช่น ["pdf","jpg","png","ai","psd"] — ใช้แค่ตอน requiresFileUpload = true
   allowedFileTypes: text("allowed_file_types").array(),
+  // ใช้เฉพาะ pricingModel = per_page: by_file_page (ค่าเริ่มต้น) นับหน้าไฟล์ตรงๆ, by_sheet ปัดขึ้นครึ่งหนึ่ง (พิมพ์สองหน้า)
+  pageCountingMode: pageCountingModeEnum("page_counting_mode").notNull().default("by_file_page"),
+  // ใช้เฉพาะ pricingModel = per_sqm: พื้นที่ขั้นต่ำที่คิดราคา (ตร.ม.) — null = ไม่มีขั้นต่ำ
+  minArea: numeric("min_area", { precision: 10, scale: 2 }),
+  // ใช้เฉพาะ pricingModel = per_sqm: หน่วยปัดขึ้นของพื้นที่ (ตร.ม.) เช่น 0.1 = ปัดขึ้นทีละ 0.1 ตร.ม.
+  areaRoundingIncrement: numeric("area_rounding_increment", { precision: 10, scale: 2 }).notNull().default("0.1"),
   unit: text("unit").notNull(),
   estimatedTime: text("estimated_time"),
   imageUrl: text("image_url"),
@@ -97,14 +113,25 @@ export const mainServices = pgTable("main_services", {
 });
 
 // ตัวเลือกของบริการหลัก — ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ" (ไม่ hardcode field ตายตัวอีกต่อไป)
-export const serviceOptions = pgTable("service_options", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
-  name: text("name").notNull(), // ชื่อตัวเลือกที่ลูกค้าเห็น เช่น "ประเภทกระดาษ"
-  type: serviceOptionTypeEnum("type").notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const serviceOptions = pgTable(
+  "service_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
+    name: text("name").notNull(), // ชื่อตัวเลือกที่ลูกค้าเห็น เช่น "ประเภทกระดาษ"
+    type: serviceOptionTypeEnum("type").notNull(),
+    // หมวดราคา ใช้กันสร้าง Option ซ้ำซ้อนกันในหมวดเดียวกัน (ดู uniqueCategoryPerService ด้านล่าง) — default "other" ไม่ถูกจำกัด
+    priceCategory: optionPriceCategoryEnum("price_category").notNull().default("other"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // 1 price_category (ยกเว้น "other") มีได้แค่ 1 Option ต่อบริการ — ถ้าต้องการเพิ่มระดับราคาใหม่ในหมวดเดิม ให้เพิ่มเป็น OptionValue แทน
+    uniqueCategoryPerService: uniqueIndex("service_options_category_unique")
+      .on(table.mainServiceId, table.priceCategory)
+      .where(sql`${table.priceCategory} != 'other'`),
+  })
+);
 
 // ค่าที่ลูกค้าเลือกได้ของแต่ละตัวเลือก — ใช้กับ type dropdown/radio/checkbox เท่านั้น
 // (number/text ให้ลูกค้ากรอกเองอิสระ ไม่มีราคาเพิ่มผูกกับ type นี้)
@@ -113,6 +140,8 @@ export const serviceOptionValues = pgTable("service_option_values", {
   optionId: uuid("option_id").references(() => serviceOptions.id, { onDelete: "cascade" }).notNull(),
   name: text("name").notNull(), // เช่น "A4", "กระดาษ 80 แกรม", "ขาวดำ"
   extraPrice: numeric("extra_price", { precision: 10, scale: 2 }).notNull().default("0"), // ห้ามติดลบ (บังคับที่ Zod)
+  // ขอบเขตการคูณราคาเพิ่มนี้ ต้องอยู่ใน allow-list ตาม pricingModel ของบริการ (บังคับที่ API ชั้นถัดไป) — default per_item ไม่คูณอะไร
+  priceScope: priceScopeEnum("price_scope").notNull().default("per_item"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -124,9 +153,34 @@ export const addOnServices = pgTable("addon_services", {
   description: text("description"),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   unit: text("unit").notNull(),
+  // ขอบเขตการคูณราคา คงที่ระดับ global ต่อบริการเสริมนี้เสมอ ไม่มี override รายบริการ (unit ด้านบนยังเป็นแค่ label ที่โชว์ลูกค้า)
+  scope: priceScopeEnum("scope").notNull().default("per_item"),
   estimatedTime: text("estimated_time"),
   imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ระดับราคาตามสีของบริการหลัก — เป็นส่วนหนึ่งของ Base Pricing ไม่ใช่ Option
+// price_per_unit เป็นราคาต่อหน่วยแบบเบ็ดเสร็จของ tier นี้ ไม่บวกกับ main_services.base_price
+// "ขาวดำ" ไม่มีแถวของตัวเอง เพราะใช้ main_services.base_price เป็นราคาต่อหน่วยของมันตรงๆ (default tier)
+// นี่คือจุดเดียวในระบบทั้งหมดที่กำหนดราคาต่างกันตามสี — ห้ามสร้าง Option ที่เกี่ยวกับสีอีกเด็ดขาด (ดู optionPriceCategoryEnum)
+export const serviceColorTiers = pgTable("service_color_tiers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
+  label: text("label").notNull(), // เช่น "สี", "สีพรีเมียม"
+  pricePerUnit: numeric("price_per_unit", { precision: 10, scale: 2 }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ราคาต่อหน่วยแบบขั้นบันไดตามจำนวน ใช้กับ pricingModel = per_piece เท่านั้น — ช่วงห้ามทับกัน (ตรวจที่ API ชั้นถัดไป)
+export const serviceQuantityTiers = pgTable("service_quantity_tiers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mainServiceId: uuid("main_service_id").references(() => mainServices.id, { onDelete: "cascade" }).notNull(),
+  minQty: integer("min_qty").notNull(),
+  maxQty: integer("max_qty"), // null = ไม่จำกัด
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -162,6 +216,22 @@ export const deliveryOptions = pgTable("delivery_options", {
 export const mainServicesRelations = relations(mainServices, ({ many }) => ({
   addOns: many(mainServiceAddOns),
   options: many(serviceOptions),
+  colorTiers: many(serviceColorTiers),
+  quantityTiers: many(serviceQuantityTiers),
+}));
+
+export const serviceColorTiersRelations = relations(serviceColorTiers, ({ one }) => ({
+  mainService: one(mainServices, {
+    fields: [serviceColorTiers.mainServiceId],
+    references: [mainServices.id],
+  }),
+}));
+
+export const serviceQuantityTiersRelations = relations(serviceQuantityTiers, ({ one }) => ({
+  mainService: one(mainServices, {
+    fields: [serviceQuantityTiers.mainServiceId],
+    references: [mainServices.id],
+  }),
 }));
 
 export const serviceOptionsRelations = relations(serviceOptions, ({ one, many }) => ({
@@ -217,6 +287,8 @@ export const cartItems = pgTable("cart_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   cartId: uuid("cart_id").references(() => carts.id, { onDelete: "cascade" }).notNull(),
   mainServiceId: uuid("main_service_id").references(() => mainServices.id).notNull(),
+  // สี tier ที่ลูกค้าเลือก — null = ใช้ราคาขาวดำ (main_services.base_price) หรือบริการนี้ไม่มีตัวเลือกสี
+  colorTierId: uuid("color_tier_id").references(() => serviceColorTiers.id),
   widthCm: numeric("width_cm", { precision: 10, scale: 2 }),
   heightCm: numeric("height_cm", { precision: 10, scale: 2 }),
   pageCount: integer("page_count"),
@@ -286,8 +358,38 @@ export const orders = pgTable("orders", {
   binding: boolean("binding").notNull().default(false),
   lamination: boolean("lamination").notNull().default(false),
   fileUrl: text("file_url").notNull(),
-  totalPrice: integer("total_price").notNull(), // เก็บเป็นสตางค์ กันปัญหา floating point
+  totalPrice: integer("total_price").notNull(), // เก็บเป็นสตางค์ กันปัญหา floating point — legacy, คงไว้จนกว่า checkout endpoint จริงจะมาแทนที่
   status: orderStatusEnum("status").notNull().default("pending_payment"),
   note: text("note"),
+  // ฟิลด์ snapshot ใหม่ตามระบบ Main Service Builder — nullable ชั่วคราวเพราะ endpoint เช็คเอาท์จริงยังไม่ได้ implement (เขียนทับ/ backfill ทีหลัง)
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }), // = sum ของ order_items.item_total_price
+  shippingFeeSnapshot: numeric("shipping_fee_snapshot", { precision: 10, scale: 2 }), // เผื่อระบบจัดส่งเดิมเสียบต่อ
+  totalPriceSnapshot: numeric("total_price_snapshot", { precision: 10, scale: 2 }), // = subtotal + shipping_fee_snapshot (หน่วยบาท ต่างจาก total_price เดิมที่เป็นสตางค์)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// รายการสินค้าในออเดอร์ — ทุก _snapshot field เป็นค่าที่ "จับคัดลอก" ณ เวลาสั่งซื้อ ห้ามอ้าง FK ไปที่ service_options/service_option_values/addon_services
+// ที่แก้ไขได้ภายหลัง (ดู comment เต็มที่ cartItems ด้านบน) — การแก้ราคา Service ภายหลังต้องไม่กระทบ OrderItem ที่สร้างไปแล้วเลย
+// 1 OrderItem ผูกกับไฟล์เดียวเสมอ (fileUrl) ไม่มีตาราง OrderItemFile แยก
+export const orderItems = pgTable("order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
+  serviceNameSnapshot: text("service_name_snapshot").notNull(),
+  pricingTypeSnapshot: pricingModelEnum("pricing_type_snapshot").notNull(),
+  basePriceSnapshot: numeric("base_price_snapshot", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  optionsSnapshotJson: jsonb("options_snapshot_json"), // denormalized copy ของตัวเลือก+ราคาที่ใช้จริง ณ ตอนนั้น
+  additionalServicesSnapshotJson: jsonb("additional_services_snapshot_json"), // denormalized copy ของบริการเสริม+ราคาที่ใช้จริง ณ ตอนนั้น
+  fileUrl: text("file_url"),
+  pageCount: integer("page_count"), // ใช้เมื่อ pricing_type_snapshot = per_page
+  itemTotalPrice: numeric("item_total_price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const ordersRelations = relations(orders, ({ many }) => ({
+  items: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+}));

@@ -263,7 +263,8 @@ export default function LandingPage() {
                             const openNow = isShopOpenNow(shop.openingHours);
 
                             return (
-                                <div
+                                <Link
+                                    href={`/shops/${shop.id}`}
                                     key={shop.id}
                                     className="group border-2 border-orange-300 hover:border-orange-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 bg-white shadow-xs hover:shadow-md transition-all flex flex-row gap-3 sm:gap-5 relative overflow-hidden"
                                 >
@@ -327,7 +328,7 @@ export default function LandingPage() {
                                             <span className="text-xs text-slate-500">(ยังไม่มีรีวิว)</span>
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                             );
                         })}
                     </div>

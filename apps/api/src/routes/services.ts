@@ -15,10 +15,18 @@ import {
   mainServiceAddOns,
   serviceOptions,
   serviceOptionValues,
+  serviceColorTiers,
+  serviceQuantityTiers,
   deliveryOptions,
   shops,
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
+
+// Postgres unique_violation — ใช้เช็คเวลา insert/update ชน service_options_category_unique (race กับ Zod ที่เช็คมาแล้วในคำขอเดียวกัน)
+const POSTGRES_UNIQUE_VIOLATION = "23505";
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
+}
 
 // เช็คว่า request มี JWT ที่ login เป็น shop_owner ของร้าน :shopId นี้จริง ก่อนให้แก้ไข/ลบข้อมูล
 // คืน { error } object ถ้าไม่ผ่าน (พร้อมตั้ง set.status ให้แล้ว) หรือ null ถ้าผ่าน — ตรวจสอบสิทธิ์แบบเดียวกับที่ /auth/me ใช้อ่าน cookie
@@ -72,13 +80,17 @@ async function canViewShopPublicly(
   return payload?.role === "shop_owner" && payload.userId === shop.ownerId;
 }
 
-type SerializedOptionValue = { id: string; name: string; extraPrice: number };
-type SerializedOption = { id: string; name: string; type: string; values: SerializedOptionValue[] };
+type SerializedOptionValue = { id: string; name: string; extraPrice: number; priceScope: string };
+type SerializedOption = { id: string; name: string; type: string; priceCategory: string; values: SerializedOptionValue[] };
+type SerializedColorTier = { id: string; label: string; pricePerUnit: number };
+type SerializedQuantityTier = { id: string; minQty: number; maxQty: number | null; unitPrice: number };
 
 function serializeMainService(
   row: typeof mainServices.$inferSelect,
   addOns: { addOnId: string; extraPrice: number }[],
-  options: SerializedOption[]
+  options: SerializedOption[],
+  colorTiers: SerializedColorTier[] = [],
+  quantityTiers: SerializedQuantityTier[] = []
 ) {
   return {
     id: row.id,
@@ -89,6 +101,11 @@ function serializeMainService(
     requiresFileUpload: row.requiresFileUpload,
     allowedFileTypes: row.allowedFileTypes ?? [],
     options,
+    colorTiers,
+    quantityTiers,
+    pageCountingMode: row.pageCountingMode,
+    minArea: row.minArea != null ? Number(row.minArea) : undefined,
+    areaRoundingIncrement: Number(row.areaRoundingIncrement),
     unit: row.unit,
     estimatedTime: row.estimatedTime ?? undefined,
     availableAddOns: addOns,
@@ -150,7 +167,8 @@ async function fetchOptions(mainServiceId: string): Promise<SerializedOption[]> 
         id: opt.id,
         name: opt.name,
         type: opt.type,
-        values: valueRows.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice) })),
+        priceCategory: opt.priceCategory,
+        values: valueRows.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice), priceScope: v.priceScope })),
       };
     })
   );
@@ -159,7 +177,12 @@ async function fetchOptions(mainServiceId: string): Promise<SerializedOption[]> 
 // เขียนตัวเลือกบริการ + ค่าทั้งหมดใหม่ทั้งชุดให้บริการหลักหนึ่งอัน — ลบของเดิมแล้วใส่ใหม่ (เหมือนแพทเทิร์นเดิมของ priceOptions/areaRates)
 async function writeOptions(
   mainServiceId: string,
-  options: { name: string; type: "dropdown" | "radio" | "checkbox" | "number" | "text"; values: { name: string; extraPrice: number }[] }[]
+  options: {
+    name: string;
+    type: "dropdown" | "radio" | "checkbox" | "number" | "text";
+    priceCategory: "paper" | "printing_side" | "size" | "other";
+    values: { name: string; extraPrice: number; priceScope: "per_item" | "per_page" | "per_piece" | "per_sqm" }[];
+  }[]
 ): Promise<SerializedOption[]> {
   await db.delete(serviceOptions).where(eq(serviceOptions.mainServiceId, mainServiceId));
   if (options.length === 0) return [];
@@ -169,20 +192,83 @@ async function writeOptions(
     const opt = options[i];
     const [inserted] = await db
       .insert(serviceOptions)
-      .values({ mainServiceId, name: opt.name, type: opt.type, sortOrder: i })
+      .values({ mainServiceId, name: opt.name, type: opt.type, priceCategory: opt.priceCategory, sortOrder: i })
       .returning();
 
     let values: SerializedOptionValue[] = [];
     if (opt.values.length > 0) {
       const insertedValues = await db
         .insert(serviceOptionValues)
-        .values(opt.values.map((v, vi) => ({ optionId: inserted.id, name: v.name, extraPrice: v.extraPrice.toFixed(2), sortOrder: vi })))
+        .values(
+          opt.values.map((v, vi) => ({
+            optionId: inserted.id,
+            name: v.name,
+            extraPrice: v.extraPrice.toFixed(2),
+            priceScope: v.priceScope,
+            sortOrder: vi,
+          }))
+        )
         .returning();
-      values = insertedValues.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice) }));
+      values = insertedValues.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice), priceScope: v.priceScope }));
     }
-    result.push({ id: inserted.id, name: inserted.name, type: inserted.type, values });
+    result.push({ id: inserted.id, name: inserted.name, type: inserted.type, priceCategory: inserted.priceCategory, values });
   }
   return result;
+}
+
+// ดึง/เขียน ColorTier — เป็นส่วนหนึ่งของ Base Pricing ไม่ใช่ Option ใช้แพทเทิร์นเดียวกับ writeOptions (ลบของเดิมแล้วใส่ใหม่ทั้งชุด)
+async function fetchColorTiers(mainServiceId: string): Promise<SerializedColorTier[]> {
+  const rows = await db
+    .select()
+    .from(serviceColorTiers)
+    .where(eq(serviceColorTiers.mainServiceId, mainServiceId))
+    .orderBy(serviceColorTiers.sortOrder);
+  return rows.map((r) => ({ id: r.id, label: r.label, pricePerUnit: Number(r.pricePerUnit) }));
+}
+
+async function writeColorTiers(
+  mainServiceId: string,
+  tiers: { label: string; pricePerUnit: number }[]
+): Promise<SerializedColorTier[]> {
+  await db.delete(serviceColorTiers).where(eq(serviceColorTiers.mainServiceId, mainServiceId));
+  if (tiers.length === 0) return [];
+  const inserted = await db
+    .insert(serviceColorTiers)
+    .values(tiers.map((t, i) => ({ mainServiceId, label: t.label, pricePerUnit: t.pricePerUnit.toFixed(2), sortOrder: i })))
+    .returning();
+  return inserted.map((r) => ({ id: r.id, label: r.label, pricePerUnit: Number(r.pricePerUnit) }));
+}
+
+// ดึง/เขียน QuantityTier — ใช้กับ pricingModel = per_piece เท่านั้น (ตรวจ overlap ไปแล้วที่ Zod ก่อนถึงชั้นนี้)
+async function fetchQuantityTiers(mainServiceId: string): Promise<SerializedQuantityTier[]> {
+  const rows = await db
+    .select()
+    .from(serviceQuantityTiers)
+    .where(eq(serviceQuantityTiers.mainServiceId, mainServiceId))
+    .orderBy(serviceQuantityTiers.minQty);
+  return rows.map((r) => ({ id: r.id, minQty: r.minQty, maxQty: r.maxQty, unitPrice: Number(r.unitPrice) }));
+}
+
+async function writeQuantityTiers(
+  mainServiceId: string,
+  tiers: { minQty: number; maxQty?: number | null; unitPrice: number }[]
+): Promise<SerializedQuantityTier[]> {
+  await db.delete(serviceQuantityTiers).where(eq(serviceQuantityTiers.mainServiceId, mainServiceId));
+  if (tiers.length === 0) return [];
+  const inserted = await db
+    .insert(serviceQuantityTiers)
+    .values(tiers.map((t) => ({ mainServiceId, minQty: t.minQty, maxQty: t.maxQty ?? null, unitPrice: t.unitPrice.toFixed(2) })))
+    .returning();
+  return inserted.map((r) => ({ id: r.id, minQty: r.minQty, maxQty: r.maxQty, unitPrice: Number(r.unitPrice) }));
+}
+
+// สเปก §5: min_area เกิน 50 ตร.ม. น่าจะเป็นการกรอกผิด — เตือนแบบ soft warning ไม่ hard block (เหมือน Additional Service scope validation)
+function buildServiceWarnings(minArea: number | undefined): string[] {
+  const warnings: string[] = [];
+  if (minArea != null && minArea > 50) {
+    warnings.push("พื้นที่ขั้นต่ำ (Min Area) มากกว่า 50 ตร.ม. กรุณาตรวจสอบว่าไม่ได้กรอกผิด");
+  }
+  return warnings;
 }
 
 export const servicesRoutes = new Elysia()
@@ -202,7 +288,9 @@ export const servicesRoutes = new Elysia()
           serializeMainService(
             row,
             row.addOns.map((b) => ({ addOnId: b.addOnServiceId, extraPrice: Number(b.extraPrice) })),
-            await fetchOptions(row.id)
+            await fetchOptions(row.id),
+            await fetchColorTiers(row.id),
+            await fetchQuantityTiers(row.id)
           )
         )
       ),
@@ -243,6 +331,9 @@ export const servicesRoutes = new Elysia()
         basePrice: parsed.data.basePrice.toFixed(2),
         requiresFileUpload: parsed.data.requiresFileUpload,
         allowedFileTypes: parsed.data.allowedFileTypes,
+        pageCountingMode: parsed.data.pageCountingMode,
+        minArea: parsed.data.minArea?.toFixed(2),
+        areaRoundingIncrement: parsed.data.areaRoundingIncrement.toFixed(2),
         unit: parsed.data.unit,
         estimatedTime: parsed.data.estimatedTime,
         imageUrl: parsed.data.imageUrl,
@@ -250,7 +341,18 @@ export const servicesRoutes = new Elysia()
       })
       .returning();
 
-    const insertedOptions = await writeOptions(service.id, parsed.data.options);
+    let insertedOptions: SerializedOption[];
+    try {
+      insertedOptions = await writeOptions(service.id, parsed.data.options);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        set.status = 400;
+        return { error: "มีตัวเลือกมากกว่า 1 รายการที่ใช้หมวดราคาเดียวกัน กรุณาตรวจสอบ" };
+      }
+      throw err;
+    }
+    const insertedColorTiers = await writeColorTiers(service.id, parsed.data.colorTiers);
+    const insertedQuantityTiers = await writeQuantityTiers(service.id, parsed.data.quantityTiers);
 
     if (parsed.data.addOns.length > 0) {
       await db.insert(mainServiceAddOns).values(
@@ -262,7 +364,10 @@ export const servicesRoutes = new Elysia()
       );
     }
 
-    return { service: serializeMainService(service, parsed.data.addOns, insertedOptions) };
+    return {
+      service: serializeMainService(service, parsed.data.addOns, insertedOptions, insertedColorTiers, insertedQuantityTiers),
+      warnings: buildServiceWarnings(parsed.data.minArea),
+    };
   })
 
   // คัดลอกบริการหลัก (พร้อมตัวเลือก+ค่า+บริการเสริมที่ผูกไว้) — ตั้งชื่อใหม่อัตโนมัติ + ปิดใช้งานไว้ก่อนให้ร้านตรวจสอบก่อนเปิดขายจริง
@@ -303,6 +408,9 @@ export const servicesRoutes = new Elysia()
         basePrice: original.basePrice,
         requiresFileUpload: original.requiresFileUpload,
         allowedFileTypes: original.allowedFileTypes,
+        pageCountingMode: original.pageCountingMode,
+        minArea: original.minArea,
+        areaRoundingIncrement: original.areaRoundingIncrement,
         unit: original.unit,
         estimatedTime: original.estimatedTime,
         imageUrl: original.imageUrl,
@@ -316,8 +424,25 @@ export const servicesRoutes = new Elysia()
       originalOptions.map((o) => ({
         name: o.name,
         type: o.type as "dropdown" | "radio" | "checkbox" | "number" | "text",
-        values: o.values.map((v) => ({ name: v.name, extraPrice: v.extraPrice })),
+        priceCategory: o.priceCategory as "paper" | "printing_side" | "size" | "other",
+        values: o.values.map((v) => ({
+          name: v.name,
+          extraPrice: v.extraPrice,
+          priceScope: v.priceScope as "per_item" | "per_page" | "per_piece" | "per_sqm",
+        })),
       }))
+    );
+
+    const originalColorTiers = await fetchColorTiers(original.id);
+    const copiedColorTiers = await writeColorTiers(
+      copy.id,
+      originalColorTiers.map((t) => ({ label: t.label, pricePerUnit: t.pricePerUnit }))
+    );
+
+    const originalQuantityTiers = await fetchQuantityTiers(original.id);
+    const copiedQuantityTiers = await writeQuantityTiers(
+      copy.id,
+      originalQuantityTiers.map((t) => ({ minQty: t.minQty, maxQty: t.maxQty, unitPrice: t.unitPrice }))
     );
 
     const originalAddOns = await fetchAddOnBindings(original.id);
@@ -331,7 +456,7 @@ export const servicesRoutes = new Elysia()
       );
     }
 
-    return { service: serializeMainService(copy, originalAddOns, copiedOptions) };
+    return { service: serializeMainService(copy, originalAddOns, copiedOptions, copiedColorTiers, copiedQuantityTiers) };
   })
 
   .patch("/shops/:shopId/services/:id", async ({ params, body, set, cookie }) => {
@@ -361,11 +486,16 @@ export const servicesRoutes = new Elysia()
       }
     }
 
-    const { addOns, options, basePrice, ...rest } = parsed.data;
+    const { addOns, options, colorTiers, quantityTiers, basePrice, minArea, areaRoundingIncrement, ...rest } = parsed.data;
 
     const [service] = await db
       .update(mainServices)
-      .set({ ...rest, ...(basePrice !== undefined ? { basePrice: basePrice.toFixed(2) } : {}) })
+      .set({
+        ...rest,
+        ...(basePrice !== undefined ? { basePrice: basePrice.toFixed(2) } : {}),
+        ...(minArea !== undefined ? { minArea: minArea?.toFixed(2) } : {}),
+        ...(areaRoundingIncrement !== undefined ? { areaRoundingIncrement: areaRoundingIncrement.toFixed(2) } : {}),
+      })
       .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
       .returning();
 
@@ -387,16 +517,38 @@ export const servicesRoutes = new Elysia()
       }
     }
 
-    const currentOptions = options !== undefined ? await writeOptions(service.id, options) : await fetchOptions(service.id);
+    let currentOptions: SerializedOption[];
+    if (options !== undefined) {
+      try {
+        currentOptions = await writeOptions(service.id, options);
+      } catch (err) {
+        if (isUniqueViolation(err)) {
+          set.status = 400;
+          return { error: "มีตัวเลือกมากกว่า 1 รายการที่ใช้หมวดราคาเดียวกัน กรุณาตรวจสอบ" };
+        }
+        throw err;
+      }
+    } else {
+      currentOptions = await fetchOptions(service.id);
+    }
+
+    const currentColorTiers = colorTiers !== undefined ? await writeColorTiers(service.id, colorTiers) : await fetchColorTiers(service.id);
+    const currentQuantityTiers =
+      quantityTiers !== undefined ? await writeQuantityTiers(service.id, quantityTiers) : await fetchQuantityTiers(service.id);
     const currentAddOns = addOns ?? (await fetchAddOnBindings(service.id));
-    return { service: serializeMainService(service, currentAddOns, currentOptions) };
+
+    return {
+      service: serializeMainService(service, currentAddOns, currentOptions, currentColorTiers, currentQuantityTiers),
+      warnings: buildServiceWarnings(minArea),
+    };
   })
 
   .delete("/shops/:shopId/services/:id", async ({ params, set, cookie }) => {
     const authError = await requireShopOwner(cookie, params.shopId, set);
     if (authError) return authError;
 
-    // ON DELETE CASCADE บน main_service_addons + service_options (+ service_option_values ต่อเนื่อง) ลบข้อมูลที่ผูกกับบริการนี้ให้อัตโนมัติ
+    // ON DELETE CASCADE บน main_service_addons + service_options (+ service_option_values ต่อเนื่อง)
+    // + service_color_tiers + service_quantity_tiers ลบข้อมูลที่ผูกกับบริการนี้ให้อัตโนมัติ
     const [deleted] = await db
       .delete(mainServices)
       .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
@@ -406,7 +558,7 @@ export const servicesRoutes = new Elysia()
       set.status = 404;
       return { error: "ไม่พบบริการนี้" };
     }
-    return { service: serializeMainService(deleted, [], []) };
+    return { service: serializeMainService(deleted, [], [], [], []) };
   })
 
   // ── บริการเสริม ──────────────────────────────
