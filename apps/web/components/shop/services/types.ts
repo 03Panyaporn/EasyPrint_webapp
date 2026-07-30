@@ -83,6 +83,7 @@ export interface AddOnService {
   name: string;
   description?: string;
   price: number;
+  scope: PriceScope; // ขอบเขตการคิดราคาเพิ่ม — ใช้แสดง label ในหน้าสั่งพิมพ์
   unit: string; // e.g., "เล่ม", "แผ่น", "ชิ้น"
   estimatedTime?: string; // e.g., "10 นาที"
   imageUrl?: string;

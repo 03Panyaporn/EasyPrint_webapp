@@ -1,4 +1,4 @@
-import type { AddCartItemInput, UpdateCartItemInput, SetCartDeliveryOptionInput } from "@easyprint/shared";
+import type { AddCartItemInput, UpdateCartItemInput, SetCartDeliveryOptionInput, CheckoutInput } from "@easyprint/shared";
 import { apiFetch } from "./client";
 
 export type CartItemAddOn = {
@@ -89,3 +89,11 @@ export function setCartDeliveryOption(shopId: string, input: SetCartDeliveryOpti
 export function clearShopCart(shopId: string) {
   return apiFetch<{ cart: null }>(`/shops/${shopId}/cart`, { method: "DELETE" });
 }
+
+export function checkoutCart(shopId: string, input: CheckoutInput) {
+  return apiFetch<{ order: { id: string; code: string; ref: string; totalPrice: number } }>(`/shops/${shopId}/cart/checkout`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+

@@ -17,15 +17,111 @@ import {
   QuantityTier,
   ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL,
 } from "./types";
-import { X, Upload, Layers, AlertCircle, Loader2, Plus, Trash2, ListPlus, Palette } from "lucide-react";
+import { Sparkles, X, Upload, Layers, AlertCircle, Loader2, Plus, Trash2, ListPlus, Palette } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 
 const PRICING_MODEL_OPTIONS: { value: PricingModel; label: string; hint: string; priceLabel: string }[] = [
-  { value: "per_page", label: "ต่อหน้า (Per Page)", hint: "ระบบนับจำนวนหน้าจากไฟล์ PDF ที่ลูกค้าอัปโหลดเอง", priceLabel: "ราคาต่อหน้า (บาท) — ราคาขาวดำ" },
-  { value: "per_piece", label: "ต่อชิ้น (Per Piece)", hint: "คูณด้วยจำนวนชุดที่ลูกค้าสั่ง", priceLabel: "ราคาต่อชิ้น (บาท)" },
-  { value: "per_sqm", label: "ต่อตารางเมตร (Per Square Meter)", hint: "ลูกค้ากรอกกว้าง/สูงเอง เช่น โปสเตอร์/ไวนิล", priceLabel: "ราคาต่อตารางเมตร (บาท) — ราคาขาวดำ" },
-  { value: "fixed", label: "ราคาเหมาจ่าย (Fixed Price)", hint: "ราคาเดียวทั้งงาน ไม่คูณตามจำนวน", priceLabel: "ราคาเหมาจ่าย (บาท)" },
+  { value: "per_page", label: "📄 คิดตามจำนวนหน้า (เช่น เอกสาร, ชีทเรียน)", hint: "ระบบจะนับจำนวนหน้าจากไฟล์ PDF ที่ลูกค้าอัปโหลดให้อัตโนมัติ", priceLabel: "ราคาเริ่มต้นต่อหน้า (บาท) — ขาวดำ" },
+  { value: "per_piece", label: "📦 คิดตามจำนวนชิ้น/ชุด (เช่น นามบัตร, การ์ด)", hint: "คูณด้วยจำนวนชุดที่ลูกค้าเลือกสั่งซื้อ", priceLabel: "ราคาต่อชิ้น/ชุด (บาท)" },
+  { value: "per_sqm", label: "📏 คิดตามขนาด ตารางเมตร (เช่น ป้ายไวนิล, โปสเตอร์)", hint: "ลูกค้ากรอกความกว้าง x สูง (ซม.) เอง ระบบจะคำนวณเป็น ตร.ม.", priceLabel: "ราคาต่อตารางเมตร (บาท)" },
+  { value: "fixed", label: "🏷️ ราคาเหมาจ่ายคงที่ (เช่น ค่าบริการออกแบบ)", hint: "ราคาเดียวทั้งงาน ไม่คูณตามจำนวนหน้าหรือพื้นที่", priceLabel: "ราคาเหมาจ่ายคงที่ (บาท)" },
+];
+
+const SERVICE_TEMPLATES = [
+  {
+    id: "doc_a4",
+    title: "📄 ปริ้นเอกสาร A4 (คิดตามหน้า)",
+    description: "คิดตามจำนวนหน้า สั่งพิมพ์ขาวดำ/สี ขนาด A4/A3",
+    apply: () => ({
+      name: "ปริ้นเอกสาร A4 / A3 (ขาวดำ & สี)",
+      description: "พิมพ์เอกสารสีและขาวดำ คมชัด รองรับไฟล์ PDF, JPG, PNG",
+      pricingModel: "per_page" as PricingModel,
+      basePrice: 1,
+      unit: "หน้า",
+      pageCountingMode: "by_file_page" as PageCountingMode,
+      colorTiers: [
+        { label: "ขาวดำ", pricePerUnit: 1, sortOrder: 0 },
+        { label: "สี", pricePerUnit: 5, sortOrder: 1 },
+      ],
+      options: [
+        {
+          name: "ชนิดกระดาษ",
+          type: "dropdown" as ServiceOptionType,
+          priceCategory: "paper" as OptionPriceCategory,
+          values: [
+            { name: "กระดาษปอนด์ 70g", extraPrice: 0, priceScope: "per_page" as PriceScope },
+            { name: "กระดาษปอนด์ 80g", extraPrice: 0.5, priceScope: "per_page" as PriceScope },
+            { name: "กระดาษการ์ดขาว 120g", extraPrice: 2, priceScope: "per_page" as PriceScope },
+          ],
+        },
+        {
+          name: "ด้านที่พิมพ์",
+          type: "radio" as ServiceOptionType,
+          priceCategory: "printing_side" as OptionPriceCategory,
+          values: [
+            { name: "พิมพ์หน้าเดียว", extraPrice: 0, priceScope: "per_page" as PriceScope },
+            { name: "พิมพ์ 2 หน้า (หน้า-หลัง)", extraPrice: 0, priceScope: "per_page" as PriceScope },
+          ],
+        },
+      ],
+    }),
+  },
+  {
+    id: "poster_vinyl",
+    title: "🖼️ ป้ายไวนิล (คิดตาม ตร.ม.)",
+    description: "คิดตามขนาด กว้างxสูง เหมาะสำหรับป้ายแบนเนอร์",
+    apply: () => ({
+      name: "ป้ายไวนิลหน้าร้าน / แบนเนอร์",
+      description: "ป้ายไวนิลกันน้ำ คมชัด เหมาะสำหรับงานกลางแจ้งและในร่ม",
+      pricingModel: "per_sqm" as PricingModel,
+      basePrice: 150,
+      unit: "ตร.ม.",
+      minArea: 0.5,
+      areaRoundingIncrement: 0.1,
+      options: [
+        {
+          name: "การพับขอบและเจาะตาไก่",
+          type: "dropdown" as ServiceOptionType,
+          priceCategory: "other" as OptionPriceCategory,
+          values: [
+            { name: "พับขอบเจาะตาไก่ 4 มุม", extraPrice: 0, priceScope: "per_item" as PriceScope },
+            { name: "พับขอบเว้นช่องร้อยท่อ", extraPrice: 20, priceScope: "per_item" as PriceScope },
+            { name: "ปล่อยชายไม่พับขอบ", extraPrice: 0, priceScope: "per_item" as PriceScope },
+          ],
+        },
+      ],
+    }),
+  },
+  {
+    id: "namecard",
+    title: "📇 นามบัตร (คิดตามชิ้น/ชุด)",
+    description: "คิดราคาเป็นกล่อง พร้อมส่วนลดเมื่อสั่งเยอะ",
+    apply: () => ({
+      name: "พิมพ์นามบัตรพรีเมียม (100 ใบ/กล่อง)",
+      description: "พิมพ์นามบัตรคุณภาพสูง คมชัด สวยงาม เลือกเคลือบเงา/ด้านได้",
+      pricingModel: "per_piece" as PricingModel,
+      basePrice: 150,
+      unit: "กล่อง",
+      quantityTiers: [
+        { minQty: 1, maxQty: 4, unitPrice: 150 },
+        { minQty: 5, maxQty: 9, unitPrice: 120 },
+        { minQty: 10, maxQty: null, unitPrice: 90 },
+      ],
+      options: [
+        {
+          name: "การเคลือบผิว",
+          type: "dropdown" as ServiceOptionType,
+          priceCategory: "other" as OptionPriceCategory,
+          values: [
+            { name: "ไม่เคลือบ", extraPrice: 0, priceScope: "per_piece" as PriceScope },
+            { name: "เคลือบพลาสติกเงา (Glossy)", extraPrice: 30, priceScope: "per_piece" as PriceScope },
+            { name: "เคลือบพลาสติกด้าน (Matte)", extraPrice: 30, priceScope: "per_piece" as PriceScope },
+          ],
+        },
+      ],
+    }),
+  },
 ];
 
 const OPTION_TYPE_LABEL: Record<ServiceOptionType, string> = {
@@ -606,6 +702,21 @@ export default function AddServiceModal({
   const isPriceCategoryUsedElsewhere = (category: OptionPriceCategory, exceptIndex: number) =>
     category !== "other" && options.some((o, i) => i !== exceptIndex && o.priceCategory === category);
 
+  const handleApplyTemplate = (tpl: (typeof SERVICE_TEMPLATES)[number]) => {
+    const data = tpl.apply();
+    setName(data.name);
+    setDescription(data.description);
+    setPricingModel(data.pricingModel);
+    setBasePrice(data.basePrice);
+    setUnit(data.unit);
+    setPageCountingMode("pageCountingMode" in data ? (data as any).pageCountingMode : "by_file_page");
+    setColorTiers("colorTiers" in data ? (data as any).colorTiers : []);
+    setQuantityTiers("quantityTiers" in data ? (data as any).quantityTiers : []);
+    setOptions(data.options || []);
+    setMinArea("minArea" in data ? (data as any).minArea : "");
+    setAreaRoundingIncrement("areaRoundingIncrement" in data ? (data as any).areaRoundingIncrement : 0.1);
+  };
+
   // เปลี่ยน pricingModel แล้ว priceScope เดิมของค่าตัวเลือกบางอันอาจไม่อยู่ใน allow-list ใหม่ — clamp กลับเป็นตัวเลือกแรกที่อนุญาตให้อัตโนมัติ
   // ทำตอนผู้ใช้กดเปลี่ยนจริงๆ เท่านั้น (ไม่ใช่ useEffect) กันไม่ให้ clamp ผิดจังหวะตอนโหลดข้อมูลเดิมมาแก้ไข
   const handlePricingModelChange = (model: PricingModel) => {
@@ -759,6 +870,7 @@ export default function AddServiceModal({
         name: name.trim(),
         description: description.trim() || undefined,
         price: Number(price),
+        scope: editingAddOnService ? editingAddOnService.scope : "per_item",
         unit,
         estimatedTime,
         imageUrl: finalImageUrl || undefined,

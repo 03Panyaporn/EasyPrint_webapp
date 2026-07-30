@@ -40,3 +40,20 @@ export const setCartDeliveryOptionSchema = z.object({
   deliveryOptionId: z.string().uuid().nullable(),
 });
 export type SetCartDeliveryOptionInput = z.infer<typeof setCartDeliveryOptionSchema>;
+
+// ข้อมูลที่ลูกค้าส่งมาตอน checkout — ใช้ validate ที่ API ก่อน convert ตะกร้า → Order + OrderItems
+export const checkoutSchema = z.object({
+  slipUrl: z.string().min(1, "กรุณาแนบหลักฐานการชำระเงิน"), // storage path จาก bucket private "payment-slips"
+  deliveryMethod: z.enum(["shop_delivery", "self_pickup"]),
+  deliveryAddress: z.string().trim().max(500).optional(), // ต้องมีค่าเมื่อ deliveryMethod = shop_delivery
+  note: z.string().trim().max(500).optional(), // โน้ตรวมทั้ง order (ต่างจาก note ของแต่ละ cart item)
+}).superRefine((d, ctx) => {
+  if (d.deliveryMethod === "shop_delivery" && !d.deliveryAddress) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "กรุณาระบุที่อยู่สำหรับจัดส่ง",
+      path: ["deliveryAddress"],
+    });
+  }
+});
+export type CheckoutInput = z.infer<typeof checkoutSchema>;

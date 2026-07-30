@@ -14,18 +14,18 @@ export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie
     set.status = 400;
     return { error: "ไม่พบไฟล์ที่อัปโหลด" };
   }
-  const validTypes: UploadType[] = ["shop-photo", "id-card", "service-image", "delivery-logo", "order-file"];
+  const validTypes: UploadType[] = ["shop-photo", "id-card", "service-image", "delivery-logo", "payment-slip", "order-file"];
   if (!validTypes.includes(type as UploadType)) {
     set.status = 400;
     return { error: `type ต้องเป็นหนึ่งใน ${validTypes.join(", ")}` };
   }
 
-  if (type === "order-file") {
+  if (type === "order-file" || type === "payment-slip") {
     const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
     const payload = token ? verifyAuthToken(token) : null;
     if (!payload || payload.role !== "customer") {
       set.status = 401;
-      return { error: "ต้องเข้าสู่ระบบเป็นลูกค้าก่อนอัปโหลดไฟล์งานพิมพ์" };
+      return { error: "ต้องเข้าสู่ระบบเป็นลูกค้าก่อนอัปโหลดสลิปหรือไฟล์งานพิมพ์" };
     }
   }
 

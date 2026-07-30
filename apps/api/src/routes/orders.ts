@@ -8,7 +8,7 @@ import {
   type CancelReason,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { orders, users } from "../../drizzle/schema";
+import { orders, orderItems, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
@@ -54,7 +54,8 @@ function generateOrderRef(): string {
 
 function serializeOrder(
   order: typeof orders.$inferSelect,
-  customer: { firstname: string; lastname: string; phone: string; email: string } | null
+  customer: { firstname: string; lastname: string; phone: string; email: string } | null,
+  items?: (typeof orderItems.$inferSelect)[]
 ) {
   return {
     id: order.id,
@@ -65,6 +66,7 @@ function serializeOrder(
     customerName: customer ? `${customer.firstname} ${customer.lastname}` : null,
     customerPhone: customer?.phone ?? null,
     customerEmail: customer?.email ?? null,
+    // Schema v1 fields (legacy)
     serviceType: order.serviceType,
     pages: order.pages,
     copies: order.copies,
@@ -74,7 +76,29 @@ function serializeOrder(
     lamination: order.lamination,
     selectedAddOns: order.selectedAddOns ?? [],
     fileUrl: order.fileUrl,
-    totalPrice: order.totalPrice,
+    // Schema v2 fields (snapshot)
+    subtotal: order.subtotal ? Number(order.subtotal) : null,
+    shippingFee: order.shippingFeeSnapshot ? Number(order.shippingFeeSnapshot) : null,
+    totalPrice: Number(order.totalPrice ?? 0),
+    items: items
+      ? items.map((it) => ({
+          id: it.id,
+          serviceName: it.serviceNameSnapshot,
+          pricingType: it.pricingTypeSnapshot,
+          baseRate: Number(it.basePriceSnapshot),
+          colorTierLabel: null,
+          colorTierPrice: null,
+          quantity: it.quantity,
+          pageCount: it.pageCount,
+          widthCm: null,
+          heightCm: null,
+          optionsSnapshot: (it.optionsSnapshotJson as Array<any>) ?? [],
+          addOnsSnapshot: (it.additionalServicesSnapshotJson as Array<any>) ?? [],
+          itemSubtotal: Number(it.itemTotalPrice),
+          fileUrl: it.fileUrl,
+          note: null,
+        }))
+      : undefined,
     status: order.status,
     note: order.note ?? undefined,
     delivery: {
@@ -173,7 +197,7 @@ export const ordersRoutes = new Elysia()
             slipUploadedAt: new Date(),
             deliveryMethod: parsed.data.deliveryMethod,
             deliveryAddress: parsed.data.deliveryAddress,
-            totalPrice,
+            totalPrice: String(totalPrice),
             note: parsed.data.note,
           })
           .returning();
@@ -187,7 +211,7 @@ export const ordersRoutes = new Elysia()
           notifyOrderCreated({
             to: customer.email,
             orderCode: order.code,
-            totalPrice: order.totalPrice,
+            totalPrice: Number(order.totalPrice ?? 0),
           }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
         }
 
@@ -223,8 +247,41 @@ export const ordersRoutes = new Elysia()
           : eq(orders.shopId, params.shopId)
       )
       .orderBy(desc(orders.createdAt));
+    const result = [];
+    for (const r of rows) {
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, r.order.id));
+      result.push(serializeOrder(r.order, r.customer, items));
+    }
 
-    return { orders: rows.map((r) => serializeOrder(r.order, r.customer)) };
+    return { orders: result };
+  })
+
+  // ── รายการออเดอร์ของลูกค้า (ฝั่งลูกค้า) ──────────
+  .get("/customers/orders", async ({ cookie, set }) => {
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || payload.role !== "customer") {
+      set.status = 401;
+      return { error: "ต้องเข้าสู่ระบบด้วยบัญชีลูกค้าก่อนดูประวัติการสั่งซื้อ" };
+    }
+
+    const rows = await db
+      .select({ order: orders, shop: shops })
+      .from(orders)
+      .leftJoin(shops, eq(orders.shopId, shops.id))
+      .where(eq(orders.customerId, payload.userId))
+      .orderBy(desc(orders.createdAt));
+
+    const result = [];
+    for (const r of rows) {
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, r.order.id));
+      result.push({
+        ...serializeOrder(r.order, null, items),
+        shopName: r.shop?.name ?? "ร้านค้า",
+      });
+    }
+
+    return { orders: result };
   })
 
   // ── รายละเอียดออเดอร์เดียว (ร้านดู หรือลูกค้าเจ้าของออเดอร์ดู) ──────────
@@ -244,7 +301,9 @@ export const ordersRoutes = new Elysia()
       return { error: "คุณไม่มีสิทธิ์ดูออเดอร์นี้" };
     }
 
-    return { order: serializeOrder(row.order, row.customer) };
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, row.order.id));
+
+    return { order: serializeOrder(row.order, row.customer, items) };
   })
 
   // ── เปลี่ยนสถานะออเดอร์ (เดินหน้า / ยกเลิก / ปฏิเสธการชำระเงิน — ใช้ endpoint เดียวกันหมด) ──────────

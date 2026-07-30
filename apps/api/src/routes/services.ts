@@ -121,6 +121,7 @@ function serializeAddOnService(row: typeof addOnServices.$inferSelect) {
     name: row.name,
     description: row.description ?? undefined,
     price: Number(row.price),
+    scope: row.scope, // price scope — ใช้แสดง label ฝั่ง frontend (per_item/per_page/per_piece/per_sqm)
     unit: row.unit,
     estimatedTime: row.estimatedTime ?? undefined,
     imageUrl: row.imageUrl ?? undefined,

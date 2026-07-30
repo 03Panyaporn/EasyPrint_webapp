@@ -56,20 +56,57 @@ export default function OrderDetailModal({
           {meta.label}
         </span>
 
-        {/* Info grid */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <DetailRow label="ชื่อลูกค้า">{order.customerName}</DetailRow>
-          <DetailRow label="เบอร์โทรติดต่อ">{order.customerPhone}</DetailRow>
-          <DetailRow label="วันที่สั่งซื้อ">{order.createdAtLabel}</DetailRow>
-          <DetailRow label="ประเภทงาน">{order.category}</DetailRow>
-          <DetailRow label="ขนาดกระดาษ">{order.paperSize}</DetailRow>
-          <DetailRow label="จำนวนชุด">
-            {order.copies} ชุด ({order.totalPages} หน้า)
-          </DetailRow>
-          <DetailRow label="บริการเพิ่มเติม">
-            {order.addOns.length > 0 ? order.addOns.join(", ") : "-"}
-          </DetailRow>
-        </div>
+        {/* Snapshot Items / Service Details */}
+        {order.items && order.items.length > 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 mb-5 space-y-3">
+            <p className="text-xs font-bold text-slate-700">รายการสินค้าและตัวเลือก (Snapshot)</p>
+            <div className="divide-y divide-slate-200">
+              {order.items.map((item, idx) => (
+                <div key={item.id || idx} className="py-2.5 space-y-1 text-xs">
+                  <div className="flex justify-between font-bold text-slate-800 text-sm">
+                    <span>{item.serviceName}</span>
+                    <span className="text-orange-600">฿{item.itemSubtotal.toLocaleString()}</span>
+                  </div>
+                  <p className="text-slate-500">
+                    อัตราพื้นฐาน: ฿{item.baseRate} {item.colorTierLabel ? `(${item.colorTierLabel} ฿${item.colorTierPrice})` : ""} · จำนวน {item.quantity} ชุด
+                    {item.pageCount ? ` · ${item.pageCount} หน้า` : ""}
+                    {item.widthCm && item.heightCm ? ` · ${item.widthCm}×${item.heightCm} ซม.` : ""}
+                  </p>
+                  {item.optionsSnapshot && item.optionsSnapshot.length > 0 && (
+                    <div className="text-slate-600 pl-2 border-l-2 border-slate-200 space-y-0.5 mt-1">
+                      {item.optionsSnapshot.map((opt, oIdx) => (
+                        <p key={oIdx}>
+                          {opt.optionName}: <span className="font-semibold">{opt.valueName || opt.textValue}</span>
+                          {opt.extraPrice > 0 ? ` (+฿${opt.extraPrice})` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {item.addOnsSnapshot && item.addOnsSnapshot.length > 0 && (
+                    <p className="text-orange-600 pl-2 border-l-2 border-orange-200 mt-1">
+                      บริการเสริม: {item.addOnsSnapshot.map((a) => `${a.name} (+฿${a.extraPrice})`).join(", ")}
+                    </p>
+                  )}
+                  {item.note && <p className="text-amber-700 bg-amber-50 p-1.5 rounded mt-1">โน้ต: {item.note}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <DetailRow label="ชื่อลูกค้า">{order.customerName}</DetailRow>
+            <DetailRow label="เบอร์โทรติดต่อ">{order.customerPhone}</DetailRow>
+            <DetailRow label="วันที่สั่งซื้อ">{order.createdAtLabel}</DetailRow>
+            <DetailRow label="ประเภทงาน">{order.category}</DetailRow>
+            <DetailRow label="ขนาดกระดาษ">{order.paperSize}</DetailRow>
+            <DetailRow label="จำนวนชุด">
+              {order.copies} ชุด ({order.totalPages} หน้า)
+            </DetailRow>
+            <DetailRow label="บริการเพิ่มเติม">
+              {order.addOns.length > 0 ? order.addOns.join(", ") : "-"}
+            </DetailRow>
+          </div>
+        )}
 
         {/* Files */}
         <div className="grid grid-cols-2 gap-3 mb-5">
