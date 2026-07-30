@@ -1,14 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { MainService, AddOnService } from "./types";
-import { Pencil, Trash2, Plus, Clock, FileText } from "lucide-react";
+import { MainService, AddOnService, PricingModel } from "./types";
+import { Pencil, Trash2, Copy, Plus, Clock, FileText } from "lucide-react";
+
+const PRICING_MODEL_LABEL: Record<PricingModel, string> = {
+  per_page: "/หน้า",
+  per_piece: "/ชิ้น",
+  per_sqm: "/ตร.ม.",
+  fixed: " เหมาจ่าย",
+};
+const PRICING_MODEL_HINT: Record<PricingModel, string> = {
+  per_page: "ตามจำนวนหน้า PDF ที่นับได้",
+  per_piece: "ตามจำนวนชุดที่สั่ง",
+  per_sqm: "ตามพื้นที่ที่ลูกค้ากรอก",
+  fixed: "ราคาเดียวทั้งงาน",
+};
 
 interface MainServicesTableProps {
   services: MainService[];
   allAddOns: AddOnService[];
   onAddClick: () => void;
   onEditClick: (service: MainService) => void;
+  onDuplicateClick: (service: MainService) => void;
   onDeleteClick: (id: string) => void;
   onToggleActive: (id: string) => void;
 }
@@ -18,6 +32,7 @@ export default function MainServicesTable({
   allAddOns,
   onAddClick,
   onEditClick,
+  onDuplicateClick,
   onDeleteClick,
   onToggleActive,
 }: MainServicesTableProps) {
@@ -74,9 +89,7 @@ export default function MainServicesTable({
           <thead>
             <tr className="bg-gray-50/80 text-gray-600 font-semibold border-b border-gray-100">
               <th className="py-3.5 px-4 sm:px-6">ชื่อบริการ</th>
-              <th className="py-3.5 px-4">ขนาดกระดาษ</th>
-              <th className="py-3.5 px-4">สี</th>
-              <th className="py-3.5 px-4">ราคา (บาท)</th>
+              <th className="py-3.5 px-4">ราคา</th>
               <th className="py-3.5 px-4">หน่วย</th>
               <th className="py-3.5 px-4">เวลาทำการ</th>
               <th className="py-3.5 px-4 text-center">บริการเสริม</th>
@@ -87,7 +100,7 @@ export default function MainServicesTable({
           <tbody className="divide-y divide-gray-100">
             {paginatedServices.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-gray-400">
+                <td colSpan={7} className="py-12 text-center text-gray-400">
                   <FileText size={32} className="mx-auto mb-2 opacity-50" />
                   <p className="text-sm font-medium">ไม่พบข้อมูลบริการหลัก</p>
                 </td>
@@ -110,43 +123,18 @@ export default function MainServicesTable({
                     )}
                   </td>
 
-                  {/* Paper sizes */}
+                  {/* Price (ราคาพื้นฐานตาม pricingModel + จำนวนตัวเลือก) */}
                   <td className="py-4 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {service.paperSizes.map((size) => (
-                        <span
-                          key={size}
-                          className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-md font-medium"
-                        >
-                          {size === "กำหนดเอง" && service.customPaperSize
-                            ? service.customPaperSize
-                            : size}
-                        </span>
-                      ))}
+                    <div>
+                      <div className="font-bold text-orange-600">
+                        ฿{service.basePrice.toLocaleString()}
+                        {PRICING_MODEL_LABEL[service.pricingModel]}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">{PRICING_MODEL_HINT[service.pricingModel]}</div>
+                      {service.options.length > 0 && (
+                        <div className="text-[11px] text-gray-400 mt-0.5">{service.options.length} ตัวเลือกเสริม</div>
+                      )}
                     </div>
-                  </td>
-
-                  {/* Colors */}
-                  <td className="py-4 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {service.colors.map((c) => (
-                        <span
-                          key={c}
-                          className={`px-2 py-0.5 text-xs rounded-md font-medium ${
-                            c === "สี"
-                              ? "bg-purple-50 text-purple-600 border border-purple-100"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Price */}
-                  <td className="py-4 px-4 font-bold text-orange-600">
-                    ฿{service.price.toLocaleString()}
                   </td>
 
                   {/* Unit */}
@@ -209,8 +197,19 @@ export default function MainServicesTable({
                         <Pencil size={16} />
                       </button>
                       <button
+                        onClick={() => onDuplicateClick(service)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                        title="คัดลอกบริการ"
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <button
                         onClick={() => {
-                          if (confirm(`คุณต้องการลบบริการ "${service.name}" หรือไม่?`)) {
+                          if (
+                            confirm(
+                              `คุณต้องการลบบริการ "${service.name}" หรือไม่?\n\nข้อมูลตัวเลือก/ราคาที่ตั้งไว้ของบริการนี้จะถูกลบทั้งหมด และลูกค้าจะไม่เห็นบริการนี้อีก`
+                            )
+                          ) {
                             onDeleteClick(service.id);
                           }
                         }}

@@ -358,7 +358,8 @@ export default function LandingPage() {
             {filteredShops.map((shop) => {
               const openNow = isShopOpenNow(shop.openingHours);
               return (
-                <div
+                <Link
+                  href={`/shops/${shop.id}`}
                   key={shop.id}
                   className="group border-2 border-orange-300 hover:border-orange-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 bg-white shadow-xs hover:shadow-md transition-all flex flex-row gap-3 sm:gap-5 relative overflow-hidden"
                 >
@@ -414,7 +415,7 @@ export default function LandingPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

@@ -9,30 +9,37 @@ export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.
   auth: { persistSession: false },
 });
 
+const IMAGE_MIME = ["image/jpeg", "image/png", "image/webp"];
+const PRINT_FILE_MIME = [...IMAGE_MIME, "application/pdf"];
+
 // shop-photos = public bucket (ลูกค้าต้องเห็นรูปหน้าร้านได้) — id-cards/payment-slips = private (ข้อมูลละเอียดอ่อน ห้ามเปิดสาธารณะ)
 // รูปบริการหลัก/โลโก้ตัวเลือกจัดส่ง ก็เป็นรูปสาธารณะเหมือนกัน (ลูกค้าต้องเห็นได้) เลยใช้ bucket "shop-photos" ร่วมกัน ไม่ต้องสร้าง bucket ใหม่บน Supabase
 // payment-slip = สลิปโอนเงิน เป็นเอกสารการเงิน ต้อง private เหมือน id-card แล้วออก signed URL ให้เจ้าของร้านดูตอนตรวจสอบเท่านั้น
+// order-files = private bucket ใหม่ (สร้างจริงบน Supabase แล้ว) เก็บไฟล์งานพิมพ์ในตะกร้า/ออเดอร์ของลูกค้า — ห้ามเปิดสาธารณะ
+// เพราะอาจมีข้อมูลส่วนตัวในไฟล์ ต้องออก signed URL ให้เฉพาะเจ้าของไฟล์กับร้านที่รับออเดอร์เท่านั้น
 export const UPLOAD_BUCKETS = {
-  "shop-photo": { bucket: "shop-photos", public: true },
-  "id-card": { bucket: "id-cards", public: false },
-  "service-image": { bucket: "shop-photos", public: true },
-  "delivery-logo": { bucket: "shop-photos", public: true },
-  "payment-slip": { bucket: "payment-slips", public: false },
+  "shop-photo": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
+  "id-card": { bucket: "id-cards", public: false, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
+  "service-image": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
+  "delivery-logo": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
+  "payment-slip": { bucket: "payment-slips", public: false, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
+  "order-file": { bucket: "order-files", public: false, allowedMime: PRINT_FILE_MIME, maxSize: 20 * 1024 * 1024 },
 } as const;
 export type UploadType = keyof typeof UPLOAD_BUCKETS;
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
-
 export async function uploadFile(type: UploadType, file: File) {
-  if (!ALLOWED_MIME.includes(file.type)) {
-    throw new Error("รองรับเฉพาะไฟล์รูปภาพ JPG, PNG หรือ WEBP เท่านั้น");
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error("ไฟล์ต้องมีขนาดไม่เกิน 5MB");
-  }
-
   const config = UPLOAD_BUCKETS[type];
+
+  if (!(config.allowedMime as readonly string[]).includes(file.type)) {
+    throw new Error(
+      type === "order-file"
+        ? "รองรับเฉพาะไฟล์ JPG, PNG, WEBP หรือ PDF เท่านั้น"
+        : "รองรับเฉพาะไฟล์รูปภาพ JPG, PNG หรือ WEBP เท่านั้น"
+    );
+  }
+  if (file.size > config.maxSize) {
+    throw new Error(`ไฟล์ต้องมีขนาดไม่เกิน ${Math.round(config.maxSize / (1024 * 1024))}MB`);
+  }
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${crypto.randomUUID()}.${ext}`;
 

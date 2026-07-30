@@ -1,6 +1,6 @@
 {
-  "id": "b461db1b-6070-49ea-9b14-5769fb59c0f1",
-  "prevId": "52706378-238f-4266-a787-e8c1ca5d3ae8",
+  "id": "1f8c7509-e9f2-4ad2-9817-dd4046509dd0",
+  "prevId": "67234797-f443-4c66-aaa8-5e73b3951828",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -90,6 +90,336 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
+    },
+    "public.cart_item_addons": {
+      "name": "cart_item_addons",
+      "schema": "",
+      "columns": {
+        "cart_item_id": {
+          "name": "cart_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "addon_service_id": {
+          "name": "addon_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cart_item_addons_cart_item_id_cart_items_id_fk": {
+          "name": "cart_item_addons_cart_item_id_cart_items_id_fk",
+          "tableFrom": "cart_item_addons",
+          "tableTo": "cart_items",
+          "columnsFrom": [
+            "cart_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cart_item_addons_addon_service_id_addon_services_id_fk": {
+          "name": "cart_item_addons_addon_service_id_addon_services_id_fk",
+          "tableFrom": "cart_item_addons",
+          "tableTo": "addon_services",
+          "columnsFrom": [
+            "addon_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "cart_item_addons_cart_item_id_addon_service_id_pk": {
+          "name": "cart_item_addons_cart_item_id_addon_service_id_pk",
+          "columns": [
+            "cart_item_id",
+            "addon_service_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.cart_item_option_selections": {
+      "name": "cart_item_option_selections",
+      "schema": "",
+      "columns": {
+        "cart_item_id": {
+          "name": "cart_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "option_id": {
+          "name": "option_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_id": {
+          "name": "value_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "text_value": {
+          "name": "text_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cart_item_option_selections_cart_item_id_cart_items_id_fk": {
+          "name": "cart_item_option_selections_cart_item_id_cart_items_id_fk",
+          "tableFrom": "cart_item_option_selections",
+          "tableTo": "cart_items",
+          "columnsFrom": [
+            "cart_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cart_item_option_selections_option_id_service_options_id_fk": {
+          "name": "cart_item_option_selections_option_id_service_options_id_fk",
+          "tableFrom": "cart_item_option_selections",
+          "tableTo": "service_options",
+          "columnsFrom": [
+            "option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cart_item_option_selections_value_id_service_option_values_id_fk": {
+          "name": "cart_item_option_selections_value_id_service_option_values_id_fk",
+          "tableFrom": "cart_item_option_selections",
+          "tableTo": "service_option_values",
+          "columnsFrom": [
+            "value_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "cart_item_option_selections_cart_item_id_option_id_pk": {
+          "name": "cart_item_option_selections_cart_item_id_option_id_pk",
+          "columns": [
+            "cart_item_id",
+            "option_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.cart_items": {
+      "name": "cart_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "cart_id": {
+          "name": "cart_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "main_service_id": {
+          "name": "main_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "width_cm": {
+          "name": "width_cm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "height_cm": {
+          "name": "height_cm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "page_count": {
+          "name": "page_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "file_url": {
+          "name": "file_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cart_items_cart_id_carts_id_fk": {
+          "name": "cart_items_cart_id_carts_id_fk",
+          "tableFrom": "cart_items",
+          "tableTo": "carts",
+          "columnsFrom": [
+            "cart_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cart_items_main_service_id_main_services_id_fk": {
+          "name": "cart_items_main_service_id_main_services_id_fk",
+          "tableFrom": "cart_items",
+          "tableTo": "main_services",
+          "columnsFrom": [
+            "main_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.carts": {
+      "name": "carts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_option_id": {
+          "name": "delivery_option_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "carts_customer_id_users_id_fk": {
+          "name": "carts_customer_id_users_id_fk",
+          "tableFrom": "carts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "carts_shop_id_shops_id_fk": {
+          "name": "carts_shop_id_shops_id_fk",
+          "tableFrom": "carts",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "carts_delivery_option_id_delivery_options_id_fk": {
+          "name": "carts_delivery_option_id_delivery_options_id_fk",
+          "tableFrom": "carts",
+          "tableTo": "delivery_options",
+          "columnsFrom": [
+            "delivery_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "carts_customer_id_shop_id_unique": {
+          "name": "carts_customer_id_shop_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "customer_id",
+            "shop_id"
+          ]
+        }
+      }
     },
     "public.delivery_options": {
       "name": "delivery_options",
@@ -236,78 +566,6 @@
       },
       "uniqueConstraints": {}
     },
-    "public.main_service_price_options": {
-      "name": "main_service_price_options",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "main_service_id": {
-          "name": "main_service_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "paper_size": {
-          "name": "paper_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "main_service_price_options_main_service_id_main_services_id_fk": {
-          "name": "main_service_price_options_main_service_id_main_services_id_fk",
-          "tableFrom": "main_service_price_options",
-          "tableTo": "main_services",
-          "columnsFrom": [
-            "main_service_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "main_service_price_options_main_service_id_paper_size_color_unique": {
-          "name": "main_service_price_options_main_service_id_paper_size_color_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "main_service_id",
-            "paper_size",
-            "color"
-          ]
-        }
-      }
-    },
     "public.main_services": {
       "name": "main_services",
       "schema": "",
@@ -337,29 +595,33 @@
           "primaryKey": false,
           "notNull": false
         },
-        "paper_sizes": {
-          "name": "paper_sizes",
-          "type": "text[]",
+        "pricing_model": {
+          "name": "pricing_model",
+          "type": "pricing_model",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'fixed'"
         },
-        "custom_paper_size": {
-          "name": "custom_paper_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "colors": {
-          "name": "colors",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
+        "base_price": {
+          "name": "base_price",
           "type": "numeric(10, 2)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'0'"
+        },
+        "requires_file_upload": {
+          "name": "requires_file_upload",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "allowed_file_types": {
+          "name": "allowed_file_types",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
         },
         "unit": {
           "name": "unit",
@@ -619,6 +881,134 @@
         }
       }
     },
+    "public.service_option_values": {
+      "name": "service_option_values",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "option_id": {
+          "name": "option_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "extra_price": {
+          "name": "extra_price",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "service_option_values_option_id_service_options_id_fk": {
+          "name": "service_option_values_option_id_service_options_id_fk",
+          "tableFrom": "service_option_values",
+          "tableTo": "service_options",
+          "columnsFrom": [
+            "option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.service_options": {
+      "name": "service_options",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "main_service_id": {
+          "name": "main_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "service_option_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "service_options_main_service_id_main_services_id_fk": {
+          "name": "service_options_main_service_id_main_services_id_fk",
+          "tableFrom": "service_options",
+          "tableTo": "main_services",
+          "columnsFrom": [
+            "main_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "public.shops": {
       "name": "shops",
       "schema": "",
@@ -829,6 +1219,27 @@
         "in_progress",
         "completed",
         "cancelled"
+      ]
+    },
+    "public.pricing_model": {
+      "name": "pricing_model",
+      "schema": "public",
+      "values": [
+        "per_page",
+        "per_piece",
+        "per_sqm",
+        "fixed"
+      ]
+    },
+    "public.service_option_type": {
+      "name": "service_option_type",
+      "schema": "public",
+      "values": [
+        "dropdown",
+        "radio",
+        "checkbox",
+        "number",
+        "text"
       ]
     },
     "public.shop_approval_status": {

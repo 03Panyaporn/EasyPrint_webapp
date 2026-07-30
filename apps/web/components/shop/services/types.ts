@@ -3,14 +3,36 @@ export interface AddOnPriceBinding {
   extraPrice: number;
 }
 
+// วิธีคิดราคาพื้นฐาน — ดู comment เต็มที่ apps/api/drizzle/schema.ts pricingModelEnum
+export type PricingModel = "per_page" | "per_piece" | "per_sqm" | "fixed";
+
+export type ServiceOptionType = "dropdown" | "radio" | "checkbox" | "number" | "text";
+
+export type AllowedFileType = "pdf" | "jpg" | "png" | "ai" | "psd";
+
+export interface ServiceOptionValue {
+  id?: string; // ไม่มีตอนกำลังกรอกในฟอร์ม แต่มีเสมอตอนดึงจาก backend จริง — ลูกค้าใช้ id นี้ตอนเพิ่มลงตะกร้า
+  name: string;
+  extraPrice: number; // ห้ามติดลบ
+}
+
+export interface ServiceOption {
+  id?: string;
+  name: string;
+  type: ServiceOptionType;
+  // ใช้กับ type = dropdown/radio/checkbox เท่านั้น — number/text ต้องเป็น array ว่าง (ลูกค้ากรอกเอง ไม่มีราคาเพิ่ม)
+  values: ServiceOptionValue[];
+}
+
 export interface MainService {
   id: string;
   name: string;
   description?: string;
-  paperSizes: string[]; // e.g., ["A4"], ["A4", "A3"], etc.
-  customPaperSize?: string;
-  colors: string[]; // e.g., ["ขาวดำ"], ["สี"], ["ขาวดำ", "สี"]
-  price: number;
+  pricingModel: PricingModel;
+  basePrice: number;
+  requiresFileUpload: boolean;
+  allowedFileTypes: AllowedFileType[];
+  options: ServiceOption[];
   unit: string; // e.g., "แผ่น", "เล่ม", "ชิ้น", "หน้า", "งาน"
   estimatedTime?: string; // e.g., "5 นาที", "30 นาที"
   availableAddOns: AddOnPriceBinding[];

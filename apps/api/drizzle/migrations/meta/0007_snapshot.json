@@ -1,6 +1,6 @@
 {
-  "id": "b461db1b-6070-49ea-9b14-5769fb59c0f1",
-  "prevId": "52706378-238f-4266-a787-e8c1ca5d3ae8",
+  "id": "9f845379-9331-44eb-a418-d0cbdcb26ad7",
+  "prevId": "b461db1b-6070-49ea-9b14-5769fb59c0f1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -336,30 +336,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "paper_sizes": {
-          "name": "paper_sizes",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "custom_paper_size": {
-          "name": "custom_paper_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "colors": {
-          "name": "colors",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
         },
         "unit": {
           "name": "unit",

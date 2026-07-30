@@ -55,4 +55,35 @@ export const shopsRoutes = new Elysia()
     }
 
     return { shop };
+  })
+
+  // endpoint สาธารณะ ไม่ต้อง login — หน้ารายละเอียดร้านฝั่งลูกค้าใช้ดึงข้อมูลร้านเดี่ยว
+  // คืนเฉพาะร้านที่ approvalStatus === "approved" เท่านั้น เหมือน GET /shops (list) — ร้าน pending/rejected เข้าตรงๆ ด้วย id ก็ต้องไม่เห็น
+  // ใช้ชื่อ param ":shopId" (ไม่ใช่ ":id") เพราะ Elysia/memoirist บังคับให้ทุก route ที่ path prefix ตรงกันต้องใช้ชื่อ param เดียวกัน
+  // ("/shops/:shopId/services" ในไฟล์อื่นประกาศไว้ก่อนแล้ว ถ้าใช้ชื่อไม่ตรงกันจะ error ตอน compile route ทันที)
+  .get("/shops/:shopId", async ({ params, set }) => {
+    const [row] = await db
+      .select({
+        id: shops.id,
+        name: shops.name,
+        phone: shops.phone,
+        address: shops.address,
+        serviceTypes: shops.serviceTypes,
+        deliveryMethods: shops.deliveryMethods,
+        googleMapLink: shops.googleMapLink,
+        socialMedia: shops.socialMedia,
+        openingHours: shops.openingHours,
+        shopPhotoUrl: shops.shopPhotoUrl,
+        approvalStatus: shops.approvalStatus,
+      })
+      .from(shops)
+      .where(eq(shops.id, params.shopId));
+
+    if (!row || row.approvalStatus !== "approved") {
+      set.status = 404;
+      return { error: "ไม่พบร้านค้านี้" };
+    }
+
+    const { approvalStatus: _approvalStatus, ...shop } = row;
+    return { shop };
   });

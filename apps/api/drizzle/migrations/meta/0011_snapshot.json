@@ -1,6 +1,6 @@
 {
-  "id": "b461db1b-6070-49ea-9b14-5769fb59c0f1",
-  "prevId": "52706378-238f-4266-a787-e8c1ca5d3ae8",
+  "id": "67234797-f443-4c66-aaa8-5e73b3951828",
+  "prevId": "11768272-f859-47bb-a1c1-021156217ed2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -90,6 +90,279 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
+    },
+    "public.cart_item_addons": {
+      "name": "cart_item_addons",
+      "schema": "",
+      "columns": {
+        "cart_item_id": {
+          "name": "cart_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "addon_service_id": {
+          "name": "addon_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cart_item_addons_cart_item_id_cart_items_id_fk": {
+          "name": "cart_item_addons_cart_item_id_cart_items_id_fk",
+          "tableFrom": "cart_item_addons",
+          "tableTo": "cart_items",
+          "columnsFrom": [
+            "cart_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cart_item_addons_addon_service_id_addon_services_id_fk": {
+          "name": "cart_item_addons_addon_service_id_addon_services_id_fk",
+          "tableFrom": "cart_item_addons",
+          "tableTo": "addon_services",
+          "columnsFrom": [
+            "addon_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "cart_item_addons_cart_item_id_addon_service_id_pk": {
+          "name": "cart_item_addons_cart_item_id_addon_service_id_pk",
+          "columns": [
+            "cart_item_id",
+            "addon_service_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.cart_items": {
+      "name": "cart_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "cart_id": {
+          "name": "cart_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "main_service_id": {
+          "name": "main_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_option_id": {
+          "name": "price_option_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area_color": {
+          "name": "area_color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area_width_cm": {
+          "name": "area_width_cm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area_height_cm": {
+          "name": "area_height_cm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "page_count": {
+          "name": "page_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "file_url": {
+          "name": "file_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cart_items_cart_id_carts_id_fk": {
+          "name": "cart_items_cart_id_carts_id_fk",
+          "tableFrom": "cart_items",
+          "tableTo": "carts",
+          "columnsFrom": [
+            "cart_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cart_items_main_service_id_main_services_id_fk": {
+          "name": "cart_items_main_service_id_main_services_id_fk",
+          "tableFrom": "cart_items",
+          "tableTo": "main_services",
+          "columnsFrom": [
+            "main_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cart_items_price_option_id_main_service_price_options_id_fk": {
+          "name": "cart_items_price_option_id_main_service_price_options_id_fk",
+          "tableFrom": "cart_items",
+          "tableTo": "main_service_price_options",
+          "columnsFrom": [
+            "price_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.carts": {
+      "name": "carts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_option_id": {
+          "name": "delivery_option_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "carts_customer_id_users_id_fk": {
+          "name": "carts_customer_id_users_id_fk",
+          "tableFrom": "carts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "carts_shop_id_shops_id_fk": {
+          "name": "carts_shop_id_shops_id_fk",
+          "tableFrom": "carts",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "carts_delivery_option_id_delivery_options_id_fk": {
+          "name": "carts_delivery_option_id_delivery_options_id_fk",
+          "tableFrom": "carts",
+          "tableTo": "delivery_options",
+          "columnsFrom": [
+            "delivery_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "carts_customer_id_shop_id_unique": {
+          "name": "carts_customer_id_shop_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "customer_id",
+            "shop_id"
+          ]
+        }
+      }
     },
     "public.delivery_options": {
       "name": "delivery_options",
@@ -236,6 +509,136 @@
       },
       "uniqueConstraints": {}
     },
+    "public.main_service_area_rates": {
+      "name": "main_service_area_rates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "main_service_id": {
+          "name": "main_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_per_sqm": {
+          "name": "rate_per_sqm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "main_service_area_rates_main_service_id_main_services_id_fk": {
+          "name": "main_service_area_rates_main_service_id_main_services_id_fk",
+          "tableFrom": "main_service_area_rates",
+          "tableTo": "main_services",
+          "columnsFrom": [
+            "main_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "main_service_area_rates_main_service_id_color_unique": {
+          "name": "main_service_area_rates_main_service_id_color_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "main_service_id",
+            "color"
+          ]
+        }
+      }
+    },
+    "public.main_service_page_rates": {
+      "name": "main_service_page_rates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "main_service_id": {
+          "name": "main_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_per_page": {
+          "name": "price_per_page",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "main_service_page_rates_main_service_id_main_services_id_fk": {
+          "name": "main_service_page_rates_main_service_id_main_services_id_fk",
+          "tableFrom": "main_service_page_rates",
+          "tableTo": "main_services",
+          "columnsFrom": [
+            "main_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "main_service_page_rates_main_service_id_color_unique": {
+          "name": "main_service_page_rates_main_service_id_color_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "main_service_id",
+            "color"
+          ]
+        }
+      }
+    },
     "public.main_service_price_options": {
       "name": "main_service_price_options",
       "schema": "",
@@ -337,29 +740,13 @@
           "primaryKey": false,
           "notNull": false
         },
-        "paper_sizes": {
-          "name": "paper_sizes",
-          "type": "text[]",
+        "pricing_mode": {
+          "name": "pricing_mode",
+          "type": "main_service_pricing_mode",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
-        },
-        "custom_paper_size": {
-          "name": "custom_paper_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "colors": {
-          "name": "colors",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'fixed'"
         },
         "unit": {
           "name": "unit",
@@ -821,6 +1208,15 @@
     }
   },
   "enums": {
+    "public.main_service_pricing_mode": {
+      "name": "main_service_pricing_mode",
+      "schema": "public",
+      "values": [
+        "fixed",
+        "area",
+        "per_page"
+      ]
+    },
     "public.order_status": {
       "name": "order_status",
       "schema": "public",

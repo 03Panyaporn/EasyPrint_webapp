@@ -46,6 +46,12 @@ export function deleteMainService(shopId: string, id: string) {
   });
 }
 
+export function duplicateMainService(shopId: string, id: string) {
+  return apiFetch<{ service: MainService }>(`/shops/${shopId}/services/${id}/duplicate`, {
+    method: "POST",
+  });
+}
+
 // ── บริการเสริม ──────────────────────────────
 export function getAddOnServices(shopId: string) {
   return apiFetch<{ addOns: AddOnService[] }>(`/shops/${shopId}/addons`);

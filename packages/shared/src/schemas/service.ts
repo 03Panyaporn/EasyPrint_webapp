@@ -3,8 +3,6 @@ import { z } from "zod";
 // สคีมานี้ใช้ทั้งฝั่ง apps/web (ตอน validate ฟอร์มหน้า /shop/services) และ apps/api (ตอน validate ก่อนบันทึก DB)
 // แก้ที่นี่ที่เดียว ทั้งสองฝั่งจะตรวจสอบข้อมูลตรงกันเสมอ
 
-export const paperSizeSchema = z.enum(["A4", "A3", "A5", "กำหนดเอง"]);
-export const colorSchema = z.enum(["ขาวดำ", "สี"]);
 export const serviceUnitSchema = z.enum(["แผ่น", "เล่ม", "ชิ้น", "หน้า", "งาน"]);
 export const estimatedTimeSchema = z.enum([
   "2 นาที",
@@ -22,17 +20,85 @@ export const addOnBindingSchema = z.object({
   extraPrice: z.number().nonnegative(),
 });
 
-function requiresCustomPaperSize(d: { paperSizes: string[]; customPaperSize?: string }) {
-  return !d.paperSizes.includes("กำหนดเอง") || !!d.customPaperSize?.trim();
+// วิธีคิดราคาพื้นฐาน — ดู comment เต็มที่ apps/api/drizzle/schema.ts pricingModelEnum
+export const pricingModelSchema = z.enum(["per_page", "per_piece", "per_sqm", "fixed"]);
+
+export const allowedFileTypeSchema = z.enum(["pdf", "jpg", "png", "ai", "psd"]);
+
+// ตัวเลือกบริการ (service option) ที่ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ"
+export const serviceOptionTypeSchema = z.enum(["dropdown", "radio", "checkbox", "number", "text"]);
+
+// ค่าที่ลูกค้าเลือกได้ของตัวเลือกแบบ dropdown/radio/checkbox — number/text ไม่มี values (ลูกค้ากรอกเองอิสระ ไม่มีราคาเพิ่ม)
+export const serviceOptionValueSchema = z.object({
+  id: z.string().uuid().optional(), // ไม่มีตอนกำลังกรอกในฟอร์ม แต่มีเสมอตอนดึงจาก backend จริง
+  name: z.string().trim().min(1, "กรุณากรอกชื่อค่าตัวเลือก").max(100),
+  extraPrice: z.number().nonnegative("ราคาเพิ่มต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
+});
+export type ServiceOptionValueInput = z.infer<typeof serviceOptionValueSchema>;
+
+function hasDuplicateNames(items: { name: string }[]) {
+  const seen = new Set<string>();
+  for (const i of items) {
+    const key = i.name.trim().toLowerCase();
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
 }
 
-const mainServiceBaseSchema = z.object({
+export const serviceOptionSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1, "กรุณากรอกชื่อตัวเลือก").max(100),
+    type: serviceOptionTypeSchema,
+    // ใช้กับ type = dropdown/radio/checkbox เท่านั้น — number/text ต้องเป็น array ว่าง
+    values: z.array(serviceOptionValueSchema).default([]),
+  })
+  .superRefine((d, ctx) => {
+    // checkbox = toggle เดียว (เช่น "พิมพ์ 2 หน้า +10 บาท") จึงบังคับมีค่าเดียวพอดี — เก็บได้ 1 แถวต่อ 1 ตัวเลือกในตะกร้า (ไม่รองรับ multi-select)
+    if (d.type === "checkbox") {
+      if (d.values.length !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ตัวเลือกแบบ checkbox "${d.name || "-"}" ต้องมีค่าเดียวพอดี (ราคาเพิ่มตอนติ๊กเลือก)`,
+          path: ["values"],
+        });
+      }
+      return;
+    }
+    const needsValues = d.type === "dropdown" || d.type === "radio";
+    if (needsValues) {
+      if (d.values.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ตัวเลือก "${d.name || "-"}" ต้องมีค่าให้เลือกอย่างน้อย 1 รายการ`,
+          path: ["values"],
+        });
+      } else if (hasDuplicateNames(d.values)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ตัวเลือก "${d.name || "-"}" มีชื่อค่าซ้ำกัน กรุณาตรวจสอบ`,
+          path: ["values"],
+        });
+      }
+    } else if (d.values.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `ตัวเลือกแบบ "${d.type}" ไม่ต้องมีรายการค่า (ลูกค้ากรอกเองอิสระ)`,
+        path: ["values"],
+      });
+    }
+  });
+export type ServiceOptionInput = z.infer<typeof serviceOptionSchema>;
+
+const mainServiceObjectSchema = z.object({
   name: z.string().trim().min(1, "กรุณากรอกชื่อบริการ").max(100),
   description: z.string().trim().max(500).optional(),
-  paperSizes: z.array(paperSizeSchema).min(1, "กรุณาเลือกขนาดกระดาษอย่างน้อย 1 รายการ"),
-  customPaperSize: z.string().trim().max(50).optional(),
-  colors: z.array(colorSchema).min(1, "กรุณาเลือกรูปแบบสีอย่างน้อย 1 รายการ"),
-  price: z.number().nonnegative(),
+  pricingModel: pricingModelSchema.default("fixed"),
+  basePrice: z.number().nonnegative("ราคาต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
+  requiresFileUpload: z.boolean().default(true),
+  allowedFileTypes: z.array(allowedFileTypeSchema).default(["pdf", "jpg", "png"]),
+  options: z.array(serviceOptionSchema).default([]),
   unit: serviceUnitSchema,
   estimatedTime: estimatedTimeSchema.optional(),
   imageUrl: z.string().url().optional(),
@@ -40,15 +106,18 @@ const mainServiceBaseSchema = z.object({
   addOns: z.array(addOnBindingSchema).default([]),
 });
 
-export const createMainServiceSchema = mainServiceBaseSchema.refine(requiresCustomPaperSize, {
-  message: "กรุณากรอกขนาดกระดาษแบบกำหนดเอง",
-  path: ["customPaperSize"],
-});
+function refineNoDuplicateOptionNames(d: { options?: ServiceOptionInput[] }, ctx: z.RefinementCtx) {
+  if (d.options && hasDuplicateNames(d.options)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "มีชื่อตัวเลือกซ้ำกันในบริการนี้ กรุณาตรวจสอบ",
+      path: ["options"],
+    });
+  }
+}
 
-export const updateMainServiceSchema = mainServiceBaseSchema.partial().refine(
-  (d) => d.paperSizes === undefined || requiresCustomPaperSize({ paperSizes: d.paperSizes, customPaperSize: d.customPaperSize }),
-  { message: "กรุณากรอกขนาดกระดาษแบบกำหนดเอง", path: ["customPaperSize"] }
-);
+export const createMainServiceSchema = mainServiceObjectSchema.superRefine(refineNoDuplicateOptionNames);
+export const updateMainServiceSchema = mainServiceObjectSchema.partial().superRefine(refineNoDuplicateOptionNames);
 
 export type CreateMainServiceInput = z.infer<typeof createMainServiceSchema>;
 export type UpdateMainServiceInput = z.infer<typeof updateMainServiceSchema>;

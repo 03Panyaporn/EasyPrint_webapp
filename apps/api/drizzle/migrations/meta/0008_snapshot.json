@@ -1,6 +1,6 @@
 {
-  "id": "b461db1b-6070-49ea-9b14-5769fb59c0f1",
-  "prevId": "52706378-238f-4266-a787-e8c1ca5d3ae8",
+  "id": "27055946-c321-4a1c-9122-0e5d9a71f385",
+  "prevId": "9f845379-9331-44eb-a418-d0cbdcb26ad7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -236,6 +236,71 @@
       },
       "uniqueConstraints": {}
     },
+    "public.main_service_area_rates": {
+      "name": "main_service_area_rates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "main_service_id": {
+          "name": "main_service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_per_sqm": {
+          "name": "rate_per_sqm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "main_service_area_rates_main_service_id_main_services_id_fk": {
+          "name": "main_service_area_rates_main_service_id_main_services_id_fk",
+          "tableFrom": "main_service_area_rates",
+          "tableTo": "main_services",
+          "columnsFrom": [
+            "main_service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "main_service_area_rates_main_service_id_color_unique": {
+          "name": "main_service_area_rates_main_service_id_color_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "main_service_id",
+            "color"
+          ]
+        }
+      }
+    },
     "public.main_service_price_options": {
       "name": "main_service_price_options",
       "schema": "",
@@ -337,29 +402,13 @@
           "primaryKey": false,
           "notNull": false
         },
-        "paper_sizes": {
-          "name": "paper_sizes",
-          "type": "text[]",
+        "pricing_mode": {
+          "name": "pricing_mode",
+          "type": "main_service_pricing_mode",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
-        },
-        "custom_paper_size": {
-          "name": "custom_paper_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "colors": {
-          "name": "colors",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'fixed'"
         },
         "unit": {
           "name": "unit",
@@ -821,6 +870,14 @@
     }
   },
   "enums": {
+    "public.main_service_pricing_mode": {
+      "name": "main_service_pricing_mode",
+      "schema": "public",
+      "values": [
+        "fixed",
+        "area"
+      ]
+    },
     "public.order_status": {
       "name": "order_status",
       "schema": "public",
