@@ -8,16 +8,23 @@ import {
   PricingModel,
   ServiceOption,
   ServiceOptionType,
+  ServiceOptionValue,
   AllowedFileType,
+  OptionPriceCategory,
+  PriceScope,
+  PageCountingMode,
+  ColorTier,
+  QuantityTier,
+  ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL,
 } from "./types";
-import { X, Upload, Layers, AlertCircle, Loader2, Plus, Trash2, ListPlus } from "lucide-react";
+import { X, Upload, Layers, AlertCircle, Loader2, Plus, Trash2, ListPlus, Palette } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 
 const PRICING_MODEL_OPTIONS: { value: PricingModel; label: string; hint: string; priceLabel: string }[] = [
-  { value: "per_page", label: "ต่อหน้า (Per Page)", hint: "ระบบนับจำนวนหน้าจากไฟล์ PDF ที่ลูกค้าอัปโหลดเอง", priceLabel: "ราคาต่อหน้า (บาท)" },
+  { value: "per_page", label: "ต่อหน้า (Per Page)", hint: "ระบบนับจำนวนหน้าจากไฟล์ PDF ที่ลูกค้าอัปโหลดเอง", priceLabel: "ราคาต่อหน้า (บาท) — ราคาขาวดำ" },
   { value: "per_piece", label: "ต่อชิ้น (Per Piece)", hint: "คูณด้วยจำนวนชุดที่ลูกค้าสั่ง", priceLabel: "ราคาต่อชิ้น (บาท)" },
-  { value: "per_sqm", label: "ต่อตารางเมตร (Per Square Meter)", hint: "ลูกค้ากรอกกว้าง/สูงเอง เช่น โปสเตอร์/ไวนิล", priceLabel: "ราคาต่อตารางเมตร (บาท)" },
+  { value: "per_sqm", label: "ต่อตารางเมตร (Per Square Meter)", hint: "ลูกค้ากรอกกว้าง/สูงเอง เช่น โปสเตอร์/ไวนิล", priceLabel: "ราคาต่อตารางเมตร (บาท) — ราคาขาวดำ" },
   { value: "fixed", label: "ราคาเหมาจ่าย (Fixed Price)", hint: "ราคาเดียวทั้งงาน ไม่คูณตามจำนวน", priceLabel: "ราคาเหมาจ่าย (บาท)" },
 ];
 
@@ -27,6 +34,20 @@ const OPTION_TYPE_LABEL: Record<ServiceOptionType, string> = {
   checkbox: "Checkbox (เลือกได้หลายค่า)",
   number: "Number (กรอกตัวเลข)",
   text: "Text (กรอกข้อความ)",
+};
+
+const PRICE_CATEGORY_LABEL: Record<OptionPriceCategory, string> = {
+  paper: "ประเภทกระดาษ",
+  printing_side: "ด้านพิมพ์ (หน้าเดียว/สองหน้า)",
+  size: "ขนาด",
+  other: "อื่นๆ (ไม่จำกัดจำนวน)",
+};
+
+const PRICE_SCOPE_LABEL: Record<PriceScope, string> = {
+  per_item: "คงที่ต่อชิ้นงาน (ไม่คูณอะไร)",
+  per_page: "คูณตามจำนวนหน้า/แผ่น",
+  per_piece: "คูณตามจำนวนชิ้น",
+  per_sqm: "คูณตามพื้นที่ (ตร.ม.)",
 };
 
 const FILE_TYPE_OPTIONS: { value: AllowedFileType; label: string }[] = [
@@ -46,8 +67,8 @@ const CANNED_DESCRIPTIONS: { label: string; text: string }[] = [
   { label: "สติ๊กเกอร์", text: "สติ๊กเกอร์ตัดตามรูปทรง เลือกวัสดุกันน้ำได้" },
 ];
 
-function emptyOptionValue() {
-  return { name: "", extraPrice: 0 as number };
+function emptyOptionValue(defaultScope: PriceScope): ServiceOptionValue {
+  return { name: "", extraPrice: 0, priceScope: defaultScope };
 }
 
 interface AddServiceModalProps {
@@ -65,18 +86,25 @@ interface AddServiceModalProps {
 // แก้ไข/เพิ่มตัวเลือกบริการ 1 รายการ (dropdown/radio/checkbox/number/text) — จัดการ draft ค่าย่อยของตัวเองภายในนี้
 function OptionEditor({
   option,
+  pricingModel,
+  siblingCategoryUsed,
   onChange,
   onRemove,
 }: {
   option: ServiceOption;
+  pricingModel: PricingModel; // ใช้จำกัด price_scope ที่เลือกได้ต่อค่า ตาม §4.3
+  siblingCategoryUsed: (category: OptionPriceCategory) => boolean; // true ถ้าตัวเลือกอื่นในบริการนี้ใช้หมวดนี้อยู่แล้ว
   onChange: (o: ServiceOption) => void;
   onRemove: () => void;
 }) {
+  const allowedScopes = ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL[pricingModel];
   const [draftValueName, setDraftValueName] = useState("");
   const [draftValuePrice, setDraftValuePrice] = useState<number | "">(0);
+  const [draftValueScope, setDraftValueScope] = useState<PriceScope>(allowedScopes[0]);
   const [valueError, setValueError] = useState("");
 
   const needsValues = option.type === "dropdown" || option.type === "radio" || option.type === "checkbox";
+  const categoryConflict = option.priceCategory !== "other" && siblingCategoryUsed(option.priceCategory);
 
   const handleTypeChange = (type: ServiceOptionType) => {
     const stillNeedsValues = type === "dropdown" || type === "radio" || type === "checkbox";
@@ -97,7 +125,7 @@ function OptionEditor({
       setValueError(`มีค่า "${name}" อยู่แล้ว`);
       return;
     }
-    onChange({ ...option, values: [...option.values, { name, extraPrice: Number(draftValuePrice) }] });
+    onChange({ ...option, values: [...option.values, { name, extraPrice: Number(draftValuePrice), priceScope: draftValueScope }] });
     setDraftValueName("");
     setDraftValuePrice(0);
     setValueError("");
@@ -107,12 +135,16 @@ function OptionEditor({
     onChange({ ...option, values: option.values.filter((_, i) => i !== index) });
   };
 
+  const updateValueScope = (index: number, priceScope: PriceScope) => {
+    onChange({ ...option, values: option.values.map((v, i) => (i === index ? { ...v, priceScope } : v)) });
+  };
+
   return (
     <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5">
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
         <input
           type="text"
-          placeholder="ชื่อตัวเลือก เช่น ประเภทกระดาษ, สี, วัสดุ"
+          placeholder="ชื่อตัวเลือก เช่น ประเภทกระดาษ, ด้านพิมพ์, ขนาด"
           value={option.name}
           onChange={(e) => onChange({ ...option, name: e.target.value })}
           className="px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
@@ -128,6 +160,20 @@ function OptionEditor({
             </option>
           ))}
         </select>
+        <select
+          value={option.priceCategory}
+          onChange={(e) => onChange({ ...option, priceCategory: e.target.value as OptionPriceCategory })}
+          className={`px-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white ${
+            categoryConflict ? "border-red-300" : "border-gray-200"
+          }`}
+          title="หมวดราคา — กันสร้างตัวเลือกที่ทำหน้าที่ซ้ำกัน"
+        >
+          {(Object.keys(PRICE_CATEGORY_LABEL) as OptionPriceCategory[]).map((c) => (
+            <option key={c} value={c}>
+              {PRICE_CATEGORY_LABEL[c]}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={onRemove}
@@ -137,13 +183,18 @@ function OptionEditor({
           <Trash2 size={14} />
         </button>
       </div>
+      {categoryConflict && (
+        <p className="text-[11px] text-red-500 flex items-center gap-1 pl-1">
+          <AlertCircle size={11} /> มีตัวเลือกอื่นใช้หมวด "{PRICE_CATEGORY_LABEL[option.priceCategory]}" อยู่แล้ว — กรุณาเพิ่มค่าใหม่ใต้ตัวเลือกเดิมแทน
+        </p>
+      )}
 
       {needsValues ? (
         <div className="pl-1 space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
             <input
               type="text"
-              placeholder="ค่า เช่น A4, กระดาษ 80 แกรม, ขาวดำ"
+              placeholder="ค่า เช่น A4, กระดาษ 80 แกรม"
               value={draftValueName}
               onChange={(e) => setDraftValueName(e.target.value)}
               className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
@@ -155,8 +206,20 @@ function OptionEditor({
               placeholder="ราคาเพิ่ม (บาท)"
               value={draftValuePrice}
               onChange={(e) => setDraftValuePrice(e.target.value === "" ? "" : Number(e.target.value))}
-              className="w-32 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+              className="w-28 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
             />
+            <select
+              value={draftValueScope}
+              onChange={(e) => setDraftValueScope(e.target.value as PriceScope)}
+              className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+              title="ขอบเขตการคูณราคาเพิ่มนี้"
+            >
+              {allowedScopes.map((s) => (
+                <option key={s} value={s}>
+                  {PRICE_SCOPE_LABEL[s]}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={addValue}
@@ -179,6 +242,17 @@ function OptionEditor({
                 >
                   <span className="text-gray-700">{v.name}</span>
                   <div className="flex items-center gap-2.5">
+                    <select
+                      value={allowedScopes.includes(v.priceScope) ? v.priceScope : allowedScopes[0]}
+                      onChange={(e) => updateValueScope(i, e.target.value as PriceScope)}
+                      className="px-1.5 py-1 text-[11px] border border-gray-200 rounded-lg bg-white text-gray-600"
+                    >
+                      {allowedScopes.map((s) => (
+                        <option key={s} value={s}>
+                          {PRICE_SCOPE_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
                     <span className="font-bold text-orange-600">
                       {v.extraPrice > 0 ? `+฿${v.extraPrice.toLocaleString()}` : "+฿0"}
                     </span>
@@ -195,6 +269,198 @@ function OptionEditor({
         <p className="pl-1 text-[11px] text-gray-400">
           {option.type === "number" ? "ลูกค้ากรอกตัวเลขเองตอนสั่งซื้อ" : "ลูกค้ากรอกข้อความเองตอนสั่งซื้อ"} — ไม่บังคับกรอก ไม่มีผลต่อราคา
         </p>
+      )}
+    </div>
+  );
+}
+
+// ระดับราคาตามสี — เป็นส่วนหนึ่งของ Base Pricing แยกออกจาก Options เพราะ "ขาวดำ" ใช้ basePrice ตรงๆ ไม่มีแถวของตัวเอง
+function ColorTierEditor({ tiers, onChange }: { tiers: ColorTier[]; onChange: (tiers: ColorTier[]) => void }) {
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftPrice, setDraftPrice] = useState<number | "">(0);
+  const [error, setError] = useState("");
+
+  const addTier = () => {
+    const label = draftLabel.trim();
+    if (!label) {
+      setError("กรุณากรอกชื่อระดับสี");
+      return;
+    }
+    if (draftPrice === "" || Number(draftPrice) < 0) {
+      setError("ราคาต้องเป็น 0 บาทขึ้นไป");
+      return;
+    }
+    if (tiers.some((t) => t.label.trim().toLowerCase() === label.toLowerCase())) {
+      setError(`มีระดับสี "${label}" อยู่แล้ว`);
+      return;
+    }
+    onChange([...tiers, { label, pricePerUnit: Number(draftPrice) }]);
+    setDraftLabel("");
+    setDraftPrice(0);
+    setError("");
+  };
+
+  const removeTier = (index: number) => onChange(tiers.filter((_, i) => i !== index));
+
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1">
+        <Palette size={14} className="text-orange-500" /> ระดับสี (Color Tier)
+      </label>
+      <p className="text-[11px] text-gray-400 mb-2">
+        ราคาขาวดำ = ราคาพื้นฐานด้านบน — เพิ่มระดับสีที่นี่เท่านั้น (เช่น "สี" +5 บาท/หน่วย) ห้ามสร้างเป็นตัวเลือก (Option) แยก
+        ราคาที่ตั้งเป็นราคาต่อหน่วยแบบเบ็ดเสร็จ ไม่บวกกับราคาขาวดำ
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-center mb-2">
+        <input
+          type="text"
+          placeholder="ชื่อระดับสี เช่น สี, สีพรีเมียม"
+          value={draftLabel}
+          onChange={(e) => setDraftLabel(e.target.value)}
+          className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+        />
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          placeholder="ราคาต่อหน่วย (บาท)"
+          value={draftPrice}
+          onChange={(e) => setDraftPrice(e.target.value === "" ? "" : Number(e.target.value))}
+          className="w-32 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+        />
+        <button
+          type="button"
+          onClick={addTier}
+          className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition"
+        >
+          <Plus size={13} /> เพิ่มระดับสี
+        </button>
+      </div>
+      {error && (
+        <p className="text-[11px] text-red-500 flex items-center gap-1 mb-2">
+          <AlertCircle size={11} /> {error}
+        </p>
+      )}
+      {tiers.length > 0 && (
+        <div className="space-y-1">
+          {tiers.map((t, i) => (
+            <div key={`${t.label}-${i}`} className="flex items-center justify-between text-xs bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+              <span className="text-gray-700">{t.label}</span>
+              <div className="flex items-center gap-2.5">
+                <span className="font-bold text-orange-600">฿{t.pricePerUnit.toLocaleString()}/หน่วย</span>
+                <button type="button" onClick={() => removeTier(i)} className="text-gray-400 hover:text-red-500 transition">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ราคาต่อหน่วยแบบขั้นบันไดตามจำนวน — ใช้เมื่อ pricingModel = per_piece เท่านั้น ตรวจ overlap ทันทีที่เพิ่ม
+function QuantityTierEditor({ tiers, onChange }: { tiers: QuantityTier[]; onChange: (tiers: QuantityTier[]) => void }) {
+  const [draftMin, setDraftMin] = useState<number | "">("");
+  const [draftMax, setDraftMax] = useState<number | "">("");
+  const [draftPrice, setDraftPrice] = useState<number | "">(0);
+  const [error, setError] = useState("");
+
+  const overlaps = (minQty: number, maxQty: number | null) =>
+    tiers.some((t) => {
+      const tMax = t.maxQty ?? Infinity;
+      const newMax = maxQty ?? Infinity;
+      return minQty <= tMax && t.minQty <= newMax;
+    });
+
+  const addTier = () => {
+    if (draftMin === "" || Number(draftMin) < 1) {
+      setError("กรุณากรอกจำนวนขั้นต่ำ (ตั้งแต่ 1)");
+      return;
+    }
+    const minQty = Number(draftMin);
+    const maxQty = draftMax === "" ? null : Number(draftMax);
+    if (maxQty != null && maxQty < minQty) {
+      setError("จำนวนสูงสุดต้องมากกว่าหรือเท่ากับจำนวนขั้นต่ำ");
+      return;
+    }
+    if (draftPrice === "" || Number(draftPrice) < 0) {
+      setError("ราคาต้องเป็น 0 บาทขึ้นไป");
+      return;
+    }
+    if (overlaps(minQty, maxQty)) {
+      setError("ช่วงจำนวนนี้ทับซ้อนกับขั้นบันไดที่มีอยู่แล้ว");
+      return;
+    }
+    onChange([...tiers, { minQty, maxQty, unitPrice: Number(draftPrice) }].sort((a, b) => a.minQty - b.minQty));
+    setDraftMin("");
+    setDraftMax("");
+    setDraftPrice(0);
+    setError("");
+  };
+
+  const removeTier = (index: number) => onChange(tiers.filter((_, i) => i !== index));
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-700 mb-1">ราคาขั้นบันไดตามจำนวน (Quantity Tier)</label>
+      <p className="text-[11px] text-gray-400 mb-2">เช่น 1-99 ชิ้น ราคา 10 บาท/ชิ้น, 100 ชิ้นขึ้นไป ราคา 8 บาท/ชิ้น — ช่วงห้ามทับกัน</p>
+      <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto_auto] gap-2 items-center mb-2">
+        <input
+          type="number"
+          min="1"
+          placeholder="ขั้นต่ำ"
+          value={draftMin}
+          onChange={(e) => setDraftMin(e.target.value === "" ? "" : Number(e.target.value))}
+          className="w-20 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+        />
+        <input
+          type="number"
+          min="1"
+          placeholder="สูงสุด (ว่าง = ไม่จำกัด)"
+          value={draftMax}
+          onChange={(e) => setDraftMax(e.target.value === "" ? "" : Number(e.target.value))}
+          className="w-36 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+        />
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          placeholder="ราคา/หน่วย"
+          value={draftPrice}
+          onChange={(e) => setDraftPrice(e.target.value === "" ? "" : Number(e.target.value))}
+          className="w-28 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+        />
+        <button
+          type="button"
+          onClick={addTier}
+          className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition"
+        >
+          <Plus size={13} /> เพิ่มขั้นบันได
+        </button>
+      </div>
+      {error && (
+        <p className="text-[11px] text-red-500 flex items-center gap-1 mb-2">
+          <AlertCircle size={11} /> {error}
+        </p>
+      )}
+      {tiers.length > 0 && (
+        <div className="space-y-1">
+          {tiers.map((t, i) => (
+            <div key={`${t.minQty}-${i}`} className="flex items-center justify-between text-xs bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+              <span className="text-gray-700">
+                {t.minQty} - {t.maxQty ?? "ไม่จำกัด"} หน่วย
+              </span>
+              <div className="flex items-center gap-2.5">
+                <span className="font-bold text-orange-600">฿{t.unitPrice.toLocaleString()}/หน่วย</span>
+                <button type="button" onClick={() => removeTier(i)} className="text-gray-400 hover:text-red-500 transition">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -224,6 +490,11 @@ export default function AddServiceModal({
   const [requiresFileUpload, setRequiresFileUpload] = useState(true);
   const [allowedFileTypes, setAllowedFileTypes] = useState<AllowedFileType[]>(["pdf", "jpg", "png"]);
   const [options, setOptions] = useState<ServiceOption[]>([]);
+  const [colorTiers, setColorTiers] = useState<ColorTier[]>([]);
+  const [quantityTiers, setQuantityTiers] = useState<QuantityTier[]>([]);
+  const [pageCountingMode, setPageCountingMode] = useState<PageCountingMode>("by_file_page");
+  const [minArea, setMinArea] = useState<number | "">("");
+  const [areaRoundingIncrement, setAreaRoundingIncrement] = useState<number | "">(0.1);
   const [unit, setUnit] = useState("แผ่น");
   const [estimatedTime, setEstimatedTime] = useState("5 นาที");
   const [isActive, setIsActive] = useState(true);
@@ -249,6 +520,11 @@ export default function AddServiceModal({
       setRequiresFileUpload(editingMainService.requiresFileUpload ?? true);
       setAllowedFileTypes(editingMainService.allowedFileTypes?.length ? editingMainService.allowedFileTypes : ["pdf", "jpg", "png"]);
       setOptions(editingMainService.options?.map((o) => ({ ...o, values: o.values.map((v) => ({ ...v })) })) || []);
+      setColorTiers(editingMainService.colorTiers?.map((t) => ({ ...t })) || []);
+      setQuantityTiers(editingMainService.quantityTiers?.map((t) => ({ ...t })) || []);
+      setPageCountingMode(editingMainService.pageCountingMode || "by_file_page");
+      setMinArea(editingMainService.minArea ?? "");
+      setAreaRoundingIncrement(editingMainService.areaRoundingIncrement ?? 0.1);
       setUnit(editingMainService.unit || "แผ่น");
       setEstimatedTime(editingMainService.estimatedTime || "5 นาที");
       setIsActive(editingMainService.isActive);
@@ -280,6 +556,11 @@ export default function AddServiceModal({
       setRequiresFileUpload(true);
       setAllowedFileTypes(["pdf", "jpg", "png"]);
       setOptions([]);
+      setColorTiers([]);
+      setQuantityTiers([]);
+      setPageCountingMode("by_file_page");
+      setMinArea("");
+      setAreaRoundingIncrement(0.1);
       setUnit(defaultType === "main" ? "แผ่น" : "เล่ม");
       setEstimatedTime("5 นาที");
       setIsActive(true);
@@ -313,13 +594,29 @@ export default function AddServiceModal({
   };
 
   const addOption = () => {
-    setOptions([...options, { name: "", type: "dropdown", values: [] }]);
+    setOptions([...options, { name: "", type: "dropdown", priceCategory: "other", values: [] }]);
   };
   const updateOption = (index: number, updated: ServiceOption) => {
     setOptions(options.map((o, i) => (i === index ? updated : o)));
   };
   const removeOption = (index: number) => {
     setOptions(options.filter((_, i) => i !== index));
+  };
+  // ตัวเลือกอื่น (ไม่ใช่ index นี้) ใช้หมวดราคานี้อยู่แล้วหรือไม่ — เตือนก่อน submit ตามสเปก §4.4
+  const isPriceCategoryUsedElsewhere = (category: OptionPriceCategory, exceptIndex: number) =>
+    category !== "other" && options.some((o, i) => i !== exceptIndex && o.priceCategory === category);
+
+  // เปลี่ยน pricingModel แล้ว priceScope เดิมของค่าตัวเลือกบางอันอาจไม่อยู่ใน allow-list ใหม่ — clamp กลับเป็นตัวเลือกแรกที่อนุญาตให้อัตโนมัติ
+  // ทำตอนผู้ใช้กดเปลี่ยนจริงๆ เท่านั้น (ไม่ใช่ useEffect) กันไม่ให้ clamp ผิดจังหวะตอนโหลดข้อมูลเดิมมาแก้ไข
+  const handlePricingModelChange = (model: PricingModel) => {
+    setPricingModel(model);
+    const allowed = ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL[model];
+    setOptions((prev) =>
+      prev.map((o) => ({
+        ...o,
+        values: o.values.map((v) => (allowed.includes(v.priceScope) ? v : { ...v, priceScope: allowed[0] })),
+      }))
+    );
   };
 
   const handleAddOnToggle = (addOnId: string, defaultAddOnPrice: number) => {
@@ -392,6 +689,24 @@ export default function AddServiceModal({
           break;
         }
       }
+      // สเปก §4.4: 1 price_category (ยกเว้น "other") มีได้แค่ 1 Option ต่อบริการ
+      if (!errs.options) {
+        const seenCategories = new Set<string>();
+        for (const opt of options) {
+          if (opt.priceCategory === "other") continue;
+          if (seenCategories.has(opt.priceCategory)) {
+            errs.options = `มีตัวเลือกมากกว่า 1 รายการที่ใช้หมวดราคาเดียวกัน (${PRICE_CATEGORY_LABEL[opt.priceCategory]}) กรุณารวมเป็นตัวเลือกเดียว`;
+            break;
+          }
+          seenCategories.add(opt.priceCategory);
+        }
+      }
+      if (minArea !== "" && Number(minArea) <= 0) {
+        errs.minArea = "พื้นที่ขั้นต่ำต้องมากกว่า 0";
+      }
+      if (areaRoundingIncrement === "" || Number(areaRoundingIncrement) <= 0) {
+        errs.areaRoundingIncrement = "หน่วยปัดขึ้นต้องมากกว่า 0";
+      }
     }
 
     setErrors(errs);
@@ -426,6 +741,11 @@ export default function AddServiceModal({
         requiresFileUpload,
         allowedFileTypes,
         options,
+        colorTiers,
+        quantityTiers,
+        pageCountingMode,
+        minArea: minArea === "" ? undefined : Number(minArea),
+        areaRoundingIncrement: areaRoundingIncrement === "" ? 0.1 : Number(areaRoundingIncrement),
         unit,
         estimatedTime,
         availableAddOns: noAddOns ? [] : selectedAddOns,
@@ -604,7 +924,7 @@ export default function AddServiceModal({
                         type="radio"
                         name="pricingModel"
                         checked={pricingModel === opt.value}
-                        onChange={() => setPricingModel(opt.value)}
+                        onChange={() => handlePricingModelChange(opt.value)}
                         className="text-orange-500 focus:ring-orange-500"
                       />
                       <div>
@@ -630,6 +950,94 @@ export default function AddServiceModal({
                 />
                 {errors.basePrice && <p className="text-xs text-red-500 mt-1">{errors.basePrice}</p>}
               </div>
+
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                <ColorTierEditor tiers={colorTiers} onChange={setColorTiers} />
+              </div>
+
+              {pricingModel === "per_page" && (
+                <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">วิธีนับหน้า</label>
+                  <p className="text-[11px] text-gray-400 mb-2">ใช้ตอนคำนวณราคา — ปัดขึ้นเสมอ ไม่ปัดลง</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-xs ${
+                        pageCountingMode === "by_file_page" ? "border-orange-500 bg-orange-50/60" : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        checked={pageCountingMode === "by_file_page"}
+                        onChange={() => setPageCountingMode("by_file_page")}
+                        className="text-orange-500 focus:ring-orange-500"
+                      />
+                      นับหน้าไฟล์ตรงๆ (พิมพ์หน้าเดียว)
+                    </label>
+                    <label
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-xs ${
+                        pageCountingMode === "by_sheet" ? "border-orange-500 bg-orange-50/60" : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        checked={pageCountingMode === "by_sheet"}
+                        onChange={() => setPageCountingMode("by_sheet")}
+                        className="text-orange-500 focus:ring-orange-500"
+                      />
+                      ปัดขึ้นครึ่งหนึ่ง (พิมพ์สองหน้า/แผ่น)
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {pricingModel === "per_sqm" && (
+                <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">พื้นที่ขั้นต่ำ / หน่วยปัดขึ้น</label>
+                  <p className="text-[11px] text-gray-400 mb-2">พื้นที่ที่คิดราคาจะถูกปัดขึ้นเป็นหน่วยนี้เสมอ แล้วบังคับขั้นต่ำ (ถ้ามี)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-gray-500 mb-1">พื้นที่ขั้นต่ำ (ตร.ม., ไม่บังคับ)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={minArea}
+                        onChange={(e) => setMinArea(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+                      />
+                      {minArea !== "" && Number(minArea) > 50 && (
+                        <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
+                          <AlertCircle size={11} /> พื้นที่ขั้นต่ำมากกว่า 50 ตร.ม. กรุณาตรวจสอบว่าไม่ได้กรอกผิด
+                        </p>
+                      )}
+                      {errors.minArea && <p className="text-[11px] text-red-500 mt-1">{errors.minArea}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-500 mb-1">หน่วยปัดขึ้น (ตร.ม.)</label>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.1"
+                        value={areaRoundingIncrement}
+                        onChange={(e) => setAreaRoundingIncrement(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
+                      />
+                      {errors.areaRoundingIncrement && <p className="text-[11px] text-red-500 mt-1">{errors.areaRoundingIncrement}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {pricingModel === "per_piece" && (
+                <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                  <QuantityTierEditor tiers={quantityTiers} onChange={setQuantityTiers} />
+                  {errors.quantityTiers && (
+                    <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1">
+                      <AlertCircle size={11} /> {errors.quantityTiers}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* การอัปโหลดไฟล์ */}
               <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
@@ -689,14 +1097,22 @@ export default function AddServiceModal({
                   </button>
                 </div>
                 <p className="text-[11px] text-gray-400 mb-2">
-                  สร้างตัวเลือกได้ไม่จำกัด เช่น ประเภทกระดาษ, วัสดุ, สี, ขนาด — dropdown/radio ต้องเลือกก่อนสั่งซื้อ, checkbox/text ไม่บังคับ
+                  สร้างตัวเลือกได้ไม่จำกัด เช่น ประเภทกระดาษ, ด้านพิมพ์, ขนาด, วัสดุ — dropdown/radio ต้องเลือกก่อนสั่งซื้อ, checkbox/text ไม่บังคับ
+                  (ตัวเลือกเรื่องสีให้ตั้งที่ "ระดับสี" ด้านบนแทน ไม่ต้องสร้างที่นี่)
                 </p>
                 {options.length === 0 ? (
                   <p className="text-xs text-gray-400 italic py-2">ยังไม่มีตัวเลือก — บริการนี้จะมีแค่ราคาพื้นฐานเท่านั้น</p>
                 ) : (
                   <div className="space-y-2.5">
                     {options.map((opt, i) => (
-                      <OptionEditor key={i} option={opt} onChange={(o) => updateOption(i, o)} onRemove={() => removeOption(i)} />
+                      <OptionEditor
+                        key={i}
+                        option={opt}
+                        pricingModel={pricingModel}
+                        siblingCategoryUsed={(category) => isPriceCategoryUsedElsewhere(category, i)}
+                        onChange={(o) => updateOption(i, o)}
+                        onRemove={() => removeOption(i)}
+                      />
                     ))}
                   </div>
                 )}

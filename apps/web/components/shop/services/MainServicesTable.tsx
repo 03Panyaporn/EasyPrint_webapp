@@ -131,8 +131,16 @@ export default function MainServicesTable({
                         {PRICING_MODEL_LABEL[service.pricingModel]}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">{PRICING_MODEL_HINT[service.pricingModel]}</div>
-                      {service.options.length > 0 && (
-                        <div className="text-[11px] text-gray-400 mt-0.5">{service.options.length} ตัวเลือกเสริม</div>
+                      {(service.options.length > 0 || service.colorTiers.length > 0 || service.quantityTiers.length > 0) && (
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          {[
+                            service.options.length > 0 ? `${service.options.length} ตัวเลือกเสริม` : null,
+                            service.colorTiers.length > 0 ? `${service.colorTiers.length} ระดับสี` : null,
+                            service.quantityTiers.length > 0 ? `${service.quantityTiers.length} ขั้นบันไดราคา` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
                       )}
                     </div>
                   </td>

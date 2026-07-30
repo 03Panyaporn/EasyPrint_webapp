@@ -20,6 +20,7 @@ export type CartOptionSelectionInput = z.infer<typeof cartOptionSelectionSchema>
 // ⚠️ ไม่มี field pageCount ในสคีมานี้เลยโดยตั้งใจ — จำนวนหน้า (pricingModel = per_page) server นับเองจากไฟล์จริงเสมอ ไม่รับค่าจาก client
 const cartItemBaseSchema = z.object({
   mainServiceId: z.string().uuid(),
+  colorTierId: z.string().uuid().optional(), // ระดับสีที่เลือก — ไม่ส่ง/undefined = ใช้ราคาขาวดำ (basePrice) หรือบริการนี้ไม่มีตัวเลือกสี
   widthCm: areaDimensionSchema.optional(), // ใช้เมื่อ pricingModel ของบริการ = "per_sqm" เท่านั้น
   heightCm: areaDimensionSchema.optional(),
   optionSelections: z.array(cartOptionSelectionSchema).default([]),
