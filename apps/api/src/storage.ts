@@ -9,13 +9,15 @@ export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.
   auth: { persistSession: false },
 });
 
-// shop-photos = public bucket (ลูกค้าต้องเห็นรูปหน้าร้านได้) — id-cards = private (ข้อมูลบัตรประชาชนละเอียดอ่อน ห้ามเปิดสาธารณะ)
+// shop-photos = public bucket (ลูกค้าต้องเห็นรูปหน้าร้านได้) — id-cards/payment-slips = private (ข้อมูลละเอียดอ่อน ห้ามเปิดสาธารณะ)
 // รูปบริการหลัก/โลโก้ตัวเลือกจัดส่ง ก็เป็นรูปสาธารณะเหมือนกัน (ลูกค้าต้องเห็นได้) เลยใช้ bucket "shop-photos" ร่วมกัน ไม่ต้องสร้าง bucket ใหม่บน Supabase
+// payment-slip = สลิปโอนเงิน เป็นเอกสารการเงิน ต้อง private เหมือน id-card แล้วออก signed URL ให้เจ้าของร้านดูตอนตรวจสอบเท่านั้น
 export const UPLOAD_BUCKETS = {
   "shop-photo": { bucket: "shop-photos", public: true },
   "id-card": { bucket: "id-cards", public: false },
   "service-image": { bucket: "shop-photos", public: true },
   "delivery-logo": { bucket: "shop-photos", public: true },
+  "payment-slip": { bucket: "payment-slips", public: false },
 } as const;
 export type UploadType = keyof typeof UPLOAD_BUCKETS;
 
