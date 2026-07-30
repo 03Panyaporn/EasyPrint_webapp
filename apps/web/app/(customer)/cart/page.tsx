@@ -15,6 +15,7 @@ export default function CartPage() {
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   const load = () => {
     setLoading(true);
@@ -95,11 +96,17 @@ export default function CartPage() {
       setLoadError("เลือกวิธีจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
-
+  const toggleItem = (itemId: string) => {
+    setSelectedItems((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-40 px-4 sm:px-6 lg:px-16 py-3.5 flex items-center gap-3">
-        <Link href="/" className="flex items-center gap-2 text-slate-600 hover:text-orange-500 transition">
+        <Link href="/Dashboard" className="flex items-center gap-2 text-slate-600 hover:text-orange-500 transition">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="font-black text-slate-800">ตะกร้าของฉัน</h1>
@@ -239,13 +246,12 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <button
-                  disabled
-                  title="ระบบสั่งซื้อ/ชำระเงินจะเปิดให้ใช้งานเร็วๆ นี้"
-                  className="w-full py-3.5 font-bold rounded-full bg-slate-300 text-white cursor-not-allowed"
+                <Link
+                  href={`/cart/check-out?shopId=${cart.shopId}`}
+                  className="block w-full py-3.5 text-center font-bold rounded-full bg-orange-500 hover:bg-orange-600 text-white transition"
                 >
-                  ยืนยันสั่งซื้อ (เร็วๆ นี้)
-                </button>
+                  ยืนยันสั่งซื้อ
+                </Link>
               </div>
             ))}
           </div>

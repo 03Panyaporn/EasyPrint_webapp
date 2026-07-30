@@ -1,5 +1,5 @@
 {
-  "id": "ed6714eb-e2ff-48d9-842b-b72c30103298",
+  "id": "f2fbd9f1-cd3e-42f4-a6d8-b66ff5d4276c",
   "prevId": "1f8c7509-e9f2-4ad2-9817-dd4046509dd0",
   "version": "7",
   "dialect": "postgresql",
@@ -44,14 +44,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "scope": {
-          "name": "scope",
-          "type": "price_scope",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'per_item'"
         },
         "estimated_time": {
           "name": "estimated_time",
@@ -261,12 +253,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "color_tier_id": {
-          "name": "color_tier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "width_cm": {
           "name": "width_cm",
           "type": "numeric(10, 2)",
@@ -333,19 +319,6 @@
           "tableTo": "main_services",
           "columnsFrom": [
             "main_service_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "cart_items_color_tier_id_service_color_tiers_id_fk": {
-          "name": "cart_items_color_tier_id_service_color_tiers_id_fk",
-          "tableFrom": "cart_items",
-          "tableTo": "service_color_tiers",
-          "columnsFrom": [
-            "color_tier_id"
           ],
           "columnsTo": [
             "id"
@@ -650,27 +623,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "page_counting_mode": {
-          "name": "page_counting_mode",
-          "type": "page_counting_mode",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'by_file_page'"
-        },
-        "min_area": {
-          "name": "min_area",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "area_rounding_increment": {
-          "name": "area_rounding_increment",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'0.1'"
-        },
         "unit": {
           "name": "unit",
           "type": "text",
@@ -723,106 +675,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.order_items": {
-      "name": "order_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "order_id": {
-          "name": "order_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "service_name_snapshot": {
-          "name": "service_name_snapshot",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pricing_type_snapshot": {
-          "name": "pricing_type_snapshot",
-          "type": "pricing_model",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "base_price_snapshot": {
-          "name": "base_price_snapshot",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "options_snapshot_json": {
-          "name": "options_snapshot_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "additional_services_snapshot_json": {
-          "name": "additional_services_snapshot_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "file_url": {
-          "name": "file_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "page_count": {
-          "name": "page_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "item_total_price": {
-          "name": "item_total_price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "order_items_order_id_orders_id_fk": {
-          "name": "order_items_order_id_orders_id_fk",
-          "tableFrom": "order_items",
-          "tableTo": "orders",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
     "public.orders": {
       "name": "orders",
       "schema": "",
@@ -843,6 +695,18 @@
         "customer_id": {
           "name": "customer_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ref": {
+          "name": "ref",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -893,6 +757,12 @@
           "notNull": true,
           "default": false
         },
+        "selected_add_ons": {
+          "name": "selected_add_ons",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
         "file_url": {
           "name": "file_url",
           "type": "text",
@@ -911,7 +781,7 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'pending_payment'"
+          "default": "'pending_review'"
         },
         "note": {
           "name": "note",
@@ -919,21 +789,42 @@
           "primaryKey": false,
           "notNull": false
         },
-        "subtotal": {
-          "name": "subtotal",
-          "type": "numeric(10, 2)",
+        "delivery_method": {
+          "name": "delivery_method",
+          "type": "delivery_method",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'self_pickup'"
+        },
+        "delivery_address": {
+          "name": "delivery_address",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "shipping_fee_snapshot": {
-          "name": "shipping_fee_snapshot",
-          "type": "numeric(10, 2)",
+        "slip_url": {
+          "name": "slip_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slip_uploaded_at": {
+          "name": "slip_uploaded_at",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
-        "total_price_snapshot": {
-          "name": "total_price_snapshot",
-          "type": "numeric(10, 2)",
+        "cancel_reason": {
+          "name": "cancel_reason",
+          "type": "cancel_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancel_note": {
+          "name": "cancel_note",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -975,7 +866,23 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {
+        "orders_ref_unique": {
+          "name": "orders_ref_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ref"
+          ]
+        },
+        "orders_shop_id_code_unique": {
+          "name": "orders_shop_id_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "shop_id",
+            "code"
+          ]
+        }
+      }
     },
     "public.password_reset_tokens": {
       "name": "password_reset_tokens",
@@ -1047,69 +954,6 @@
         }
       }
     },
-    "public.service_color_tiers": {
-      "name": "service_color_tiers",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "main_service_id": {
-          "name": "main_service_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price_per_unit": {
-          "name": "price_per_unit",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "service_color_tiers_main_service_id_main_services_id_fk": {
-          "name": "service_color_tiers_main_service_id_main_services_id_fk",
-          "tableFrom": "service_color_tiers",
-          "tableTo": "main_services",
-          "columnsFrom": [
-            "main_service_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
     "public.service_option_values": {
       "name": "service_option_values",
       "schema": "",
@@ -1139,14 +983,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'0'"
-        },
-        "price_scope": {
-          "name": "price_scope",
-          "type": "price_scope",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'per_item'"
         },
         "sort_order": {
           "name": "sort_order",
@@ -1212,14 +1048,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "price_category": {
-          "name": "price_category",
-          "type": "option_price_category",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'other'"
-        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -1235,96 +1063,11 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "service_options_category_unique": {
-          "name": "service_options_category_unique",
-          "columns": [
-            {
-              "expression": "main_service_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "price_category",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"service_options\".\"price_category\" != 'other'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "service_options_main_service_id_main_services_id_fk": {
           "name": "service_options_main_service_id_main_services_id_fk",
           "tableFrom": "service_options",
-          "tableTo": "main_services",
-          "columnsFrom": [
-            "main_service_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.service_quantity_tiers": {
-      "name": "service_quantity_tiers",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "main_service_id": {
-          "name": "main_service_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "min_qty": {
-          "name": "min_qty",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "max_qty": {
-          "name": "max_qty",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "unit_price": {
-          "name": "unit_price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "service_quantity_tiers_main_service_id_main_services_id_fk": {
-          "name": "service_quantity_tiers_main_service_id_main_services_id_fk",
-          "tableFrom": "service_quantity_tiers",
           "tableTo": "main_services",
           "columnsFrom": [
             "main_service_id"
@@ -1541,42 +1284,37 @@
     }
   },
   "enums": {
-    "public.option_price_category": {
-      "name": "option_price_category",
+    "public.cancel_reason": {
+      "name": "cancel_reason",
       "schema": "public",
       "values": [
-        "paper",
-        "printing_side",
-        "size",
+        "customer_request",
+        "invalid_payment_slip",
+        "amount_mismatch",
+        "no_transfer_found",
+        "invalid_file",
+        "shop_unavailable",
         "other"
+      ]
+    },
+    "public.delivery_method": {
+      "name": "delivery_method",
+      "schema": "public",
+      "values": [
+        "shop_delivery",
+        "self_pickup"
       ]
     },
     "public.order_status": {
       "name": "order_status",
       "schema": "public",
       "values": [
-        "pending_payment",
+        "pending_review",
+        "accepted",
         "in_progress",
+        "shipping",
         "completed",
         "cancelled"
-      ]
-    },
-    "public.page_counting_mode": {
-      "name": "page_counting_mode",
-      "schema": "public",
-      "values": [
-        "by_file_page",
-        "by_sheet"
-      ]
-    },
-    "public.price_scope": {
-      "name": "price_scope",
-      "schema": "public",
-      "values": [
-        "per_item",
-        "per_page",
-        "per_piece",
-        "per_sqm"
       ]
     },
     "public.pricing_model": {

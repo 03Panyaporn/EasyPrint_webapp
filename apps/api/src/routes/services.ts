@@ -30,7 +30,8 @@ function isUniqueViolation(err: unknown): boolean {
 
 // เช็คว่า request มี JWT ที่ login เป็น shop_owner ของร้าน :shopId นี้จริง ก่อนให้แก้ไข/ลบข้อมูล
 // คืน { error } object ถ้าไม่ผ่าน (พร้อมตั้ง set.status ให้แล้ว) หรือ null ถ้าผ่าน — ตรวจสอบสิทธิ์แบบเดียวกับที่ /auth/me ใช้อ่าน cookie
-async function requireShopOwner(
+// export ไว้ให้ routes/orders.ts เรียกใช้ร่วมด้วย กันเขียนลอจิกตรวจสิทธิ์ซ้ำ
+export async function requireShopOwner(
   cookie: Record<string, { value?: unknown } | undefined>,
   shopId: string,
   set: { status?: unknown }

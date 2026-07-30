@@ -5,12 +5,26 @@ import { relations, sql } from "drizzle-orm";
 // แก้/เพิ่มตารางได้ตามที่ทีมออกแบบ ERD จริงใน docs/erd.md
 
 export const userRoleEnum = pgEnum("user_role", ["shop_owner", "customer", "admin"]);
+// ต้องตรงกับ OrderStatus ฝั่ง frontend (apps/web/components/shop/orders/types.ts) เสมอ — แก้ที่นี่ต้องแก้ที่นั่นด้วย
 export const orderStatusEnum = pgEnum("order_status", [
-  "pending_payment",
-  "in_progress",
-  "completed",
-  "cancelled",
+  "pending_review", // รอตรวจสอบ (รอร้านตรวจสลิป/ยืนยันรับงาน)
+  "accepted", // รับงานแล้ว
+  "in_progress", // กำลังดำเนินการ
+  "shipping", // กำลังจัดส่ง (ข้ามสถานะนี้ถ้าลูกค้าเลือกมารับเองที่ร้าน)
+  "completed", // เสร็จสิ้น
+  "cancelled", // ยกเลิก (รวมถึงกรณีปฏิเสธการชำระเงิน)
 ]);
+// เหตุผลตอนยกเลิก/ปฏิเสธการชำระเงิน — ต้องตรงกับ cancelReasonLabels ฝั่ง frontend (apps/web/components/shop/orders/statusConfig.ts)
+export const cancelReasonEnum = pgEnum("cancel_reason", [
+  "customer_request",
+  "invalid_payment_slip",
+  "amount_mismatch",
+  "no_transfer_found",
+  "invalid_file",
+  "shop_unavailable",
+  "other",
+]);
+export const deliveryMethodEnum = pgEnum("delivery_method", ["shop_delivery", "self_pickup"]);
 // ร้านที่สมัครใหม่เริ่มที่ pending เสมอ — รอแอดมินอนุมัติก่อนถึงจะเปิดขายจริงได้ (ตาม flow "อนุมัติร้านค้า")
 export const shopApprovalStatusEnum = pgEnum("shop_approval_status", [
   "pending",
@@ -350,6 +364,8 @@ export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   shopId: uuid("shop_id").references(() => shops.id).notNull(),
   customerId: uuid("customer_id").references(() => users.id).notNull(),
+  code: text("code").notNull(), // เลขที่แสดงสั้นๆ ต่อร้าน เช่น "#0005" — รันเลขต่อร้าน (unique แค่ภายในร้านเดียวกัน ดู uniqueShopCode ด้านล่าง + generateOrderCode() ใน routes/orders.ts)
+  ref: text("ref").notNull().unique(), // รหัสอ้างอิงเต็มระบบ ไม่ซ้ำกันทั้งระบบ เช่น "ORD-20260516-B0F2"
   serviceType: text("service_type").notNull(),
   pages: integer("pages").notNull(),
   copies: integer("copies").notNull().default(1),
@@ -357,39 +373,19 @@ export const orders = pgTable("orders", {
   paperSize: text("paper_size").notNull().default("A4"),
   binding: boolean("binding").notNull().default(false),
   lamination: boolean("lamination").notNull().default(false),
+  selectedAddOns: text("selected_add_ons").array(), // ชื่อบริการเสริมที่ลูกค้าเลือกตอนสั่ง (denormalized ไว้แสดงผล ไม่ผูก FK เพราะราคา ณ ตอนสั่งอาจต่างจากราคาปัจจุบันของร้าน)
   fileUrl: text("file_url").notNull(),
-  totalPrice: integer("total_price").notNull(), // เก็บเป็นสตางค์ กันปัญหา floating point — legacy, คงไว้จนกว่า checkout endpoint จริงจะมาแทนที่
-  status: orderStatusEnum("status").notNull().default("pending_payment"),
+  totalPrice: integer("total_price").notNull(), // เก็บเป็นสตางค์ กันปัญหา floating point
+  status: orderStatusEnum("status").notNull().default("pending_review"),
   note: text("note"),
-  // ฟิลด์ snapshot ใหม่ตามระบบ Main Service Builder — nullable ชั่วคราวเพราะ endpoint เช็คเอาท์จริงยังไม่ได้ implement (เขียนทับ/ backfill ทีหลัง)
-  subtotal: numeric("subtotal", { precision: 10, scale: 2 }), // = sum ของ order_items.item_total_price
-  shippingFeeSnapshot: numeric("shipping_fee_snapshot", { precision: 10, scale: 2 }), // เผื่อระบบจัดส่งเดิมเสียบต่อ
-  totalPriceSnapshot: numeric("total_price_snapshot", { precision: 10, scale: 2 }), // = subtotal + shipping_fee_snapshot (หน่วยบาท ต่างจาก total_price เดิมที่เป็นสตางค์)
+  deliveryMethod: deliveryMethodEnum("delivery_method").notNull().default("self_pickup"),
+  deliveryAddress: text("delivery_address"), // ใช้เมื่อ deliveryMethod = shop_delivery เท่านั้น
+  slipUrl: text("slip_url").notNull(), // storage path จาก bucket private "payment-slips" — ลูกค้าต้องแนบสลิปมาพร้อมตอนสั่งเสมอ (จ่ายเงินก่อนร้านเริ่มงาน)
+  slipUploadedAt: timestamp("slip_uploaded_at"),
+  cancelReason: cancelReasonEnum("cancel_reason"), // ใส่ตอนสถานะเป็น cancelled เท่านั้น (รวมถึงกรณีปฏิเสธการชำระเงิน)
+  cancelNote: text("cancel_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// รายการสินค้าในออเดอร์ — ทุก _snapshot field เป็นค่าที่ "จับคัดลอก" ณ เวลาสั่งซื้อ ห้ามอ้าง FK ไปที่ service_options/service_option_values/addon_services
-// ที่แก้ไขได้ภายหลัง (ดู comment เต็มที่ cartItems ด้านบน) — การแก้ราคา Service ภายหลังต้องไม่กระทบ OrderItem ที่สร้างไปแล้วเลย
-// 1 OrderItem ผูกกับไฟล์เดียวเสมอ (fileUrl) ไม่มีตาราง OrderItemFile แยก
-export const orderItems = pgTable("order_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
-  serviceNameSnapshot: text("service_name_snapshot").notNull(),
-  pricingTypeSnapshot: pricingModelEnum("pricing_type_snapshot").notNull(),
-  basePriceSnapshot: numeric("base_price_snapshot", { precision: 10, scale: 2 }).notNull(),
-  quantity: integer("quantity").notNull().default(1),
-  optionsSnapshotJson: jsonb("options_snapshot_json"), // denormalized copy ของตัวเลือก+ราคาที่ใช้จริง ณ ตอนนั้น
-  additionalServicesSnapshotJson: jsonb("additional_services_snapshot_json"), // denormalized copy ของบริการเสริม+ราคาที่ใช้จริง ณ ตอนนั้น
-  fileUrl: text("file_url"),
-  pageCount: integer("page_count"), // ใช้เมื่อ pricing_type_snapshot = per_page
-  itemTotalPrice: numeric("item_total_price", { precision: 10, scale: 2 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const ordersRelations = relations(orders, ({ many }) => ({
-  items: many(orderItems),
-}));
-
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
-  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+}, (table) => ({
+  // code ไม่ซ้ำแค่ภายในร้านเดียวกัน (คนละร้านมี #0001 ซ้ำกันได้ตามปกติ)
+  uniqueShopCode: unique().on(table.shopId, table.code),
 }));
