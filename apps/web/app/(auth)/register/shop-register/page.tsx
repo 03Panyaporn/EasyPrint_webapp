@@ -21,6 +21,9 @@ import {
   CircleUser,
   Share2,
   Clock,
+  CreditCard,
+  Building2,
+  DollarSign,
 } from "lucide-react";
 import { on } from "events";
 import { SHOP_SERVICE_TYPES, SHOP_DELIVERY_METHODS } from "@easyprint/shared";
@@ -69,6 +72,10 @@ export default function ShopRegisterPage() {
     postcode: "",
     googleMapLink: "",
     socialMedia: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankAccountName: "",
+    promptpayNumber: "",
   });
   const [schedule, setSchedule] = useState<DaySchedule[]>(INITIAL_SCHEDULE);
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
@@ -115,6 +122,7 @@ export default function ShopRegisterPage() {
   };
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [shopPhotoFile, setShopPhotoFile] = useState<File | null>(null);
+  const [promptPayQrFile, setPromptPayQrFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStage, setSubmitStage] = useState<"idle" | "uploading" | "registering">("idle");
@@ -375,11 +383,10 @@ export default function ShopRegisterPage() {
                 return (
                   <label
                     key={service}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border cursor-pointer transition-all ${
-                      selected
-                        ? "border-orange-500 bg-orange-50 text-orange-600 font-semibold"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border cursor-pointer transition-all ${selected
+                      ? "border-orange-500 bg-orange-50 text-orange-600 font-semibold"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -407,11 +414,10 @@ export default function ShopRegisterPage() {
                 return (
                   <label
                     key={method}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border cursor-pointer transition-all ${
-                      selected
-                        ? "border-orange-500 bg-orange-50 text-orange-600 font-semibold"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border cursor-pointer transition-all ${selected
+                      ? "border-orange-500 bg-orange-50 text-orange-600 font-semibold"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -566,14 +572,12 @@ export default function ShopRegisterPage() {
                           <button
                             type="button"
                             onClick={() => toggleDayOpen(idx)}
-                            className={`w-9 h-5 rounded-full p-0.5 transition-colors relative ${
-                              item.isOpen ? "bg-slate-800" : "bg-slate-300"
-                            }`}
+                            className={`w-9 h-5 rounded-full p-0.5 transition-colors relative ${item.isOpen ? "bg-slate-800" : "bg-slate-300"
+                              }`}
                           >
                             <div
-                              className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                                item.isOpen ? "translate-x-4" : "translate-x-0"
-                              }`}
+                              className={`w-4 h-4 bg-white rounded-full transition-transform ${item.isOpen ? "translate-x-4" : "translate-x-0"
+                                }`}
                             />
                           </button>
                           <span className={`text-xs font-bold ${item.isOpen ? "text-emerald-600" : "text-slate-400"}`}>
@@ -628,6 +632,70 @@ export default function ShopRegisterPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* ── บัญชีธนาคาร ─────────────────────────────── */}
+          <div className="space-y-4 rounded-2xl bg-orange-50/60 border border-orange-100 p-5">
+            <p className="flex items-center gap-2 text-xs font-bold text-orange-600 uppercase tracking-wide">
+              <CreditCard className="w-4 h-4" />
+              ข้อมูลบัญชีธนาคาร (สำหรับรับชำระเงินจากลูกค้า)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="ชื่อธนาคาร" icon={<Building2 className="w-4 h-4" />} optional>
+                <input
+                  type="text"
+                  name="bankName"
+                  value={form.bankName}
+                  onChange={handleChange}
+                  placeholder="เช่น ธนาคารกสิกรไทย, ธนาคารไทยพาณิชย์"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="เลขที่บัญชีธนาคาร" icon={<CreditCard className="w-4 h-4" />} optional>
+                <input
+                  type="text"
+                  name="bankAccountNumber"
+                  value={form.bankAccountNumber}
+                  onChange={handleChange}
+                  placeholder="เช่น 123-4-56789-0"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="ชื่อบัญชีธนาคาร" icon={<User className="w-4 h-4" />} optional>
+                <input
+                  type="text"
+                  name="bankAccountName"
+                  value={form.bankAccountName}
+                  onChange={handleChange}
+                  placeholder="เช่น นายสมชาย ใจดี หรือ บจก. อีซี่ปริ้นท์"
+                  className={inputCls}
+                />
+              </Field>
+              <Field
+                label="QR พร้อมเพย์ (PromptPay)"
+                icon={<Upload className="w-4 h-4" />}
+                optional
+              >
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => setPromptPayQrFile(e.target.files?.[0] ?? null)}
+                  className={inputCls}
+                />
+
+                <p className="text-xs text-slate-400 mt-1">
+                  อัปโหลดรูป QR พร้อมเพย์ของธนาคาร (สามารถเพิ่มภายหลังได้)
+                </p>
+
+                {promptPayQrFile && (
+                  <img
+                    src={URL.createObjectURL(promptPayQrFile)}
+                    alt="PromptPay QR"
+                    className="mt-3 w-40 rounded-lg border border-slate-200"
+                  />
+                )}
+              </Field>
             </div>
           </div>
 
