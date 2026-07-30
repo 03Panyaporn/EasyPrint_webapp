@@ -12,8 +12,9 @@ export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.
 const IMAGE_MIME = ["image/jpeg", "image/png", "image/webp"];
 const PRINT_FILE_MIME = [...IMAGE_MIME, "application/pdf"];
 
-// shop-photos = public bucket (ลูกค้าต้องเห็นรูปหน้าร้านได้) — id-cards = private (ข้อมูลบัตรประชาชนละเอียดอ่อน ห้ามเปิดสาธารณะ)
+// shop-photos = public bucket (ลูกค้าต้องเห็นรูปหน้าร้านได้) — id-cards/payment-slips = private (ข้อมูลละเอียดอ่อน ห้ามเปิดสาธารณะ)
 // รูปบริการหลัก/โลโก้ตัวเลือกจัดส่ง ก็เป็นรูปสาธารณะเหมือนกัน (ลูกค้าต้องเห็นได้) เลยใช้ bucket "shop-photos" ร่วมกัน ไม่ต้องสร้าง bucket ใหม่บน Supabase
+// payment-slip = สลิปโอนเงิน เป็นเอกสารการเงิน ต้อง private เหมือน id-card แล้วออก signed URL ให้เจ้าของร้านดูตอนตรวจสอบเท่านั้น
 // order-files = private bucket ใหม่ (สร้างจริงบน Supabase แล้ว) เก็บไฟล์งานพิมพ์ในตะกร้า/ออเดอร์ของลูกค้า — ห้ามเปิดสาธารณะ
 // เพราะอาจมีข้อมูลส่วนตัวในไฟล์ ต้องออก signed URL ให้เฉพาะเจ้าของไฟล์กับร้านที่รับออเดอร์เท่านั้น
 export const UPLOAD_BUCKETS = {
@@ -21,6 +22,7 @@ export const UPLOAD_BUCKETS = {
   "id-card": { bucket: "id-cards", public: false, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
   "service-image": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
   "delivery-logo": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
+  "payment-slip": { bucket: "payment-slips", public: false, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
   "order-file": { bucket: "order-files", public: false, allowedMime: PRINT_FILE_MIME, maxSize: 20 * 1024 * 1024 },
 } as const;
 export type UploadType = keyof typeof UPLOAD_BUCKETS;
