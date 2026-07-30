@@ -59,12 +59,21 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
           >
             แชท
           </Link>
+          <Link
+            href="/messageadmin"
+            className={`font-bold pb-0.5 text-base transition ${pathname.startsWith("/messageadmin")
+              ? "text-orange-500 border-b-2 border-orange-500"
+              : "text-gray-700 hover:text-orange-500"
+              }`}
+          >
+            ติดต่อแอดมิน
+          </Link>
         </nav>
 
         {/* Auth Buttons (Desktop) */}
         <div className="hidden sm:flex items-center gap-4">
           <Link
-            href="/chat"
+            href="/cart"
             className="text-orange-500 font-semibold hover:text-orange-600 text-sm md:text-base px-2 py-1 transition"
           >
             <ShoppingCart className="w-5 h-5" />
@@ -123,11 +132,11 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             </Link>
 
             <Link
-              href="/orders/new"
+              href="/messageadmin"
               onClick={() => setMobileMenuOpen(false)}
               className="block font-semibold text-slate-700 hover:text-orange-500"
             >
-              สั่งพิมพ์ใหม่
+              ติดต่อแอดมิน
             </Link>
 
             <Link
