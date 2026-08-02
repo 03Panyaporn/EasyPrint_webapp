@@ -40,3 +40,11 @@ export const setCartDeliveryOptionSchema = z.object({
   deliveryOptionId: z.string().uuid().nullable(),
 });
 export type SetCartDeliveryOptionInput = z.infer<typeof setCartDeliveryOptionSchema>;
+
+// POST /shops/:shopId/cart/checkout — deliveryAddress บังคับกรอกเฉพาะตอนตะกร้ามี deliveryOption เลือกไว้แล้วเท่านั้น
+// (เช็คฝั่ง route เพราะ schema เองไม่รู้สถานะตะกร้า) ไม่รับ deliveryMethod จาก client เลย — ยึดตาม cart.deliveryOptionId เท่านั้นกัน tampering
+export const checkoutCartSchema = z.object({
+  slipUrl: z.string().min(1, "กรุณาแนบสลิปการโอนเงิน"), // storage path จาก bucket private "payment-slips"
+  deliveryAddress: z.string().trim().min(1).optional(),
+});
+export type CheckoutCartInput = z.infer<typeof checkoutCartSchema>;
