@@ -18,7 +18,8 @@ export type ApiOrder = {
   binding: boolean;
   lamination: boolean;
   selectedAddOns: string[];
-  fileUrl: string;
+  fileUrl: string | null;
+  cartSnapshot?: unknown; // รายละเอียดเต็มของแต่ละรายการตอน checkout จากตะกร้า (มีเฉพาะออเดอร์ที่มาจาก POST /shops/:shopId/cart/checkout)
   totalPrice: number; // หน่วยสตางค์
   status: OrderStatus;
   note?: string;

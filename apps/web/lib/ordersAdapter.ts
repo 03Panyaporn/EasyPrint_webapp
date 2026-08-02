@@ -4,7 +4,8 @@ import type { Order, OrderFileAttachment } from "@/components/shop/orders/types"
 // แปลงข้อมูลจริงจาก API ให้เข้ากับ shape ของ Order (เดิมออกแบบไว้คู่กับ mock data) เพื่อใช้ UI component ชุดเดิมที่มีอยู่แล้วได้ทันที
 // (backend เก็บแค่ fileUrl/slipUrl เป็น string ไม่มีชื่อไฟล์/ขนาดไฟล์จริงเหมือน mock — เดาชื่อ/ประเภทจาก URL แทน)
 
-function guessFileAttachment(url: string, fallbackName: string): OrderFileAttachment {
+function guessFileAttachment(url: string | null, fallbackName: string): OrderFileAttachment {
+  if (!url) return { name: fallbackName, sizeLabel: "-", type: "image" };
   const lastSegment = url.split("/").pop();
   const name = lastSegment && lastSegment.length > 0 ? lastSegment : fallbackName;
   const isPdf = url.toLowerCase().endsWith(".pdf");

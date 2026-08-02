@@ -374,7 +374,8 @@ export const orders = pgTable("orders", {
   binding: boolean("binding").notNull().default(false),
   lamination: boolean("lamination").notNull().default(false),
   selectedAddOns: text("selected_add_ons").array(), // ชื่อบริการเสริมที่ลูกค้าเลือกตอนสั่ง (denormalized ไว้แสดงผล ไม่ผูก FK เพราะราคา ณ ตอนสั่งอาจต่างจากราคาปัจจุบันของร้าน)
-  fileUrl: text("file_url").notNull(),
+  fileUrl: text("file_url"), // nullable เพราะออเดอร์ที่มาจากตะกร้า (POST /shops/:shopId/cart/checkout) อาจมีได้หลายไฟล์/ไม่มีไฟล์เลยก็ได้ (ดู cartSnapshot แทน)
+  cartSnapshot: jsonb("cart_snapshot"), // snapshot รายการสินค้าเต็มๆ ตอน checkout จากตะกร้า (ชื่อ/จำนวน/ตัวเลือก/ราคาต่อรายการ) — null ถ้าสร้างผ่าน POST /orders แบบเดิม (1 ออเดอร์ = 1 รายการ)
   totalPrice: integer("total_price").notNull(), // เก็บเป็นสตางค์ กันปัญหา floating point
   status: orderStatusEnum("status").notNull().default("pending_review"),
   note: text("note"),

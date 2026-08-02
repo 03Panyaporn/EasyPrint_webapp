@@ -1,50 +1,66 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-    ArrowRight,
     Store,
     Truck,
     Upload,
     MapPin
 } from "lucide-react";
 
-import { getCarts, type Cart } from "@/lib/api/cart";
+import { getShopCart, checkoutCart, type Cart } from "@/lib/api/cart";
+import { getShop, type PublicShopDetail } from "@/lib/api/shops";
+import { getMe } from "@/lib/api/auth";
+import { uploadFile } from "@/lib/api/uploads";
+import { ApiError } from "@/lib/api/client";
 
 
 export default function CheckoutPage() {
 
+    const router = useRouter();
     const searchParams = useSearchParams();
     const shopId = searchParams.get("shopId");
 
     const [cart, setCart] = useState<Cart | null>(null);
+    const [shop, setShop] = useState<PublicShopDetail | null>(null);
     const [loading, setLoading] = useState(true);
-
-    const [deliveryMethod, setDeliveryMethod]
-        = useState<"pickup" | "delivery">("pickup");
+    const [loadError, setLoadError] = useState("");
 
     const [slip, setSlip] = useState<File | null>(null);
+    const [deliveryAddress, setDeliveryAddress] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState("");
+
     useEffect(() => {
+        if (!shopId) return;
 
-        async function loadCart() {
+        async function loadCheckout() {
+            try {
+                const [{ cart: myCart }, { shop: myShop }] = await Promise.all([
+                    getShopCart(shopId as string),
+                    getShop(shopId as string),
+                ]);
+                setCart(myCart);
+                setShop(myShop);
 
-            const { carts } = await getCarts();
-
-            const selected = carts.find(
-                c => c.shopId === shopId
-            );
-
-            setCart(selected ?? null);
-            setLoading(false);
+                // เติมที่อยู่จัดส่งจากโปรไฟล์ลูกค้าให้อัตโนมัติ (แก้ไขได้) ถ้ามีอยู่แล้ว
+                try {
+                    const { user } = await getMe();
+                    if (user.address) setDeliveryAddress(user.address);
+                } catch {
+                    // ไม่ login ก็ไม่เป็นไร — getShopCart ด้านบนจะ throw 401 ก่อนถึงตรงนี้อยู่แล้ว
+                }
+            } catch (err) {
+                setLoadError(err instanceof ApiError ? err.message : "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+            } finally {
+                setLoading(false);
+            }
         }
 
-        if (shopId) {
-            loadCart();
-        }
-
+        loadCheckout();
     }, [shopId]);
+
     if (loading) {
         return (
             <div className="p-10 text-center">
@@ -52,17 +68,54 @@ export default function CheckoutPage() {
             </div>
         );
     }
-    if (!cart) {
+    if (loadError) {
+        return (
+            <div className="p-10 text-center text-red-500 font-medium">
+                {loadError}
+            </div>
+        );
+    }
+    if (!cart || cart.items.length === 0) {
         return (
             <div className="p-10 text-center">
                 ไม่พบข้อมูลตะกร้า
             </div>
         );
     }
+
+    const isDelivery = !!cart.deliveryOption;
+
+    const handleConfirm = async () => {
+        if (!shopId) return;
+        if (!slip) {
+            setSubmitError("กรุณาแนบสลิปการโอนเงินก่อนยืนยันคำสั่งซื้อ");
+            return;
+        }
+        if (isDelivery && !deliveryAddress.trim()) {
+            setSubmitError("กรุณากรอกที่อยู่จัดส่ง");
+            return;
+        }
+
+        setSubmitError("");
+        setSubmitting(true);
+        try {
+            const { path } = await uploadFile(slip, "payment-slip");
+            await checkoutCart(shopId, {
+                slipUrl: path,
+                deliveryAddress: isDelivery ? deliveryAddress.trim() : undefined,
+            });
+            router.push("/Dashboard?orderConfirmed=1");
+        } catch (err) {
+            setSubmitError(err instanceof ApiError ? err.message : "สั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return (
         <div className=" bg-gradient-to-br from-orange-50">
             <div className="
-            w-full lg:max-w-4xl mx-auto p-6 space-y-6 
+            w-full lg:max-w-4xl mx-auto p-6 space-y-6
         ">
                 <h1 className="
                 text-3xl
@@ -130,7 +183,7 @@ export default function CheckoutPage() {
                         </span>
                     </div>
                 </section>
-                {/* วิธีรับสินค้า */}
+                {/* วิธีรับสินค้า — ยึดตามที่เลือกไว้แล้วในตะกร้า (หน้า /cart) ไม่ให้เลือกใหม่ซ้ำที่นี่ */}
                 <section className="
                 bg-white
                 rounded-3xl
@@ -141,76 +194,26 @@ export default function CheckoutPage() {
                     <h2 className="font-bold text-lg mb-4">
                         วิธีรับสินค้า
                     </h2>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <label
-                            className={`
-                            cursor-pointer
-                            border
-                            rounded-2xl
-                            p-4
-                            flex
-                            gap-3
-                            items-center
-                            ${deliveryMethod === "pickup"
-                                    ?
-                                    "border-orange-500 bg-orange-50"
-                                    :
-                                    ""
-                                }
-                        `}
-                        >
-                            <input
-                                type="radio"
-                                name="delivery"
-                                checked={
-                                    deliveryMethod === "pickup"
-                                }
-                                onChange={() =>
-                                    setDeliveryMethod("pickup")
-                                }
-                            />
-                            <Store className="text-orange-500" />
-                            <span>
-                                รับที่ร้าน
-                            </span>
-                        </label>
-                        <label
-                            className={`
-                            cursor-pointer
-                            border
-                            rounded-2xl
-                            p-4
-                            flex
-                            gap-3
-                            items-center
-                            ${deliveryMethod === "delivery"
-                                    ?
-                                    "border-orange-500 bg-orange-50"
-                                    :
-                                    ""
-                                }
-                        `}
-                        >
-
-                            <input
-                                type="radio"
-                                name="delivery"
-                                checked={
-                                    deliveryMethod === "delivery"
-                                }
-                                onChange={() =>
-                                    setDeliveryMethod("delivery")
-                                }
-                            />
-                            <Truck className="text-orange-500" />
-                            <span>
-                                ร้านจัดส่ง
-                            </span>
-                        </label>
+                    <div className="
+                        border
+                        rounded-2xl
+                        p-4
+                        flex
+                        gap-3
+                        items-center
+                        border-orange-500
+                        bg-orange-50
+                    ">
+                        {isDelivery ? <Truck className="text-orange-500" /> : <Store className="text-orange-500" />}
+                        <span>
+                            {isDelivery
+                                ? `${cart.deliveryOption!.name} — ฿${cart.deliveryOption!.baseFee.toLocaleString()}`
+                                : "รับที่ร้าน"}
+                        </span>
                     </div>
                 </section>
                 {/* ที่อยู่ */}
-                {deliveryMethod === "pickup"
+                {!isDelivery
                     ?
                     <section className="
                     bg-green-50
@@ -227,22 +230,17 @@ export default function CheckoutPage() {
                         flex
                         gap-2
                         items-center
-                        
+
                     ">
                             <MapPin className="text-green-600 rounded-2xl border" />
                             ที่อยู่ร้านสำหรับรับสินค้า
                         </h2>
                         <div className="mt-3">
                             <p className="font-semibold">
-                                EasyPrint สาขาพะเยา
+                                {shop?.name}
                             </p>
                             <p className="text-gray-600">
-                                123/45 ถนนพหลโยธิน
-                                ต.เวียง อ.เมือง
-                                จ.พะเยา 56000
-                            </p>
-                            <p className="text-gray-600">
-                                https://www.google.com/maps
+                                {shop?.address || "ไม่ระบุที่อยู่"}
                             </p>
                             <p className="mt-2 text-sm text-gray-500">
                                 กรุณานำเลขคำสั่งซื้อมาแสดงที่ร้าน
@@ -256,33 +254,27 @@ export default function CheckoutPage() {
                     p-6
                     border
                 ">
-                        <div className="
-                        flex
-                        justify-between 
-                    ">
-                            <h2 className="font-bold text-lg">
-                                ที่อยู่จัดส่ง
-                            </h2>
-                            <Link
-                                href="/profile"
-                                className="
-                                text-orange-500
-                                flex
-                                items-center
-                            "
-                            >
-                                เปลี่ยน
-                                <ArrowRight size={16} />
-                            </Link>
-                        </div>
-                        <p className="font-semibold mt-3">
-                            นาย นาย นาม
-                        </p>
-                        <p className="text-gray-600">
-                            15/15 ต.เวียง
-                            อ.เมือง
-                            จ.พะเยา 56000
-                        </p>
+                        <h2 className="font-bold text-lg mb-3">
+                            ที่อยู่จัดส่ง
+                        </h2>
+                        <textarea
+                            value={deliveryAddress}
+                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                            rows={3}
+                            placeholder="กรอกที่อยู่สำหรับจัดส่ง"
+                            className="
+                            w-full
+                            p-3
+                            rounded-xl
+                            border
+                            border-gray-200
+                            text-sm
+                            focus:outline-none
+                            focus:ring-2
+                            focus:ring-orange-500/25
+                            bg-white
+                        "
+                        />
                     </section>
                 }
                 {/* QR */}
@@ -363,20 +355,32 @@ export default function CheckoutPage() {
                         </p>
                     }
                 </section>
+
+                {submitError && (
+                    <p className="text-sm text-red-500 font-semibold text-center">{submitError}</p>
+                )}
+
                 {/* Buttons */}
                 <div className="grid md:grid-cols-2 gap-4">
                     <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => router.push("/cart")}
                         className="
                         py-3
                         rounded-xl
                         border
                         font-bold
                         hover:bg-gray-100
+                        disabled:opacity-50
                     "
                     >
                         ยกเลิก
                     </button>
                     <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={handleConfirm}
                         className="
                         py-3
                         rounded-xl
@@ -384,9 +388,10 @@ export default function CheckoutPage() {
                         hover:bg-orange-600
                         text-white
                         font-bold
+                        disabled:opacity-60
                     "
                     >
-                        ยืนยันคำสั่งซื้อ
+                        {submitting ? "กำลังยืนยัน..." : "ยืนยันคำสั่งซื้อ"}
                     </button>
                 </div>
             </div>
