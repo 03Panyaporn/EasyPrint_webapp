@@ -42,8 +42,8 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             หน้าหลัก
           </Link>
           <Link
-            href="/status"
-            className={`font-bold pb-0.5 text-base transition ${pathname.startsWith("/status")
+            href="/orders"
+            className={`font-bold pb-0.5 text-base transition ${pathname.startsWith("/orders")
               ? "text-orange-500 border-b-2 border-orange-500"
               : "text-gray-700 hover:text-orange-500"
               }`}
