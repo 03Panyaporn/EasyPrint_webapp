@@ -26,8 +26,9 @@ export const createOrderSchema = z
     binding: z.boolean().default(false),
     lamination: z.boolean().default(false),
     selectedAddOns: z.array(z.string()).default([]),
-    fileUrl: z.string().url(),
-    slipUrl: z.string().url(), // หลักฐานการชำระเงิน — บังคับแนบมาพร้อมตอนสั่งเสมอ
+    // fileUrl/slipUrl = storage path จาก bucket private (ไม่ใช่ URL จริง แค่ path) เหมือนรูปแบบ idCardUrl/cart fileUrl — ห้ามใช้ .url() เพราะ private bucket ไม่มี public URL ตรงๆ
+    fileUrl: z.string().min(1, "กรุณาอัปโหลดไฟล์งานพิมพ์"),
+    slipUrl: z.string().min(1, "กรุณาแนบสลิปการโอนเงิน"), // หลักฐานการชำระเงิน — บังคับแนบมาพร้อมตอนสั่งเสมอ
     deliveryMethod: deliveryMethodSchema.default("self_pickup"),
     deliveryAddress: z.string().min(1).optional(), // บังคับกรอกเมื่อ deliveryMethod = shop_delivery เท่านั้น (เช็คด้วย .refine ด้านล่าง)
     note: z.string().max(500).optional(),

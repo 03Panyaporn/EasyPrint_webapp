@@ -41,19 +41,10 @@ export const setCartDeliveryOptionSchema = z.object({
 });
 export type SetCartDeliveryOptionInput = z.infer<typeof setCartDeliveryOptionSchema>;
 
-// ข้อมูลที่ลูกค้าส่งมาตอน checkout — ใช้ validate ที่ API ก่อน convert ตะกร้า → Order + OrderItems
-export const checkoutSchema = z.object({
-  slipUrl: z.string().min(1, "กรุณาแนบหลักฐานการชำระเงิน"), // storage path จาก bucket private "payment-slips"
-  deliveryMethod: z.enum(["shop_delivery", "self_pickup"]),
-  deliveryAddress: z.string().trim().max(500).optional(), // ต้องมีค่าเมื่อ deliveryMethod = shop_delivery
-  note: z.string().trim().max(500).optional(), // โน้ตรวมทั้ง order (ต่างจาก note ของแต่ละ cart item)
-}).superRefine((d, ctx) => {
-  if (d.deliveryMethod === "shop_delivery" && !d.deliveryAddress) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "กรุณาระบุที่อยู่สำหรับจัดส่ง",
-      path: ["deliveryAddress"],
-    });
-  }
+// POST /shops/:shopId/cart/checkout — deliveryAddress บังคับกรอกเฉพาะตอนตะกร้ามี deliveryOption เลือกไว้แล้วเท่านั้น
+// (เช็คฝั่ง route เพราะ schema เองไม่รู้สถานะตะกร้า) ไม่รับ deliveryMethod จาก client เลย — ยึดตาม cart.deliveryOptionId เท่านั้นกัน tampering
+export const checkoutCartSchema = z.object({
+  slipUrl: z.string().min(1, "กรุณาแนบสลิปการโอนเงิน"), // storage path จาก bucket private "payment-slips"
+  deliveryAddress: z.string().trim().min(1).optional(),
 });
-export type CheckoutInput = z.infer<typeof checkoutSchema>;
+export type CheckoutCartInput = z.infer<typeof checkoutCartSchema>;

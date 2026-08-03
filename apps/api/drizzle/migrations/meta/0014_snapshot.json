@@ -1,5 +1,5 @@
 {
-  "id": "09fb23ba-9567-421e-8e68-da8b61355542",
+  "id": "41b9ec5f-06c2-4f81-9652-eeb52850ccdb",
   "prevId": "f2fbd9f1-cd3e-42f4-a6d8-b66ff5d4276c",
   "version": "7",
   "dialect": "postgresql",
@@ -97,10 +97,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.cart_item_addons": {
       "name": "cart_item_addons",
@@ -157,10 +154,7 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.cart_item_option_selections": {
       "name": "cart_item_option_selections",
@@ -242,10 +236,7 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.cart_items": {
       "name": "cart_items",
@@ -364,10 +355,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.carts": {
       "name": "carts",
@@ -458,10 +446,7 @@
             "shop_id"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.delivery_options": {
       "name": "delivery_options",
@@ -542,10 +527,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.main_service_addons": {
       "name": "main_service_addons",
@@ -609,10 +591,7 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.main_services": {
       "name": "main_services",
@@ -742,143 +721,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.order_items": {
-      "name": "order_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "order_id": {
-          "name": "order_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "service_name_snapshot": {
-          "name": "service_name_snapshot",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pricing_type_snapshot": {
-          "name": "pricing_type_snapshot",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "base_rate_snapshot": {
-          "name": "base_rate_snapshot",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "color_tier_label_snapshot": {
-          "name": "color_tier_label_snapshot",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "color_tier_price_snapshot": {
-          "name": "color_tier_price_snapshot",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "page_count": {
-          "name": "page_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "width_cm": {
-          "name": "width_cm",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "height_cm": {
-          "name": "height_cm",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "options_snapshot_json": {
-          "name": "options_snapshot_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "addon_services_snapshot_json": {
-          "name": "addon_services_snapshot_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "item_subtotal": {
-          "name": "item_subtotal",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_url": {
-          "name": "file_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "order_items_order_id_orders_id_fk": {
-          "name": "order_items_order_id_orders_id_fk",
-          "tableFrom": "order_items",
-          "tableTo": "orders",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.orders": {
       "name": "orders",
@@ -919,43 +762,48 @@
           "name": "service_type",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "pages": {
           "name": "pages",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "copies": {
           "name": "copies",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": 1
         },
         "color_mode": {
           "name": "color_mode",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'bw'"
         },
         "paper_size": {
           "name": "paper_size",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'A4'"
         },
         "binding": {
           "name": "binding",
           "type": "boolean",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": false
         },
         "lamination": {
           "name": "lamination",
           "type": "boolean",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": false
         },
         "selected_add_ons": {
           "name": "selected_add_ons",
@@ -969,23 +817,17 @@
           "primaryKey": false,
           "notNull": false
         },
-        "subtotal": {
-          "name": "subtotal",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "shipping_fee_snapshot": {
-          "name": "shipping_fee_snapshot",
-          "type": "numeric(10, 2)",
+        "cart_snapshot": {
+          "name": "cart_snapshot",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
         "total_price": {
           "name": "total_price",
-          "type": "numeric(10, 2)",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "status": {
           "name": "status",
@@ -1094,10 +936,7 @@
             "code"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.password_reset_tokens": {
       "name": "password_reset_tokens",
@@ -1167,10 +1006,7 @@
             "token_hash"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.service_color_tiers": {
       "name": "service_color_tiers",
@@ -1233,10 +1069,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.service_option_values": {
       "name": "service_option_values",
@@ -1308,10 +1141,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.service_options": {
       "name": "service_options",
@@ -1406,10 +1236,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.service_quantity_tiers": {
       "name": "service_quantity_tiers",
@@ -1471,10 +1298,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.shops": {
       "name": "shops",
@@ -1599,10 +1423,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.users": {
       "name": "users",
@@ -1677,10 +1498,7 @@
             "email"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     }
   },
   "enums": {
@@ -1787,9 +1605,6 @@
   },
   "schemas": {},
   "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

@@ -1,5 +1,6 @@
-import type { AddCartItemInput, UpdateCartItemInput, SetCartDeliveryOptionInput, CheckoutInput } from "@easyprint/shared";
+import type { AddCartItemInput, UpdateCartItemInput, SetCartDeliveryOptionInput, CheckoutCartInput } from "@easyprint/shared";
 import { apiFetch } from "./client";
+import type { ApiOrder } from "./orders";
 
 export type CartItemAddOn = {
   addOnServiceId: string;
@@ -90,10 +91,10 @@ export function clearShopCart(shopId: string) {
   return apiFetch<{ cart: null }>(`/shops/${shopId}/cart`, { method: "DELETE" });
 }
 
-export function checkoutCart(shopId: string, input: CheckoutInput) {
-  return apiFetch<{ order: { id: string; code: string; ref: string; totalPrice: number } }>(`/shops/${shopId}/cart/checkout`, {
+// แปลงตะกร้าของร้านนี้เป็นออเดอร์จริง — deliveryAddress บังคับกรอกเฉพาะตอนตะกร้าเลือกวิธีจัดส่งไว้แล้วเท่านั้น (ดู deliveryOption ของ cart)
+export function checkoutCart(shopId: string, input: CheckoutCartInput) {
+  return apiFetch<{ order: ApiOrder }>(`/shops/${shopId}/cart/checkout`, {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
-

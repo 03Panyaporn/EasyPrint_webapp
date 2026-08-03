@@ -37,13 +37,13 @@ const CANCEL_REASON_LABELS: Record<CancelReason, string> = {
 // รันเลขที่ออเดอร์ "#0001" ต่อร้าน — นับจำนวนออเดอร์เดิมของร้านนี้ +1 แล้ว pad เป็น 4 หลัก
 // ไม่ atomic 100% ในทางทฤษฎี (สั่งพร้อมกันเป๊ะๆ อาจได้เลขซ้ำ) แต่กันไว้อีกชั้นด้วย unique constraint (shop_id, code)
 // ที่ endpoint POST /orders ด้านล่างจะลองใหม่อัตโนมัติถ้าเลขชนกันจริง
-async function generateOrderCode(shopId: string): Promise<string> {
+export async function generateOrderCode(shopId: string): Promise<string> {
   const [row] = await db.select({ total: count() }).from(orders).where(eq(orders.shopId, shopId));
   return `#${String((row?.total ?? 0) + 1).padStart(4, "0")}`;
 }
 
 // รหัสอ้างอิงเต็มระบบ ไม่ซ้ำกันทั้งระบบ (วันที่ + สุ่ม 4 ตัวอักษร) เช่น "ORD-20260516-B0F2"
-function generateOrderRef(): string {
+export function generateOrderRef(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
@@ -52,7 +52,7 @@ function generateOrderRef(): string {
   return `ORD-${y}${m}${d}-${rand}`;
 }
 
-function serializeOrder(
+export function serializeOrder(
   order: typeof orders.$inferSelect,
   customer: { firstname: string; lastname: string; phone: string; email: string } | null,
   items?: (typeof orderItems.$inferSelect)[]
@@ -76,29 +76,7 @@ function serializeOrder(
     lamination: order.lamination,
     selectedAddOns: order.selectedAddOns ?? [],
     fileUrl: order.fileUrl,
-    // Schema v2 fields (snapshot)
-    subtotal: order.subtotal ? Number(order.subtotal) : null,
-    shippingFee: order.shippingFeeSnapshot ? Number(order.shippingFeeSnapshot) : null,
-    totalPrice: Number(order.totalPrice ?? 0),
-    items: items
-      ? items.map((it) => ({
-          id: it.id,
-          serviceName: it.serviceNameSnapshot,
-          pricingType: it.pricingTypeSnapshot,
-          baseRate: Number(it.basePriceSnapshot),
-          colorTierLabel: null,
-          colorTierPrice: null,
-          quantity: it.quantity,
-          pageCount: it.pageCount,
-          widthCm: null,
-          heightCm: null,
-          optionsSnapshot: (it.optionsSnapshotJson as Array<any>) ?? [],
-          addOnsSnapshot: (it.additionalServicesSnapshotJson as Array<any>) ?? [],
-          itemSubtotal: Number(it.itemTotalPrice),
-          fileUrl: it.fileUrl,
-          note: null,
-        }))
-      : undefined,
+    totalPrice: order.totalPrice,
     status: order.status,
     note: order.note ?? undefined,
     delivery: {

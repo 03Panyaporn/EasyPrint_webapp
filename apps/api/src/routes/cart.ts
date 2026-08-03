@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import { and, count, eq, inArray } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
-import { addCartItemSchema, updateCartItemSchema, setCartDeliveryOptionSchema, checkoutSchema } from "@easyprint/shared";
+import { addCartItemSchema, updateCartItemSchema, setCartDeliveryOptionSchema, checkoutCartSchema } from "@easyprint/shared";
 import { db } from "../db";
 import {
   carts,
@@ -18,12 +18,12 @@ import {
   deliveryOptions,
   shops,
   orders,
-  orderItems,
   users,
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { supabaseAdmin } from "../storage";
-import { calculateLineItem, type ScopedAmount } from "@easyprint/shared";
+import { calculateLineItem, type ScopedAmount } from "../pricing/engine";
+import { generateOrderCode, generateOrderRef, serializeOrder } from "./orders";
 import { notifyOrderCreated } from "../notifications";
 
 // นับจำนวนหน้าจริงจากไฟล์ PDF ที่อัปโหลดไว้ใน Storage — ใช้เสมอตอนเพิ่ม/แก้ไขรายการ pricingModel = per_page
@@ -565,6 +565,110 @@ export const cartRoutes = new Elysia()
       .returning();
 
     return { cart: await buildCartResponse(updated) };
+  })
+
+  // ── Checkout: แปลงตะกร้าของร้านนี้เป็นออเดอร์จริง (ฝั่งลูกค้า) ──────────
+  // deliveryMethod ไม่รับจาก client เลย ยึดตาม cart.deliveryOptionId ที่เลือกไว้แล้วเท่านั้น (กัน tampering ยอดค่าจัดส่ง)
+  // ราคารวม (totalPrice) คำนวณสดจาก buildCartResponse() เสมอ ไม่เคยเชื่อค่าจาก client
+  .post("/shops/:shopId/cart/checkout", async ({ params, body, cookie, set }) => {
+    const auth = await requireCustomer(cookie, set);
+    if (isAuthError(auth)) return auth;
+
+    const parsed = checkoutCartSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const [cart] = await db
+      .select()
+      .from(carts)
+      .where(and(eq(carts.customerId, auth.userId), eq(carts.shopId, params.shopId)));
+    if (!cart) {
+      set.status = 404;
+      return { error: "ไม่พบตะกร้าของร้านนี้" };
+    }
+
+    const cartResponse = await buildCartResponse(cart);
+    if (cartResponse.items.length === 0) {
+      set.status = 400;
+      return { error: "ตะกร้าว่างเปล่า ไม่สามารถสั่งซื้อได้" };
+    }
+    if (!cartResponse.isShopApproved) {
+      set.status = 400;
+      return { error: "ร้านนี้ไม่พร้อมให้บริการแล้ว" };
+    }
+    const inactiveItem = cartResponse.items.find((i) => !i.isServiceActive);
+    if (inactiveItem) {
+      set.status = 400;
+      return { error: `บริการ "${inactiveItem.mainServiceName}" ปิดให้บริการไปแล้ว กรุณาลบออกจากตะกร้าก่อนสั่งซื้อ` };
+    }
+
+    const isDelivery = !!cartResponse.deliveryOption;
+    if (isDelivery && !parsed.data.deliveryAddress) {
+      set.status = 400;
+      return { error: "กรุณากรอกที่อยู่จัดส่ง", details: { fieldErrors: { deliveryAddress: ["กรุณากรอกที่อยู่จัดส่ง"] } } };
+    }
+
+    // รวมข้อมูลตะกร้า (อาจมีหลายรายการ) ลงในคอลัมน์เดี่ยวๆ ของ orders แบบเดิม (ออกแบบไว้คู่กับ POST /orders เก่าที่ 1 ออเดอร์ = 1 รายการ)
+    // เก็บรายละเอียดเต็มไว้ใน cartSnapshot แยกต่างหาก ไม่ให้ข้อมูลหายตอนอนาคตต้องแสดงผลละเอียดกว่านี้
+    const serviceType = cartResponse.items.map((i) => i.mainServiceName).join(", ");
+    const copies = cartResponse.items.reduce((sum, i) => sum + i.quantity, 0);
+    const pages = cartResponse.items.reduce(
+      (sum, i) => sum + (i.unitBreakdown?.mode === "per_page" ? i.unitBreakdown.pageCount : 0),
+      0
+    );
+    const selectedAddOns = Array.from(new Set(cartResponse.items.flatMap((i) => i.addOns.map((a) => a.name))));
+    const fileUrl = cartResponse.items.find((i) => i.fileUrl)?.fileUrl ?? null;
+
+    // เลขที่ออเดอร์อาจชนกันได้ถ้าสั่งพร้อมกันเป๊ะๆ (ดูคอมเมนต์ generateOrderCode ใน routes/orders.ts) — ลองใหม่ไม่เกิน 3 ครั้งถ้าเจอ unique violation
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const code = await generateOrderCode(params.shopId);
+        const ref = generateOrderRef();
+
+        const [order] = await db
+          .insert(orders)
+          .values({
+            shopId: params.shopId,
+            customerId: auth.userId,
+            code,
+            ref,
+            serviceType,
+            pages,
+            copies,
+            selectedAddOns,
+            fileUrl,
+            cartSnapshot: cartResponse.items,
+            slipUrl: parsed.data.slipUrl,
+            slipUploadedAt: new Date(),
+            deliveryMethod: isDelivery ? "shop_delivery" : "self_pickup",
+            deliveryAddress: isDelivery ? parsed.data.deliveryAddress : null,
+            totalPrice: Math.round(cartResponse.total * 100), // cart คิดเป็นบาท, orders.totalPrice เก็บเป็นสตางค์
+          })
+          .returning();
+
+        await db.delete(carts).where(eq(carts.id, cart.id)); // เคลียร์ตะกร้าของร้านนี้หลัง checkout สำเร็จ (cascade ลบ items/addons ให้อัตโนมัติ)
+
+        const [customer] = await db.select({ email: users.email }).from(users).where(eq(users.id, auth.userId));
+        if (customer) {
+          notifyOrderCreated({
+            to: customer.email,
+            orderCode: order.code,
+            totalPrice: order.totalPrice,
+          }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
+        }
+
+        return { order: serializeOrder(order, null) };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    console.error("checkout ไม่สำเร็จหลังลองใหม่ 3 ครั้ง:", lastError);
+    set.status = 500;
+    return { error: "สั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   })
 
   .delete("/shops/:shopId/cart", async ({ params, cookie, set }) => {
