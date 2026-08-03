@@ -22,21 +22,40 @@ function formatCreatedAtLabel(iso: string): string {
 }
 
 export function toOrder(api: ApiOrder): Order {
+  const firstItem = api.items?.[0];
+  const category = firstItem ? firstItem.serviceName : (api.serviceType ?? "สั่งพิมพ์งาน");
+  const paperSize = firstItem?.optionsSnapshot.find((o) => o.optionName.includes("กระดาษ") || o.optionName.includes("ขนาด"))?.valueName || api.paperSize || "-";
+  const copies = firstItem ? firstItem.quantity : (api.copies ?? 1);
+  const totalPages = firstItem?.pageCount ?? api.pages ?? 0;
+  const addOns = firstItem
+    ? firstItem.addOnsSnapshot.map((a) => a.name)
+    : (api.selectedAddOns ?? []);
+
+  // รองรับทั้งราคาเดิม (สตางค์ > 10,000 หรือ order เก่า) และราคาใหม่ (บาท)
+  // ถ้า total_price > 1000 และเป็น integer เก่า (เช่น 5000 = 50 บาท) ให้หาร 100
+  // ถ้าเป็น numeric บาท (เช่น 50.00) ให้ใช้ค่านั้นตรงๆ
+  const finalPrice = typeof api.totalPrice === "number" ? api.totalPrice : Number(api.totalPrice ?? 0);
+
   return {
     id: api.id,
     code: api.code,
     ref: api.ref,
     customerName: api.customerName ?? "-",
     customerPhone: api.customerPhone ?? "-",
-    category: api.serviceType,
-    paperSize: api.paperSize,
-    copies: api.copies,
-    totalPages: api.pages,
-    addOns: api.selectedAddOns,
-    file: guessFileAttachment(api.fileUrl, `${api.code}-ไฟล์งาน`),
+    category,
+    paperSize,
+    copies,
+    totalPages,
+    addOns,
+    file: guessFileAttachment(firstItem?.fileUrl || api.fileUrl || "", `${api.code}-ไฟล์งาน`),
     paymentSlip: guessFileAttachment(api.slipUrl, `${api.code}-สลิป`),
     delivery: api.delivery,
-    price: api.totalPrice / 100,
+    subtotal: api.subtotal,
+    shippingFee: api.shippingFee,
+    price: finalPrice,
+    items: api.items,
+    rawFileUrl: firstItem?.fileUrl || api.fileUrl,
+    rawSlipUrl: api.slipUrl,
     status: api.status,
     createdAtLabel: formatCreatedAtLabel(api.createdAt),
     note: api.note,

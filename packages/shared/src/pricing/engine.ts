@@ -1,5 +1,6 @@
 // เครื่องคำนวณราคากลาง — ห้ามมี logic คำนวณราคาชุดที่สองที่อาจ drift กันที่อื่นในระบบ (สเปก §6)
-// ฟังก์ชันทั้งหมดในไฟล์นี้เป็น pure function ไม่แตะ DB เอง เพื่อให้ทั้ง cart.ts (ตอนนี้) และ order checkout (เฟสถัดไป) เรียกใช้ร่วมกันได้
+// ฟังก์ชันทั้งหมดในไฟล์นี้เป็น pure function ไม่แตะ DB/DOM เอง อยู่ใน @easyprint/shared เพื่อให้ทั้ง apps/api (cart.ts, order checkout)
+// และ apps/web (shop service builder preview) import ไปใช้สูตรเดียวกันได้ ไม่มีทางที่ราคา preview กับราคาจริงจะ drift กัน
 
 export type PricingModel = "per_page" | "per_piece" | "per_sqm" | "fixed";
 export type PriceScope = "per_item" | "per_page" | "per_piece" | "per_sqm";
@@ -107,5 +108,5 @@ export function calculateLineItem(input: CalculateLineItemInput): CalculateLineI
   return { baseUnitRate, perCopyAmount: baseUnitRate, perItemFlat, lineTotal: baseUnitRate * input.quantity + perItemFlat };
 }
 
-// allow-list ของ price_scope ต่อ pricing model อยู่ที่ @easyprint/shared (ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL)
-// เพราะ Zod schema ฝั่ง packages/shared ก็ต้องใช้กฎเดียวกัน — import จากที่นั่นแทนที่จะประกาศซ้ำที่นี่ กันสองฝั่ง drift กัน
+// allow-list ของ price_scope ต่อ pricing model อยู่ที่ ../schemas/service.ts (ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL)
+// เพราะ Zod schema ก็ต้องใช้กฎเดียวกัน — import จากที่นั่นแทนที่จะประกาศซ้ำที่นี่ กันสองฝั่ง drift กัน

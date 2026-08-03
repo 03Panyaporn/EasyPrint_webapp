@@ -30,6 +30,34 @@ export interface OrderDelivery {
   address?: string; // แสดงเมื่อ method = shop_delivery
 }
 
+export interface OrderItemSnapshot {
+  id: string;
+  serviceName: string;
+  pricingType: string;
+  baseRate: number;
+  colorTierLabel: string | null;
+  colorTierPrice: number | null;
+  quantity: number;
+  pageCount: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
+  optionsSnapshot: Array<{
+    optionName: string;
+    valueName?: string | null;
+    textValue?: string | null;
+    extraPrice: number;
+    priceScope: string;
+  }>;
+  addOnsSnapshot: Array<{
+    name: string;
+    extraPrice: number;
+    scope: string;
+  }>;
+  itemSubtotal: number;
+  fileUrl: string | null;
+  note: string | null;
+}
+
 export interface Order {
   id: string;
   code: string; // เลขแสดงในตาราง เช่น #0005
@@ -44,10 +72,16 @@ export interface Order {
   file: OrderFileAttachment;
   paymentSlip: OrderFileAttachment;
   delivery: OrderDelivery;
+  subtotal?: number | null;
+  shippingFee?: number | null;
   price: number;
+  items?: OrderItemSnapshot[];
+  rawFileUrl?: string | null;
+  rawSlipUrl?: string | null;
   status: OrderStatus;
   createdAtLabel: string; // เช่น "16 พ.ค. 10:30"
   note?: string; // หมายเหตุจากลูกค้าตอนสั่งซื้อ
   cancelReason?: CancelReason;
   cancelNote?: string;
 }
+

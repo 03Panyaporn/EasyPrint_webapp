@@ -366,17 +366,21 @@ export const orders = pgTable("orders", {
   customerId: uuid("customer_id").references(() => users.id).notNull(),
   code: text("code").notNull(), // เลขที่แสดงสั้นๆ ต่อร้าน เช่น "#0005" — รันเลขต่อร้าน (unique แค่ภายในร้านเดียวกัน ดู uniqueShopCode ด้านล่าง + generateOrderCode() ใน routes/orders.ts)
   ref: text("ref").notNull().unique(), // รหัสอ้างอิงเต็มระบบ ไม่ซ้ำกันทั้งระบบ เช่น "ORD-20260516-B0F2"
-  serviceType: text("service_type").notNull(),
-  pages: integer("pages").notNull(),
-  copies: integer("copies").notNull().default(1),
-  colorMode: text("color_mode").notNull().default("bw"),
-  paperSize: text("paper_size").notNull().default("A4"),
-  binding: boolean("binding").notNull().default(false),
-  lamination: boolean("lamination").notNull().default(false),
-  selectedAddOns: text("selected_add_ons").array(), // ชื่อบริการเสริมที่ลูกค้าเลือกตอนสั่ง (denormalized ไว้แสดงผล ไม่ผูก FK เพราะราคา ณ ตอนสั่งอาจต่างจากราคาปัจจุบันของร้าน)
-  fileUrl: text("file_url"), // nullable เพราะออเดอร์ที่มาจากตะกร้า (POST /shops/:shopId/cart/checkout) อาจมีได้หลายไฟล์/ไม่มีไฟล์เลยก็ได้ (ดู cartSnapshot แทน)
-  cartSnapshot: jsonb("cart_snapshot"), // snapshot รายการสินค้าเต็มๆ ตอน checkout จากตะกร้า (ชื่อ/จำนวน/ตัวเลือก/ราคาต่อรายการ) — null ถ้าสร้างผ่าน POST /orders แบบเดิม (1 ออเดอร์ = 1 รายการ)
-  totalPrice: integer("total_price").notNull(), // เก็บเป็นสตางค์ กันปัญหา floating point
+  // ── fields เก่า (Schema v1) — nullable แล้วเพื่อ backward compat กับ order เก่าแบบ hardcoded — ทุก order ใหม่จะใช้ระบบ snapshot (order_items) แทน ──
+  serviceType: text("service_type"), // เดิม NOT NULL — เปลี่ยนเป็น nullable เพื่อรองรับ order ใหม่แบบ snapshot
+  pages: integer("pages"), // nullable
+  copies: integer("copies"), // nullable
+  colorMode: text("color_mode"), // nullable
+  paperSize: text("paper_size"), // nullable
+  binding: boolean("binding"), // nullable
+  lamination: boolean("lamination"), // nullable
+  selectedAddOns: text("selected_add_ons").array(),
+  fileUrl: text("file_url"), // nullable (บาง order มีหลาย item แต่ละ item มี file เป็นของตัวเอง)
+  // ── fields ใหม่ (Schema v2 — Snapshot System) ──
+  // subtotal = ผลรวมราคาสินค้าทั้งหมดก่อนค่าจัดส่ง (สุมของ order_items.item_subtotal) — ในหน่วยบาท
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }), // null ถ้า order เก่าแบบ hardcoded
+  shippingFeeSnapshot: numeric("shipping_fee_snapshot", { precision: 10, scale: 2 }), // ค่าจัดส่ง ณ ตอน checkout
+  totalPrice: integer("total_price"), // integer ใน DB
   status: orderStatusEnum("status").notNull().default("pending_review"),
   note: text("note"),
   deliveryMethod: deliveryMethodEnum("delivery_method").notNull().default("self_pickup"),
@@ -389,4 +393,33 @@ export const orders = pgTable("orders", {
 }, (table) => ({
   // code ไม่ซ้ำแค่ภายในร้านเดียวกัน (คนละร้านมี #0001 ซ้ำกันได้ตามปกติ)
   uniqueShopCode: unique().on(table.shopId, table.code),
+}));
+
+// ── order_items: เก็บ Price Snapshot ของแต่ละรายการในออเดอร์ — ข้อมูลนี้ immutable ไม่เปลี่ยนแปลงหลัง checkout ──
+// ทุก field ที่มี _snapshot suffix คือ "ภาพถ่าย" ของราคา/ชื่อ ณ เวลาที่ลูกค้า checkout จริง
+// ถ้าร้านแก้ราคาทีหลัง order เก่าก็ยังแสดงราคาที่จ่ายไปแล้วถูกต้อง ไม่กระทบกัน
+export const orderItems = pgTable("order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
+  // ── Price Snapshot (immutable ณ เวลา checkout) ──
+  serviceNameSnapshot: text("service_name_snapshot").notNull(), // ชื่อบริการ ณ ตอนสั่ง
+  pricingTypeSnapshot: text("pricing_type_snapshot").notNull(), // per_page/per_piece/per_sqm/fixed
+  basePriceSnapshot: numeric("base_price_snapshot", { precision: 10, scale: 2 }).notNull(), // ราคาต่อหน่วย
+  quantity: integer("quantity").notNull(),
+  pageCount: integer("page_count"), // per_page: จำนวนหน้าที่ server นับได้จริง
+  // options_snapshot_json: [{optionName, valueName|textValue, extraPrice, priceScope}] ณ เวลา checkout
+  optionsSnapshotJson: jsonb("options_snapshot_json").notNull().default([]),
+  // additional_services_snapshot_json: [{name, extraPrice, scope}] ณ เวลา checkout
+  additionalServicesSnapshotJson: jsonb("additional_services_snapshot_json").notNull().default([]),
+  itemTotalPrice: numeric("item_total_price", { precision: 10, scale: 2 }).notNull(), // ราคารวมของ item นี้
+  fileUrl: text("file_url"), // storage path ของไฟล์งานพิมพ์ของ item นี้
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const ordersRelations = relations(orders, ({ many }) => ({
+  items: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
 }));

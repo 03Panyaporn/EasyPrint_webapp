@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Upload,
@@ -21,7 +22,15 @@ import { getMainServices, getAddOnServices } from "@/lib/api/services";
 import { addCartItem } from "@/lib/api/cart";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
-import type { MainService, AddOnService, AllowedFileType } from "@/components/shop/services/types";
+import type { MainService, AddOnService, AllowedFileType, PriceScope } from "@/components/shop/services/types";
+
+// suffix แสดงขอบเขตราคา AddOn — ลูกค้าเห็นว่า +฿30 คิดยังไง (ต่อหน้า / ต่อชิ้น ลอนๆ)
+const ADDON_SCOPE_SUFFIX: Record<PriceScope, string> = {
+  per_item: "", // ต่อชิ้นงาน — ไม่ต้อง suffix เพราะชัดเจนอยู่แล้ว
+  per_page: "/หน้า",
+  per_piece: "/ชิ้น",
+  per_sqm: "/ตร.ม.",
+};
 
 // ── PDF helpers (โหลด pdfjs-dist แบบ dynamic import เท่านั้น — ห้าม import ตรงๆ เพราะใช้ DOM/Worker ตอน SSR จะพัง) ──
 async function loadPdfjs() {
@@ -90,7 +99,9 @@ const FILE_TYPE_MIME: Record<AllowedFileType, string> = {
   psd: ".psd",
 };
 
-export default function OrderBuilderPage({ params }: { params: { shopId: string; serviceId: string } }) {
+export default function ServiceOrderPage({ params }: { params: { shopId: string; serviceId: string } }) {
+  const router = useRouter();
+  const shopId = params.shopId;
   const [shop, setShop] = useState<PublicShopDetail | null>(null);
   const [mainService, setMainService] = useState<MainService | null>(null);
   const [addOnServices, setAddOnServices] = useState<AddOnService[]>([]);
@@ -155,6 +166,7 @@ function OrderBuilderForm({
   mainService: MainService;
   allAddOnServices: AddOnService[];
 }) {
+  const router = useRouter();
   const pricingModel = mainService.pricingModel;
 
   // ── ตัวเลือกของบริการ (dynamic options) ──
@@ -420,7 +432,10 @@ function OrderBuilderForm({
         note: note.trim() || undefined,
       });
       setAddedToast(true);
-      setTimeout(() => setAddedToast(false), 3000);
+      setTimeout(() => {
+        setAddedToast(false);
+        router.push("/cart");
+      }, 1000);
       void cart;
     } catch (err) {
       setIsUploading(false);
@@ -640,9 +655,14 @@ function OrderBuilderForm({
                       >
                         <span className="flex items-center gap-2.5">
                           <input type="checkbox" checked={checked} onChange={() => toggleAddOn(binding.addOnId)} className="rounded text-orange-500 focus:ring-orange-500" />
-                          {addOn.name}
+                          <span>
+                            {addOn.name}
+                            {addOn.description && <span className="block text-[11px] text-slate-400 leading-tight">{addOn.description}</span>}
+                          </span>
                         </span>
-                        <span className="font-bold text-orange-600">+฿{binding.extraPrice}</span>
+                        <span className="font-bold text-orange-600 shrink-0 ml-2">
+                          +฿{binding.extraPrice}{ADDON_SCOPE_SUFFIX[addOn.scope]}
+                        </span>
                       </label>
                     );
                   })}

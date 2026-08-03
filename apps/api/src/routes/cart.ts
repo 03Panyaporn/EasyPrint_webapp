@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { addCartItemSchema, updateCartItemSchema, setCartDeliveryOptionSchema, checkoutCartSchema } from "@easyprint/shared";
 import { db } from "../db";
@@ -678,4 +678,232 @@ export const cartRoutes = new Elysia()
     await db.delete(carts).where(and(eq(carts.customerId, auth.userId), eq(carts.shopId, params.shopId))); // cascade ลบ items/addons
 
     return { cart: null };
+  })
+
+  // ── Checkout: แปลงตะกร้าเป็น Order + OrderItems พร้อม Price Snapshot ──
+  .post("/shops/:shopId/cart/checkout", async ({ params, body, cookie, set }) => {
+    const auth = await requireCustomer(cookie, set);
+    if (isAuthError(auth)) return auth;
+
+    const parsed = checkoutSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    // หาตะกร้าของร้านนี้
+    const [cart] = await db
+      .select()
+      .from(carts)
+      .where(and(eq(carts.customerId, auth.userId), eq(carts.shopId, params.shopId)));
+    if (!cart) {
+      set.status = 404;
+      return { error: "ไม่มีตะกร้าของร้านนี้ กรุณาเพิ่มสินค้าก่อน" };
+    }
+
+    const rows = await db.select().from(cartItems).where(eq(cartItems.cartId, cart.id));
+    if (rows.length === 0) {
+      set.status = 400;
+      return { error: "ตะกร้าว่างอยู่ กรุณาเพิ่มสินค้าก่อนเช็คเอาต์" };
+    }
+
+    // คำนวณราคาทุก item ใหม่อีกครั้ง server-side — ไม่เชื่อตัวเลขใดๆ จาก client
+    type SnapshotItem = {
+      orderId: string;
+      serviceNameSnapshot: string;
+      pricingTypeSnapshot: string;
+      basePriceSnapshot: string;
+      quantity: number;
+      pageCount: number | null;
+      optionsSnapshotJson: object[];
+      additionalServicesSnapshotJson: object[];
+      itemTotalPrice: string;
+      fileUrl: string | null;
+    };
+    const snapshots: Omit<SnapshotItem, "orderId">[] = [];
+    let subtotal = 0;
+
+    for (const row of rows) {
+      const [mainService] = await db.select().from(mainServices).where(eq(mainServices.id, row.mainServiceId));
+      if (!mainService || !mainService.isActive) {
+        set.status = 400;
+        return { error: `บริการ "${mainService?.name ?? row.mainServiceId}" ถูกปิดหรือลบไปแล้ว กรุณาลบออกจากตะกร้าแล้วสั่งใหม่` };
+      }
+
+      // ดึง color tier
+      let colorTier: { label: string; pricePerUnit: number } | undefined;
+      if (row.colorTierId) {
+        const [tier] = await db.select().from(serviceColorTiers).where(eq(serviceColorTiers.id, row.colorTierId));
+        if (tier) colorTier = { label: tier.label, pricePerUnit: Number(tier.pricePerUnit) };
+      }
+
+      // ดึง quantity tiers (per_piece)
+      const quantityTierRows = mainService.pricingModel === "per_piece"
+        ? await db.select().from(serviceQuantityTiers).where(eq(serviceQuantityTiers.mainServiceId, row.mainServiceId))
+        : [];
+      const quantityTiers = quantityTierRows.map((t) => ({ minQty: t.minQty, maxQty: t.maxQty, unitPrice: Number(t.unitPrice) }));
+
+      // ดึง option selections พร้อมราคา
+      const selectionRows = await db.select().from(cartItemOptionSelections).where(eq(cartItemOptionSelections.cartItemId, row.id));
+      const optionDeltas: ScopedAmount[] = [];
+      const optionsSnapshot: object[] = [];
+
+      for (const sel of selectionRows) {
+        const [option] = await db.select().from(serviceOptions).where(eq(serviceOptions.id, sel.optionId));
+        let valueName: string | undefined;
+        let extraPrice = 0;
+        let priceScope: string = "per_item";
+
+        if (sel.valueId) {
+          const [value] = await db.select().from(serviceOptionValues).where(eq(serviceOptionValues.id, sel.valueId));
+          if (value) {
+            valueName = value.name;
+            extraPrice = Number(value.extraPrice);
+            priceScope = value.priceScope;
+            optionDeltas.push({ scope: value.priceScope, amount: extraPrice });
+          }
+        }
+        optionsSnapshot.push({
+          optionName: option?.name ?? "-",
+          valueName: valueName ?? sel.textValue ?? null,
+          textValue: sel.textValue ?? null,
+          extraPrice,
+          priceScope,
+        });
+      }
+
+      // ดึง add-on services
+      const addOnBindings = await db.select().from(cartItemAddOns).where(eq(cartItemAddOns.cartItemId, row.id));
+      const addOnCharges: ScopedAmount[] = [];
+      const addOnsSnapshot: object[] = [];
+
+      for (const b of addOnBindings) {
+        const [binding] = await db.select().from(mainServiceAddOns).where(
+          and(eq(mainServiceAddOns.mainServiceId, row.mainServiceId), eq(mainServiceAddOns.addOnServiceId, b.addOnServiceId))
+        );
+        const [addOnService] = await db.select().from(addOnServices).where(eq(addOnServices.id, b.addOnServiceId));
+        const extraPrice = binding ? Number(binding.extraPrice) : 0;
+        if (addOnService) {
+          addOnCharges.push({ scope: addOnService.scope, amount: extraPrice });
+          addOnsSnapshot.push({ name: addOnService.name, extraPrice, scope: addOnService.scope });
+        }
+      }
+
+      // คำนวณ line total server-side
+      const calc = calculateLineItem({
+        pricingModel: mainService.pricingModel,
+        basePrice: Number(mainService.basePrice),
+        colorTierPricePerUnit: colorTier?.pricePerUnit,
+        quantity: row.quantity,
+        pageCountingMode: mainService.pageCountingMode,
+        rawPageCount: row.pageCount ?? 0,
+        widthCm: row.widthCm ? Number(row.widthCm) : undefined,
+        heightCm: row.heightCm ? Number(row.heightCm) : undefined,
+        minArea: mainService.minArea != null ? Number(mainService.minArea) : undefined,
+        areaRoundingIncrement: Number(mainService.areaRoundingIncrement),
+        quantityTiers,
+        optionDeltas,
+        addOnCharges,
+      });
+
+      subtotal += calc.lineTotal;
+      snapshots.push({
+        serviceNameSnapshot: mainService.name,
+        pricingTypeSnapshot: mainService.pricingModel,
+        basePriceSnapshot: calc.baseUnitRate.toFixed(2),
+        quantity: row.quantity,
+        pageCount: row.pageCount ?? null,
+        optionsSnapshotJson: optionsSnapshot,
+        additionalServicesSnapshotJson: addOnsSnapshot,
+        itemTotalPrice: calc.lineTotal.toFixed(2),
+        fileUrl: row.fileUrl ?? null,
+      });
+    }
+
+    // คำนวณค่าจัดส่ง
+    let shippingFee = 0;
+    if (cart.deliveryOptionId) {
+      const [opt] = await db.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
+      if (opt) {
+        const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
+        shippingFee = threshold != null && subtotal >= threshold ? 0 : Number(opt.baseFee);
+      }
+    } else if (parsed.data.deliveryMethod === "shop_delivery") {
+      // ถ้าเลือก shop_delivery แต่ไม่ได้เลือกตัวเลือกการจัดส่ง ให้เก็บ 0 ไว้ก่อน ร้านจะตกลงกันเองตอนรับงาน
+      shippingFee = 0;
+    }
+
+    const totalPrice = subtotal + shippingFee;
+
+    // สร้าง Order + OrderItems ใน transaction เดียว
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        // รันเลข order code
+        const [orderCountRow] = await db.select({ total: count() }).from(orders).where(eq(orders.shopId, params.shopId));
+        const orderCount = Number(orderCountRow?.total ?? 0);
+        const code = `#${String(orderCount + 1).padStart(4, "0")}`;
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        const d = String(now.getDate()).padStart(2, "0");
+        const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
+        const ref = `ORD-${y}${m}${d}-${rand}`;
+
+        const [order] = await db.insert(orders).values({
+          shopId: params.shopId,
+          customerId: auth.userId,
+          code,
+          ref,
+          // Schema v1 fields (ใส่ข้อมูลจาก item แรกเป็น fallback เผื่อ DB เดิมยังมี NOT NULL constraint)
+          serviceType: snapshots[0]?.serviceNameSnapshot ?? "สั่งพิมพ์งาน",
+          pages: snapshots[0]?.pageCount ?? 1,
+          copies: snapshots[0]?.quantity ?? 1,
+          colorMode: "มาตรฐาน",
+          paperSize: "-",
+          binding: false,
+          lamination: false,
+          fileUrl: snapshots[0]?.fileUrl ?? null,
+          // Schema v2 fields
+          subtotal: subtotal.toFixed(2),
+          shippingFeeSnapshot: shippingFee.toFixed(2),
+          totalPrice: Math.round(totalPrice),
+          slipUrl: parsed.data.slipUrl,
+          slipUploadedAt: new Date(),
+          deliveryMethod: parsed.data.deliveryMethod,
+          deliveryAddress: parsed.data.deliveryAddress,
+          note: parsed.data.note,
+        }).returning();
+
+        // เพิ่ม order_items (snapshot)
+        await db.insert(orderItems).values(
+          snapshots.map((s) => ({ ...s, orderId: order.id }))
+        );
+
+        // ลบตะกร้าหลัง checkout สำเร็จ (cascade ลบ items/addons/option_selections ให้อัตโนมัติ)
+        await db.delete(carts).where(eq(carts.id, cart.id));
+
+        // แจ้งเตือนลูกค้าทางอีเมลว่าสั่งซื้อสำเร็จแบบ best-effort
+        const [customer] = await db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, auth.userId));
+        if (customer) {
+          notifyOrderCreated({
+            to: customer.email,
+            orderCode: order.code,
+            totalPrice: Number(order.totalPrice ?? 0),
+          }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
+        }
+
+        return { order: { id: order.id, code: order.code, ref: order.ref, totalPrice: Number(order.totalPrice) } };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    console.error("สร้าง order ไม่สำเร็จหลังลองใหม่ 3 ครั้ง:", lastError);
+    set.status = 500;
+    return { error: "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   });
+

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShoppingBag, CheckCircle, Loader2 } from "lucide-react";
+import { ShoppingBag, CheckCircle, Loader2, RefreshCw } from "lucide-react";
 import OrderStatusCards from "@/components/shop/orders/OrderStatusCards";
 import OrdersTable from "@/components/shop/orders/OrdersTable";
 import UpdateStatusModal from "@/components/shop/orders/UpdateStatusModal";
@@ -19,6 +19,7 @@ export default function OrdersPage() {
   const [shopId, setShopId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   const [activeStatus, setActiveStatus] = useState<OrderStatus | null>(null);
@@ -43,8 +44,9 @@ export default function OrdersPage() {
   };
 
   // ── โหลดข้อมูลจริงตอนเข้าหน้า ────────────────
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
+  const loadOrders = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setIsRefreshing(true);
     setLoadError("");
     try {
       const { shop } = await getMyShop();
@@ -52,14 +54,19 @@ export default function OrdersPage() {
       const { orders: apiOrders } = await listShopOrders(shop.id);
       setOrders(apiOrders.map(toOrder));
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : "โหลดข้อมูลออเดอร์ไม่สำเร็จ");
+      if (!isSilent) setLoadError(err instanceof ApiError ? err.message : "โหลดข้อมูลออเดอร์ไม่สำเร็จ");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     loadOrders();
+    const interval = setInterval(() => {
+      loadOrders(true);
+    }, 10000);
+    return () => clearInterval(interval);
   }, [loadOrders]);
 
   const filteredOrders = activeStatus
@@ -146,13 +153,24 @@ export default function OrdersPage() {
       )}
 
       {/* Page Heading */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-200">
-          <ShoppingBag size={20} />
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-200">
+            <ShoppingBag size={20} />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            รายการคำสั่งซื้อ
+          </h1>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-          รายการคำสั่งซื้อ
-        </h1>
+
+        <button
+          onClick={() => loadOrders(true)}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition shadow-xs disabled:opacity-50"
+        >
+          <RefreshCw size={13} className={isRefreshing ? "animate-spin text-orange-500" : ""} />
+          <span>{isRefreshing ? "กำลังอัปเดต..." : "รีเฟรชออเดอร์"}</span>
+        </button>
       </div>
 
       {/* Status Summary Cards */}
