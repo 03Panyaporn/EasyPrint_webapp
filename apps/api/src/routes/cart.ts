@@ -23,7 +23,7 @@ import {
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { supabaseAdmin } from "../storage";
-import { calculateLineItem, type ScopedAmount } from "../pricing/engine";
+import { calculateLineItem, type ScopedAmount } from "@easyprint/shared";
 import { notifyOrderCreated } from "../notifications";
 
 // นับจำนวนหน้าจริงจากไฟล์ PDF ที่อัปโหลดไว้ใน Storage — ใช้เสมอตอนเพิ่ม/แก้ไขรายการ pricingModel = per_page
@@ -755,7 +755,7 @@ export const cartRoutes = new Elysia()
           serviceType: snapshots[0]?.serviceNameSnapshot ?? "สั่งพิมพ์งาน",
           pages: snapshots[0]?.pageCount ?? 1,
           copies: snapshots[0]?.quantity ?? 1,
-          colorMode: snapshots[0]?.colorTierLabelSnapshot ?? "มาตรฐาน",
+          colorMode: "มาตรฐาน",
           paperSize: "-",
           binding: false,
           lamination: false,

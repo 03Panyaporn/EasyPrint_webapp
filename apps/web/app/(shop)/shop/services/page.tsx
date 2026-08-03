@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ServicesTabs from "@/components/shop/services/ServicesTabs";
-import MainServicesTable from "@/components/shop/services/MainServicesTable";
+import MainServicesList from "@/components/shop/services/MainServicesTable";
 import AddOnServicesTable from "@/components/shop/services/AddOnServicesTable";
 import DeliverySettingsTable from "@/components/shop/services/DeliverySettingsTable";
 import AddServiceModal from "@/components/shop/services/AddServiceModal";
@@ -85,6 +86,7 @@ function toDeliveryOptionInput(delivery: DeliveryOption): CreateDeliveryOptionIn
 
 export default function ServicesPage() {
   // ── 1. States ──────────────────────────────────
+  const searchParams = useSearchParams();
   const [shop, setShop] = useState<MyShop | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -96,11 +98,10 @@ export default function ServicesPage() {
   const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
   const [isAllDeliveryEnabled, setIsAllDeliveryEnabled] = useState(true);
 
-  // Modal States
+  // Modal States (add-on + delivery only — main service uses wizard route)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
-  const [editingMainService, setEditingMainService] = useState<MainService | null>(null);
   const [editingAddOnService, setEditingAddOnService] = useState<AddOnService | null>(null);
-  const [serviceModalDefaultType, setServiceModalDefaultType] = useState<"main" | "addon">("main");
+  const [serviceModalDefaultType, setServiceModalDefaultType] = useState<"main" | "addon">("addon");
 
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [editingDelivery, setEditingDelivery] = useState<DeliveryOption | null>(null);
@@ -110,8 +111,20 @@ export default function ServicesPage() {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
+
+  // Show success toast from wizard redirect (?success=1)
+  useEffect(() => {
+    if (searchParams.get("success") === "1") {
+      showToast("เพิ่มบริการสำเร็จ — บริการถูกสร้างและเปิดใช้งานเรียบร้อยแล้ว");
+      // Clean URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete("success");
+      window.history.replaceState({}, "", url.toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showApiError = (err: unknown, fallback: string) => {
     window.alert(err instanceof ApiError ? err.message : fallback);
@@ -163,12 +176,18 @@ export default function ServicesPage() {
     }
   };
 
-  const handleDuplicateMainService = async (service: MainService) => {
+  const handleDuplicateMainService = async (service: MainService, newName: string) => {
     if (!shop) return;
     try {
       const { service: saved } = await duplicateMainService(shop.id, service.id);
-      setMainServices((prev) => [saved, ...prev]);
-      showToast(`คัดลอกบริการ "${service.name}" เป็น "${saved.name}" แล้ว (ปิดใช้งานไว้ก่อน)`);
+      // patch name if different
+      let final = saved;
+      if (newName !== saved.name) {
+        const res = await updateMainService(shop.id, saved.id, { name: newName });
+        final = res.service;
+      }
+      setMainServices((prev) => [final, ...prev]);
+      showToast(`คัดลอกบริการ "${service.name}" เป็น "${final.name}" แล้ว`);
     } catch (err) {
       showApiError(err, "คัดลอกบริการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
@@ -295,22 +314,13 @@ export default function ServicesPage() {
 
   // ── 5. Modal Trigger Helpers ───────────────────
   const openAddServiceModal = (type: "main" | "addon") => {
-    setEditingMainService(null);
     setEditingAddOnService(null);
     setServiceModalDefaultType(type);
     setIsServiceModalOpen(true);
   };
 
-  const openEditMainServiceModal = (service: MainService) => {
-    setEditingMainService(service);
-    setEditingAddOnService(null);
-    setServiceModalDefaultType("main");
-    setIsServiceModalOpen(true);
-  };
-
   const openEditAddOnServiceModal = (addOn: AddOnService) => {
     setEditingAddOnService(addOn);
-    setEditingMainService(null);
     setServiceModalDefaultType("addon");
     setIsServiceModalOpen(true);
   };
@@ -389,11 +399,9 @@ export default function ServicesPage() {
 
       {/* Tab Contents */}
       {activeTab === "main" && (
-        <MainServicesTable
+        <MainServicesList
           services={mainServices}
           allAddOns={addOnServices}
-          onAddClick={() => openAddServiceModal("main")}
-          onEditClick={openEditMainServiceModal}
           onDuplicateClick={handleDuplicateMainService}
           onDeleteClick={handleDeleteMainService}
           onToggleActive={handleToggleMainActive}
@@ -423,7 +431,7 @@ export default function ServicesPage() {
         />
       )}
 
-      {/* Shared Service Modal (Main & Add-on) */}
+      {/* Add-On Service Modal (Main services now use wizard route) */}
       <AddServiceModal
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
@@ -431,7 +439,7 @@ export default function ServicesPage() {
         onSaveAddOn={handleSaveAddOnService}
         allAddOnServices={addOnServices}
         allMainServices={mainServices}
-        editingMainService={editingMainService}
+        editingMainService={null}
         editingAddOnService={editingAddOnService}
         defaultType={serviceModalDefaultType}
       />
