@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ServicesTabs from "@/components/shop/services/ServicesTabs";
 import MainServicesList from "@/components/shop/services/MainServicesTable";
@@ -44,15 +44,15 @@ function toMainServiceInput(service: MainService): CreateMainServiceInput {
     name: service.name,
     description: service.description,
     pricingModel: service.pricingModel,
-    basePrice: service.basePrice,
+    basePrice: Number(service.basePrice),
     requiresFileUpload: service.requiresFileUpload,
     allowedFileTypes: service.allowedFileTypes as CreateMainServiceInput["allowedFileTypes"],
     options: service.options as CreateMainServiceInput["options"],
     colorTiers: service.colorTiers,
     quantityTiers: service.quantityTiers,
     pageCountingMode: service.pageCountingMode,
-    minArea: service.minArea,
-    areaRoundingIncrement: service.areaRoundingIncrement,
+    minArea: service.minArea ? Number(service.minArea) : undefined,
+    areaRoundingIncrement: Number(service.areaRoundingIncrement),
     unit: service.unit as CreateMainServiceInput["unit"],
     estimatedTime: service.estimatedTime as CreateMainServiceInput["estimatedTime"],
     imageUrl: service.imageUrl,
@@ -61,15 +61,15 @@ function toMainServiceInput(service: MainService): CreateMainServiceInput {
   };
 }
 
-function toAddOnServiceInput(addOn: AddOnService): CreateAddOnServiceInput {
+function toAddOnServiceInput(service: AddOnService): CreateAddOnServiceInput {
   return {
-    name: addOn.name,
-    description: addOn.description,
-    price: addOn.price,
-    unit: addOn.unit as CreateAddOnServiceInput["unit"],
-    estimatedTime: addOn.estimatedTime as CreateAddOnServiceInput["estimatedTime"],
-    imageUrl: addOn.imageUrl,
-    isActive: addOn.isActive,
+    name: service.name,
+    description: service.description,
+    price: Number(service.price),
+    unit: service.unit as CreateAddOnServiceInput["unit"],
+    estimatedTime: service.estimatedTime as CreateAddOnServiceInput["estimatedTime"],
+    imageUrl: service.imageUrl,
+    isActive: service.isActive,
   };
 }
 
@@ -78,13 +78,13 @@ function toDeliveryOptionInput(delivery: DeliveryOption): CreateDeliveryOptionIn
     name: delivery.name,
     description: delivery.description,
     logoUrl: delivery.logoUrl,
-    baseFee: delivery.baseFee,
-    freeShippingThreshold: delivery.freeShippingThreshold ?? null,
+    baseFee: Number(delivery.baseFee),
+    freeShippingThreshold: delivery.freeShippingThreshold != null ? Number(delivery.freeShippingThreshold) : null,
     isActive: delivery.isActive,
   };
 }
 
-export default function ServicesPage() {
+function ServicesContent() {
   // ── 1. States ──────────────────────────────────
   const searchParams = useSearchParams();
   const [shop, setShop] = useState<MyShop | null>(null);
@@ -453,5 +453,13 @@ export default function ServicesPage() {
         editingDelivery={editingDelivery}
       />
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">กำลังโหลด...</div>}>
+      <ServicesContent />
+    </Suspense>
   );
 }

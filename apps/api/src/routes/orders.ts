@@ -76,6 +76,37 @@ export function serializeOrder(
     lamination: order.lamination,
     selectedAddOns: order.selectedAddOns ?? [],
     fileUrl: order.fileUrl,
+    subtotal: order.subtotal != null ? Number(order.subtotal) : undefined,
+    shippingFee: order.shippingFeeSnapshot != null ? Number(order.shippingFeeSnapshot) : undefined,
+    items: items
+      ? items.map((item) => ({
+          id: item.id,
+          serviceName: item.serviceNameSnapshot,
+          pricingType: item.pricingTypeSnapshot,
+          baseRate: Number(item.basePriceSnapshot),
+          colorTierLabel: null,
+          colorTierPrice: null,
+          quantity: item.quantity,
+          pageCount: item.pageCount,
+          widthCm: null,
+          heightCm: null,
+          optionsSnapshot: (item.optionsSnapshotJson as Array<{
+            optionName: string;
+            valueName?: string | null;
+            textValue?: string | null;
+            extraPrice: number;
+            priceScope: string;
+          }>) ?? [],
+          addOnsSnapshot: (item.additionalServicesSnapshotJson as Array<{
+            name: string;
+            extraPrice: number;
+            scope: string;
+          }>) ?? [],
+          itemSubtotal: Number(item.itemTotalPrice),
+          fileUrl: item.fileUrl,
+          note: null,
+        }))
+      : undefined,
     totalPrice: order.totalPrice,
     status: order.status,
     note: order.note ?? undefined,
@@ -175,7 +206,7 @@ export const ordersRoutes = new Elysia()
             slipUploadedAt: new Date(),
             deliveryMethod: parsed.data.deliveryMethod,
             deliveryAddress: parsed.data.deliveryAddress,
-            totalPrice: String(totalPrice),
+            totalPrice: Math.round(totalPrice),
             note: parsed.data.note,
           })
           .returning();

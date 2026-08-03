@@ -49,6 +49,9 @@ export type ApiOrder = {
   lamination: boolean | null;
   selectedAddOns: string[];
   fileUrl: string | null;
+  items?: ApiOrderItem[];
+  subtotal?: number;
+  shippingFee?: number;
   cartSnapshot?: unknown; // รายละเอียดเต็มของแต่ละรายการตอน checkout จากตะกร้า (มีเฉพาะออเดอร์ที่มาจาก POST /shops/:shopId/cart/checkout)
   totalPrice: number; // หน่วยสตางค์
   status: OrderStatus;

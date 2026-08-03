@@ -232,7 +232,7 @@ function ColorSection({
   pricingModel: PricingModel;
   onChange: (t: ColorTier[]) => void;
 }) {
-  const scopeLabel = pricingModel === "per_page" ? "บาท/หน้า" : "บาท/ชิ้น";
+  const scopeLabel = pricingModel === "per_page" ? "บาท/หน้า" : pricingModel === "per_sqm" ? "บาท/ตร.ม." : "บาท/ชิ้น";
 
   const addTier = () =>
     onChange([...tiers, { label: "", pricePerUnit: 0 }]);
@@ -320,7 +320,7 @@ export default function Step3Options({
   // Auto-generate defaults on first entry if options are empty
   if (isInitialRender && data.options.length === 0 && data.colorTiers.length === 0) {
     const defaultOptions = buildDefaultOptions(pricingMode, pricingModel);
-    const needsColor = pricingMode === "per_page" || pricingMode === "per_piece";
+    const needsColor = pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm";
     onChange({
       options: defaultOptions,
       colorTiers: needsColor ? DEFAULT_COLOR_TIERS : [],
@@ -333,11 +333,14 @@ export default function Step3Options({
   const validate = () => {
     const errs: string[] = [];
     data.options.forEach((opt) => {
+      // ต้องเช็คตรงนี้ก่อนไป Preview — backend (serviceOptionSchema) reject ชื่อว่างอยู่แล้ว แต่ไม่มีเช็คฝั่ง client มาก่อน
+      // ทำให้ร้านกด "+ เพิ่มหัวข้อพิเศษ" แล้วใส่ค่าโดยไม่ตั้งชื่อหัวข้อ ผ่านมาถึง Preview ได้ แล้วเจอ 400 ตอนกด "บันทึก" แทน
+      if (!opt.name.trim()) errs.push(`กรุณากรอกชื่อหัวข้อตัวเลือก (มีค่าที่ยังไม่มีชื่อหัวข้อ)`);
       if (opt.values.length === 0)
         errs.push(`หัวข้อ "${opt.name || "ไม่มีชื่อ"}" ต้องมีอย่างน้อย 1 ตัวเลือก`);
     });
     if (
-      (pricingMode === "per_page" || pricingMode === "per_piece") &&
+      (pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm") &&
       data.colorTiers.length === 0
     ) {
       errs.push("ส่วน 'สี' ต้องมีอย่างน้อย 1 ตัวเลือก");
@@ -370,7 +373,7 @@ export default function Step3Options({
       ],
     });
 
-  const showColor = pricingMode === "per_page" || pricingMode === "per_piece";
+  const showColor = pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm";
   const showNoOptionsHint = pricingMode === "per_sqm" && data.options.length === 0;
 
   return (

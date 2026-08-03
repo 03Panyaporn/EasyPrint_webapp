@@ -189,7 +189,7 @@ export default function MainServicesList({
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${service.isActive ? "bg-emerald-500" : "bg-gray-400"}`}
                       />
-                      {service.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                      {service.isActive ? "เปิดใช้งาน" : "แบบร่าง"}
                     </span>
                   </div>
                   {/* Toggle active */}
@@ -199,7 +199,7 @@ export default function MainServicesList({
                         if (service.isActive) {
                           if (
                             !confirm(
-                              `ปิดบริการ "${service.name}"?\nลูกค้าจะไม่เห็นบริการนี้จนกว่าจะเปิดอีกครั้ง`
+                              `เปลี่ยน "${service.name}" เป็นแบบร่าง?\nลูกค้าจะไม่เห็นบริการนี้จนกว่าจะเปิดใช้งานอีกครั้ง`
                             )
                           )
                             return;
@@ -209,7 +209,7 @@ export default function MainServicesList({
                       className={`relative w-10 h-5 rounded-full border-2 border-transparent transition-colors shadow-sm ${
                         service.isActive ? "bg-emerald-500" : "bg-gray-300"
                       }`}
-                      aria-label="เปิด/ปิดบริการ"
+                      aria-label="เปิดใช้งาน/แบบร่าง"
                     >
                       <span
                         className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform ${
