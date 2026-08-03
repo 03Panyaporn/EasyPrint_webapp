@@ -51,6 +51,7 @@ export default function CartPage() {
       setNeedsLogin(false);
 
       const res = await getCarts();
+      console.log(carts);
 
       setCarts(
         res.carts.filter((cart) => cart.items.length > 0)
@@ -267,9 +268,9 @@ export default function CartPage() {
                               <h3 className=" text-slate-800 text-sm truncate">
                                 {item.mainServiceName}
                               </h3>
-                              <h2 className=" text-slate-800 text-sm truncate flex items-center gap-2 mt-1">
+                              <h2 className="text-sm flex items-center gap-2 mt-1">
                                 <FileText size={15} className="text-orange-500" />
-                                ชื่อไฟล์งาน
+                                {item.fileUrl}
                               </h2>
                               {!item.isServiceActive && (
                                 <p className="text-[11px] text-red-500 mt-0.5">
