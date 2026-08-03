@@ -9,6 +9,7 @@ import Step3Options, { type Step3Data } from "./Step3Options";
 import Step4FileUpload, { type Step4Data } from "./Step4FileUpload";
 import Step5AddOns, { type Step5Data } from "./Step5AddOns";
 import Step6Preview from "./Step6Preview";
+import type { ServiceTemplate } from "./serviceTemplates";
 import type { AddOnService, PricingModel } from "../types";
 import {
   createMainService,
@@ -31,10 +32,10 @@ function toPricingModel(mode: Step2Data["pricingMode"]): PricingModel {
   return mode;
 }
 
-// per_page/per_piece: แถวแรกของ form.step3.colorTiers เป็น "ขาวดำ" เสมอ (ล็อกไว้ที่ Step3Options)
+// per_page/per_piece/per_sqm: แถวแรกของ form.step3.colorTiers เป็น "ขาวดำ" เสมอ (ล็อกไว้ที่ Step3Options)
 // ค่านั้นคือ basePrice ของบริการโดยตรง ไม่ใช่ ColorTier แถวหนึ่ง — ห้ามส่งไป backend เป็น colorTier ซ้ำกับ basePrice
 function isColorMode(pricingMode: Step2Data["pricingMode"]): boolean {
-  return pricingMode === "per_page" || pricingMode === "per_piece";
+  return pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm";
 }
 
 function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
@@ -54,7 +55,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
         : colorMode
           ? (baseColorTier?.pricePerUnit ?? 0)
           : (typeof form.step2.basePrice === "number" ? form.step2.basePrice : 0),
-    unit: model === "per_page" ? "หน้า" : "ชิ้น",
+    unit: model === "per_page" ? "หน้า" : model === "per_sqm" ? "แผ่น" : "ชิ้น",
     pageCountingMode: "by_file_page",
     colorTiers: colorMode ? extraColorTiers.map((t) => ({ label: t.label, pricePerUnit: t.pricePerUnit })) : [],
     quantityTiers: form.step2.quantityTiers.map((t) => ({
@@ -112,7 +113,7 @@ function formFromService(service: MainService): WizardFormData {
       name: service.name,
       description: service.description ?? "",
       imageUrl: service.imageUrl ?? "",
-      status: service.isActive ? "active" : "inactive",
+      status: service.isActive ? "active" : "draft",
     },
     step2: {
       pricingMode,
@@ -174,6 +175,27 @@ export default function ServiceBuilderWizard({
       setCurrentStep((s) => s - 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  // เลือก Service Template ใน Step1 — seed ค่าเริ่มต้นให้ Step2/Step3 เท่านั้น ไม่ล็อก logic ใดๆ ร้านแก้ไขต่อได้ทั้งหมด
+  const handleSelectTemplate = (tpl: ServiceTemplate) => {
+    setForm({
+      ...form,
+      step2: {
+        ...form.step2,
+        pricingMode: tpl.pricingMode,
+        basePrice: "",
+        minArea: "",
+        areaRoundingIncrement: 0.1,
+        quantityTiers: tpl.quantityTiers.map((t) => ({ ...t })),
+      },
+      step3: {
+        colorTiers: tpl.colorTiers.map((t) => ({ ...t })),
+        options: tpl.options.map((o) => ({ ...o, values: o.values.map((v) => ({ ...v })) })),
+      },
+    });
+    // ปิด auto-populate เริ่มต้นของ Step3 เพราะ template seed ให้แล้ว (รวมถึง "กำหนดเอง" ที่ตั้งใจให้ว่างเปล่า)
+    setStep3IsFirstRender(false);
   };
 
   const handleSave = async () => {
@@ -239,6 +261,8 @@ export default function ServiceBuilderWizard({
               onChange={(d) => setForm({ ...form, step1: d })}
               onNext={next}
               onBack={back}
+              mode={mode}
+              onSelectTemplate={handleSelectTemplate}
             />
           )}
 

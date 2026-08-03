@@ -10,5 +10,8 @@
     "dev:api": "bun --cwd apps/api dev",
     "db:push": "bun --cwd apps/api drizzle-kit push",
     "db:studio": "bun --cwd apps/api drizzle-kit studio"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }

@@ -67,6 +67,18 @@ function emptyQtyTier(): QuantityTier {
   return { minQty: 0, maxQty: null, unitPrice: 0 };
 }
 
+// มิเรอร์ refineQuantityTierOverlap ฝั่ง packages/shared/schemas/service.ts — ให้ error ทันทีที่ client ไม่ต้องรอ 400 จาก server
+function hasOverlappingQuantityTiers(tiers: QuantityTier[]): boolean {
+  if (tiers.length < 2) return false;
+  const sorted = [...tiers].sort((a, b) => a.minQty - b.minQty);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    if (prev.maxQty == null || cur.minQty <= prev.maxQty) return true;
+  }
+  return false;
+}
+
 export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2PricingProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -77,14 +89,19 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
 
     // per_page/per_piece: ราคาพื้นฐาน (ขาวดำ) ย้ายไปตั้งที่ Step3 (ตัวเลือกสินค้า > สี) แล้ว ไม่ต้องเช็คที่นี่
 
-    if (data.pricingMode === "per_sqm") {
-      if (data.basePrice === "" || Number(data.basePrice) <= 0)
-        errs.basePrice = "กรุณากรอกราคาต่อตารางเมตร";
-    }
+    // per_sqm: ราคาพื้นฐาน (ขาวดำ) ย้ายไปตั้งที่ Step3 (ตัวเลือกสินค้า > สี) เหมือน per_page/per_piece แล้ว ไม่ต้องเช็คที่นี่
 
     if (data.pricingMode === "quantity_tier") {
       if (data.quantityTiers.length === 0)
         errs.quantityTiers = "กรุณาเพิ่มอย่างน้อย 1 ตัวเลือกจำนวน";
+    }
+
+    // ทั้ง per_piece (tier ไม่บังคับ) และ quantity_tier (ผูกกับ backend model per_piece เดียวกัน) ห้ามช่วงทับกัน — ตรงกับ server refineQuantityTierOverlap
+    if (
+      (data.pricingMode === "per_piece" || data.pricingMode === "quantity_tier") &&
+      hasOverlappingQuantityTiers(data.quantityTiers)
+    ) {
+      errs.quantityTiers = "ช่วงจำนวนของราคาขั้นบันไดห้ามทับซ้อนกัน กรุณาตรวจสอบ";
     }
 
     setErrors(errs);
@@ -185,6 +202,7 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
               <Plus size={13} /> เพิ่ม tier
             </button>
           </div>
+          {errors.quantityTiers && <p className="text-xs text-red-500">{errors.quantityTiers}</p>}
           {data.quantityTiers.map((tier, i) => (
             <div key={i} className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-500 w-16 shrink-0">จำนวน ≥</span>
@@ -217,24 +235,10 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
       {data.pricingMode === "per_sqm" && (
         <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100 space-y-4">
           <h3 className="text-sm font-semibold text-orange-800">ตั้งค่าราคาตามพื้นที่</h3>
+          <p className="text-xs text-orange-700">
+            💡 ราคาพื้นฐาน (ขาวดำ) ตั้งได้ในขั้นตอนถัดไป &quot;ตัวเลือกสินค้า&quot; (ส่วนสี)
+          </p>
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 w-40 shrink-0">ราคา / ตารางเมตร</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={data.basePrice}
-                onChange={(e) => update({ basePrice: e.target.value === "" ? "" : Number(e.target.value) })}
-                placeholder="150"
-                className={`w-28 px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
-                  errors.basePrice ? "border-red-400" : "border-gray-200"
-                }`}
-              />
-              <span className="text-sm text-gray-500">บาท</span>
-            </div>
-            {errors.basePrice && <p className="text-xs text-red-500">{errors.basePrice}</p>}
-
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 w-40 shrink-0">พื้นที่ขั้นต่ำ</span>
               <input

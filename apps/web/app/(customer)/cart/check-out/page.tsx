@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     Store,
@@ -16,7 +16,7 @@ import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 
 
-export default function CheckoutPage() {
+function CheckoutContent() {
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -396,5 +396,13 @@ export default function CheckoutPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function CheckoutPage() {
+    return (
+        <Suspense fallback={<div className="p-10 text-center">กำลังโหลด...</div>}>
+            <CheckoutContent />
+        </Suspense>
     );
 }

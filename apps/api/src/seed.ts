@@ -268,7 +268,7 @@ async function main() {
       slipUploadedAt: seedOrder.createdAt,
       deliveryMethod: seedOrder.deliveryMethod,
       subtotal: String(seedOrder.priceBaht),
-      totalPrice: String(seedOrder.priceBaht),
+      totalPrice: seedOrder.priceBaht,
       status: seedOrder.status,
       cancelReason: seedOrder.cancelReason,
       cancelNote: seedOrder.cancelNote,
