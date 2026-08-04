@@ -423,3 +423,31 @@ export const ordersRelations = relations(orders, ({ many }) => ({
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
 }));
+
+// ── addresses: รองรับการเก็บข้อมูลที่อยู่ลูกค้าสำหรับจัดส่ง ──
+export const addresses = pgTable("addresses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+
+  receiverName: text("receiver_name").notNull(),
+  phone: text("phone").notNull(),
+
+  address: text("address").notNull(),
+  subdistrict: text("subdistrict").notNull(),
+  district: text("district").notNull(),
+  province: text("province").notNull(),
+  postalCode: text("postal_code").notNull(),
+
+  label: text("label").default("บ้าน").notNull(),
+
+  isDefault: boolean("is_default")
+    .default(false)
+    .notNull(),
+
+  createdAt: timestamp("created_at")
+    .defaultNow()
+    .notNull(),
+});

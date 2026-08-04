@@ -1,8 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2, PencilLine, Pin } from "lucide-react";
+import { Trash2, PencilLine, MapPin } from "lucide-react";
+import { getMe } from "@/lib/api/auth";
+import type { PublicUser } from "@/lib/api/auth";
 
+
+import {
+    getAddresses,
+    createAddress as createAddressApi,
+    updateAddress as updateAddressApi,
+    deleteAddress as deleteAddressApi,
+    setDefaultAddress as setDefaultAddressApi,
+} from "@/lib/api/addresses";
 export interface Address {
     id: string;
     receiverName: string;
@@ -16,42 +26,8 @@ export interface Address {
     isDefault: boolean;
 }
 
-
-const mockAddresses: Address[] = [
-    {
-        id: "1",
-        receiverName: "นายสมชาย",
-        phone: "0812345678",
-        address: "99/1",
-        subdistrict: "เวียง",
-        district: "เมือง",
-        province: "พะเยา",
-        postalCode: "56000",
-        label: "บ้าน",
-        isDefault: true,
-    },
-    {
-        id: "2",
-        receiverName: "นายสมชาย",
-        phone: "0812345678",
-        address: "15/5 หอพัก A",
-        subdistrict: "แม่กา",
-        district: "เมือง",
-        province: "พะเยา",
-        postalCode: "56000",
-        label: "หอพัก",
-        isDefault: false,
-    },
-];
-
-
 export default function ProfilePage() {
-    const [profile, setProfile] = useState({
-        firstname: "สมชาย",
-        lastname: "ใจดี",
-        email: "somchai@email.com",
-        phone: "0812345678"
-    });
+
     const emptyAddress: Address = {
         id: "",
         receiverName: "",
@@ -65,235 +41,202 @@ export default function ProfilePage() {
         isDefault: false,
     };
 
-
-    const [formAddress, setFormAddress] =
-        useState<Address>(emptyAddress);
-
-    const [editProfile, setEditProfile] = useState(false);
     const [addresses, setAddresses] = useState<Address[]>([]);
-    const [loading, setLoading] = useState(true);
-
+    const [formAddress, setFormAddress] = useState<Address>(emptyAddress);
     const [openModal, setOpenModal] = useState(false);
+    const [profile, setProfile] = useState<PublicUser | null>(null);
+    async function loadAddresses() {
+        const { addresses } = await getAddresses();
 
-    const [editingAddress, setEditingAddress] =
-        useState<Address | null>(null);
+        const sortedAddresses = [...addresses].sort(
+            (a, b) => Number(b.isDefault) - Number(a.isDefault)
+        );
 
+        setAddresses(sortedAddresses);
+    }
+
+    async function createAddress() {
+
+        const payload = {
+            receiverName: formAddress.receiverName,
+            phone: formAddress.phone,
+            address: formAddress.address,
+            subdistrict: formAddress.subdistrict || "",
+            district: formAddress.district || "",
+            province: formAddress.province || "",
+            postalCode: formAddress.postalCode || "",
+            label: formAddress.label,
+            isDefault: formAddress.isDefault,
+        };
+
+        console.log("CREATE ADDRESS PAYLOAD:", payload);
+
+        await createAddressApi(payload);
+
+        await loadAddresses();
+        setOpenModal(false);
+    }
+
+    async function updateAddress(data: Address) {
+
+        const payload = {
+            receiverName: data.receiverName,
+            phone: data.phone,
+            address: data.address,
+            subdistrict: data.subdistrict || "",
+            district: data.district || "",
+            province: data.province || "",
+            postalCode: data.postalCode || "",
+            label: data.label,
+        };
+
+        console.log("UPDATE ADDRESS PAYLOAD:", payload);
+
+        await updateAddressApi(data.id, payload);
+
+        await loadAddresses();
+        setOpenModal(false);
+    }
+
+    async function deleteAddress(id: string) {
+        await deleteAddressApi(id);
+        await loadAddresses();
+    }
+
+    async function setDefaultAddress(id: string) {
+        await setDefaultAddressApi(id);
+        await loadAddresses();
+    }
 
     useEffect(() => {
+        loadProfile();
         loadAddresses();
     }, []);
 
-
-    function loadAddresses() {
-        setAddresses(mockAddresses);
-        setLoading(false);
+    async function loadProfile() {
+        const { user } = await getMe();
+        setProfile(user);
     }
-
-
-    function createAddress() {
-
-        const newAddress: Address = {
-            id: Date.now().toString(),
-            receiverName: "ผู้ใช้ใหม่",
-            phone: "0800000000",
-            address: "123",
-            subdistrict: "เวียง",
-            district: "เมือง",
-            province: "พะเยา",
-            postalCode: "56000",
-            label: "ใหม่",
-            isDefault: false,
-        };
-
-
-        setAddresses((prev) => [
-            ...prev,
-            newAddress
-        ]);
-
-        setOpenModal(false);
-    }
-
-
-
-    function updateAddress(data: Address) {
-
-        setAddresses((prev) =>
-            prev.map((item) =>
-                item.id === data.id
-                    ? data
-                    : item
-            )
-        );
-
-        setOpenModal(false);
-    }
-
-
-
-    function deleteAddress(id: string) {
-
-        setAddresses((prev) =>
-            prev.filter(
-                item => item.id !== id
-            )
-        );
-    }
-
-
-
-    function setDefaultAddress(id: string) {
-
-        setAddresses((prev) =>
-            prev.map(item => ({
-                ...item,
-                isDefault: item.id === id
-            }))
-        );
-    }
-
-
-
-    const defaultAddress = addresses.find(
-        a => a.isDefault
-    );
-
-
-    if (loading) {
-        return <div>Loading...</div>;
-    }
-    const sortedAddresses = [...addresses].sort(
-        (a, b) =>
-            Number(b.isDefault) - Number(a.isDefault)
-    );
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
+            <div className="max-w-4xl mx-auto space-y-6">
 
-            <div className="max-w-4xl mx-auto">
-                <h2 className="text-xl mb-6 text-orange-500">
-                    ข้อมูลส่วนตัว
-                </h2>
+                {/* Profile */}
+                <div className="bg-white rounded-2xl shadow p-6">
+                    <h1 className="text-xl font-semibold text-orange-500 mb-4">
+                        ข้อมูลส่วนตัว
+                    </h1>
 
-                {/* ข้อมูลส่วนตัว */}
-                <div className="
-            bg-white
-            rounded-2xl
-            p-6
-            shadow
-            mb-6
-        ">
+                    {profile && (
+                        <div className="space-y-2">
+                            <p>
+                                <span className="font-medium">ชื่อ :</span>{" "}
+                                {profile.firstname} {profile.lastname}
+                            </p>
 
-                    <div className="flex justify-between">
+                            <p>
+                                <span className="font-medium">Email :</span>{" "}
+                                {profile.email}
+                            </p>
 
-                        <p>
-                            ชื่อ :
-                            {profile.firstname} {profile.lastname}
-                        </p>
-                        <button
-                            onClick={() => setEditProfile(true)}
-                            className="text-emerald-600"
-                        >
-                            แก้ไข
-                        </button>
-
-                    </div>
-
-
-                    <div className="mt-3 space-y-2">
-                        <p>
-                            Email :
-                            {profile.email}
-                        </p>
-
-                        <p>
-                            เบอร์โทร :
-                            {profile.phone}
-                        </p>
-
-                    </div>
-
+                            <p>
+                                <span className="font-medium">เบอร์โทร :</span>{" "}
+                                {profile.phone}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
+                {/* Address */}
+                <div className="bg-white rounded-2xl shadow p-6">
 
-
-
-                {/* ที่อยู่จัดส่ง */}
-                <div>
-
-                    <div className="flex justify-between items-center mb-6">
-
-                        <h1 className="text-xl  text-orange-500">
+                    <div className="flex justify-between items-center mb-5">
+                        <h2 className="text-xl font-semibold text-orange-500">
                             ที่อยู่จัดส่ง
-                        </h1>
-
+                        </h2>
 
                         <button
                             onClick={() => {
-                                setEditingAddress(null);
                                 setFormAddress(emptyAddress);
                                 setOpenModal(true);
                             }}
-                            className="px-5 py-2 rounded-xl bg-emerald-500 text-white shadow-md hover:shadow-lg"
+                            className="px-5 py-2 rounded-xl bg-orange-500 text-white hover:bg-orange-600"
                         >
                             + เพิ่มที่อยู่
                         </button>
-
                     </div>
 
+                    {addresses.length === 0 ? (
+                        <div className="text-center text-gray-400 py-10">
+                            ยังไม่มีที่อยู่
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
 
+                            {addresses.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className={`
+        rounded-2xl p-5 flex justify-between
+        border
+        ${item.isDefault
+                                            ? "border-orange-400 bg-orange-50"
+                                            : "bg-white"
+                                        }
+    `}
+                                >
 
-                    <div className=" space-y-4">
+                                    <div className="space-y-2">
 
+                                        <div className="flex items-center gap-2">
 
-                        {sortedAddresses.map((item) => (
-
-                            <div
-                                key={item.id}
-                                className=" bg-white rounded-2xl p-5 shadow   mb-6"
-                            >
-
-                                <div className="flex justify-between">
-
-
-                                    <div>
-
-                                        <div className="flex gap-2">
-
-                                            <h2>
+                                            <span className="font-semibold text-lg">
                                                 {item.label}
-                                            </h2>
+                                            </span>
 
 
-                                            {item.isDefault &&
-                                                <span className=" text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full ">
-                                                    ค่าเริ่มต้น
+                                            {item.isDefault && (
+                                                <span
+                                                    className="
+                flex items-center gap-1
+                px-3 py-1
+                rounded-full
+                text-xs
+                bg-green-100
+                text-green-600
+                "
+                                                >
+                                                    <MapPin size={14} />
+                                                    ที่อยู่หลัก
                                                 </span>
-                                            }
+                                            )}
 
                                         </div>
 
 
-                                        <p>
+                                        <p className="font-medium">
                                             {item.receiverName}
+                                        </p>
+
+
+                                        <p>
+                                            {item.phone}
                                         </p>
 
 
                                         <p className="text-gray-600">
                                             {item.address}
-                                            {" "}
-                                            {item.subdistrict}
-                                            {" "}
-                                            {item.district}
-                                            {" "}
-                                            {item.province}
-                                            {" "}
-                                            {item.postalCode}
                                         </p>
 
 
-                                        <p>
-                                            โทร {item.phone}
+                                        <p className="text-gray-600">
+                                            {item.subdistrict} {item.district}
+                                        </p>
+
+
+                                        <p className="text-gray-600">
+                                            {item.province} {item.postalCode}
                                         </p>
 
 
@@ -303,308 +246,234 @@ export default function ProfilePage() {
 
                                     <div className="flex flex-col gap-3">
 
-                                        {/* ตั้งค่าเป็นค่าเริ่มต้น */}
+
                                         {!item.isDefault && (
                                             <button
-                                                onClick={() =>
-                                                    setDefaultAddress(item.id)
-                                                }
-                                                className=" w-10 h-10 flex items-center justify-center rounded-xl bg-orange-100 text-orange-500 shadow-sm hover:bg-orange-300 hover:shadow-md transition"
-                                                title="ตั้งเป็นที่อยู่หลัก"
+                                                onClick={() => setDefaultAddress(item.id)}
+                                                className="
+            px-3 py-2
+            rounded-xl
+            bg-orange-100
+            text-orange-600
+            text-sm
+            font-medium
+            "
                                             >
-                                                <Pin size={20} />
+                                                ตั้งเป็นหลัก
                                             </button>
                                         )}
 
 
 
-                                        {/* แก้ไข */}
+                                        {item.isDefault && (
+                                            <div
+                                                className="
+            px-3 py-2
+            rounded-xl
+            bg-green-100
+            text-green-600
+            text-sm
+            "
+                                            >
+                                                ใช้งานอยู่
+                                            </div>
+                                        )}
+
+
+
                                         <button
                                             onClick={() => {
-                                                setEditingAddress(item);
                                                 setFormAddress(item);
                                                 setOpenModal(true);
                                             }}
-                                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600  shadow-sm  hover:bg-blue-100 hover:shadow-md transition"
-                                            title="แก้ไขที่อยู่"
+                                            className="
+        w-10 h-10
+        rounded-xl
+        bg-blue-100
+        text-blue-600
+        flex items-center justify-center
+        "
                                         >
-                                            <PencilLine size={20} />
+                                            <PencilLine size={18} />
                                         </button>
 
 
 
-                                        {/* ลบ */}
                                         <button
-                                            onClick={() =>
-                                                deleteAddress(item.id)
-                                            }
-                                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-sm hover:bg-red-100 hover:text-red-600 hover:shadow-mdtransition"
-                                            title="ลบที่อยู่"
+                                            onClick={() => deleteAddress(item.id)}
+                                            className="
+        w-10 h-10
+        rounded-xl
+        bg-red-100
+        text-red-600
+        flex items-center justify-center
+        "
                                         >
-                                            <Trash2 size={20} />
+                                            <Trash2 size={18} />
                                         </button>
+
 
                                     </div>
+
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+
+                        </div>
+                    )}
+
                 </div>
-            </div>
-            {openModal && (
 
-                <div
-                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-                    onClick={() => setOpenModal(false)}
-                >
-
-
+                {/* Modal */}
+                {openModal && (
                     <div
-                        className="bg-white rounded-2xl p-6 w-[90%] max-w-lg shadow-xl"
-                        onClick={(e) => e.stopPropagation()}
+                        className="fixed inset-0 bg-black/40 flex items-center justify-center"
+                        onClick={() => setOpenModal(false)}
                     >
 
+                        <div
+                            className="bg-white rounded-2xl p-6 w-full max-w-lg"
+                            onClick={(e) => e.stopPropagation()}
+                        >
 
-                        <h2 className="text-xl mb-5">
-                            {
-                                editingAddress
-                                    ?
-                                    "แก้ไขที่อยู่"
-                                    :
-                                    "เพิ่มที่อยู่"
-                            }
-                        </h2>
-                        <div className="space-y-4">
+                            <h2 className="text-xl font-semibold mb-5">
+                                {formAddress.id ? "แก้ไขที่อยู่" : "เพิ่มที่อยู่"}
+                            </h2>
 
-
-                            {/* ชื่อผู้รับ */}
-                            <div className="space-y-1.5">
-
-                                <label className="text-xs text-slate-600 ">
-                                    ชื่อผู้รับ
-                                    <span className="text-orange-500"> *</span>
-                                </label>
-
+                            <div className="space-y-3">
 
                                 <input
-                                    placeholder="เช่น สมชาย ใจดี"
+                                    className="w-full border rounded-xl p-3"
+                                    placeholder="ชื่อผู้รับ"
                                     value={formAddress.receiverName}
                                     onChange={(e) =>
                                         setFormAddress({
                                             ...formAddress,
-                                            receiverName: e.target.value
+                                            receiverName: e.target.value,
                                         })
                                     }
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                                 />
 
-                            </div>
-
-
-
-                            {/* เบอร์โทร */}
-                            <div className="space-y-1.5">
-
-                                <label className="text-xstext-slate-600">
-                                    เบอร์โทรศัพท์
-                                    <span className="text-orange-500"> *</span>
-                                </label>
-
-
                                 <input
-                                    type="tel"
-                                    placeholder="08xxxxxxxx"
+                                    className="w-full border rounded-xl p-3"
+                                    placeholder="เบอร์โทร"
                                     value={formAddress.phone}
                                     onChange={(e) =>
                                         setFormAddress({
                                             ...formAddress,
-                                            phone: e.target.value
+                                            phone: e.target.value,
                                         })
                                     }
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                                 />
 
-                            </div>
-
-
-
-
-                            {/* ที่อยู่ */}
-                            <div className="space-y-1.5">
-
-                                <label className="text-xs text-slate-600">
-                                    ที่อยู่
-                                    <span className="text-orange-500"> *</span>
-                                </label>
-
-
                                 <input
-                                    placeholder="บ้านเลขที่ / หมู่บ้าน / อาคาร"
+                                    className="w-full border rounded-xl p-3"
+                                    placeholder="ที่อยู่"
                                     value={formAddress.address}
                                     onChange={(e) =>
                                         setFormAddress({
                                             ...formAddress,
-                                            address: e.target.value
+                                            address: e.target.value,
                                         })
                                     }
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                                 />
 
-                            </div>
-
-
-
-
-                            {/* ตำบล อำเภอ */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-
-                                <div className="space-y-1.5">
-
-                                    <label className="text-xs text-slate-600">
-                                        ตำบล / แขวง
-                                    </label>
-
+                                <div className="grid grid-cols-2 gap-3">
 
                                     <input
+                                        className="border rounded-xl p-3"
                                         placeholder="ตำบล"
                                         value={formAddress.subdistrict}
                                         onChange={(e) =>
                                             setFormAddress({
                                                 ...formAddress,
-                                                subdistrict: e.target.value
+                                                subdistrict: e.target.value,
                                             })
                                         }
-                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                                     />
 
-                                </div>
-
-
-
-
-                                <div className="space-y-1.5">
-
-                                    <label className=" text-xs text-slate-600">
-                                        อำเภอ / เขต
-                                    </label>
-
-
                                     <input
+                                        className="border rounded-xl p-3"
                                         placeholder="อำเภอ"
                                         value={formAddress.district}
                                         onChange={(e) =>
                                             setFormAddress({
                                                 ...formAddress,
-                                                district: e.target.value
+                                                district: e.target.value,
                                             })
                                         }
-                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                                     />
 
-                                </div>
-
-
-                            </div>
-                            {/* จังหวัด รหัสไปรษณีย์ */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-
-                                <div className="space-y-1.5">
-
-                                    <label className="text-xs text-slate-600">
-                                        จังหวัด
-                                    </label>
-
-
                                     <input
+                                        className="border rounded-xl p-3"
                                         placeholder="จังหวัด"
                                         value={formAddress.province}
                                         onChange={(e) =>
                                             setFormAddress({
                                                 ...formAddress,
-                                                province: e.target.value
+                                                province: e.target.value,
                                             })
                                         }
-                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2focus:ring-orange-100"
                                     />
 
-                                </div>
-
-
-
-
-                                <div className="space-y-1.5">
-
-                                    <label className="text-xs text-slate-600">
-                                        รหัสไปรษณีย์
-                                    </label>
-
-
                                     <input
-                                        placeholder="เช่น 56000"
+                                        className="border rounded-xl p-3"
+                                        placeholder="รหัสไปรษณีย์"
                                         value={formAddress.postalCode}
                                         onChange={(e) =>
                                             setFormAddress({
                                                 ...formAddress,
-                                                postalCode: e.target.value
+                                                postalCode: e.target.value,
                                             })
                                         }
-                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 "
                                     />
 
                                 </div>
 
+                                <input
+                                    className="w-full border rounded-xl p-3"
+                                    placeholder="ป้ายกำกับ เช่น บ้าน / ที่ทำงาน"
+                                    value={formAddress.label}
+                                    onChange={(e) =>
+                                        setFormAddress({
+                                            ...formAddress,
+                                            label: e.target.value,
+                                        })
+                                    }
+                                />
 
                             </div>
 
+                            <div className="flex justify-end gap-3 mt-6">
+
+                                <button
+                                    onClick={() => setOpenModal(false)}
+                                    className="px-5 py-2 rounded-xl bg-gray-100"
+                                >
+                                    ยกเลิก
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        if (formAddress.id) {
+                                            updateAddress(formAddress);
+                                        } else {
+                                            createAddress();
+                                        }
+                                    }}
+                                    className="px-5 py-2 rounded-xl bg-orange-500 text-white"
+                                >
+                                    บันทึก
+                                </button>
+
+                            </div>
 
                         </div>
-
-
-
-                        <div className="flex justify-end gap-3 mt-6">
-
-
-                            <button
-                                onClick={() => {
-                                    setOpenModal(false)
-                                }}
-                                className="px-5 py-2 rounded-xl bg-gray-100 "
-                            >
-                                ยกเลิก
-                            </button>
-
-
-
-                            <button
-                                onClick={() => {
-
-                                    if (editingAddress) {
-                                        updateAddress(formAddress);
-                                    }
-                                    else {
-                                        createAddress();
-                                    }
-
-                                    setOpenModal(false);
-
-                                }}
-                                className="px-5 py-2 rounded-xl bg-orange-500 text-white "
-                            >
-                                บันทึก
-                            </button>
-
-
-                        </div>
-
 
                     </div>
+                )}
 
-                </div>
-
-            )}
+            </div>
         </div>
-
     );
+
 }

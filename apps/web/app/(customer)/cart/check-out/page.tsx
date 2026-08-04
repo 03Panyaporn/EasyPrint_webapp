@@ -16,6 +16,11 @@ import { checkoutCart } from "@/lib/api/cart";
 import { uploadFile } from "@/lib/api/uploads";
 import { getMe } from "@/lib/api/auth";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
+import {
+    getAddresses,
+    createAddress as createAddressApi,
+    type Address
+} from "@/lib/api/addresses";
 
 
 export default function CheckoutPage() {
@@ -24,11 +29,12 @@ export default function CheckoutPage() {
     const searchParams = useSearchParams();
     const itemsParam = searchParams.get("items");
     const [agreeTerms, setAgreeTerms] = useState(false);
-
     const router = useRouter();
     const selectedIds =
         itemsParam?.split(",").filter(Boolean) ?? [];
-
+    const [addresses, setAddresses] = useState<Address[]>([]);
+    const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+    const [openAddressModal, setOpenAddressModal] = useState(false);
     const [cart, setCart] = useState<Cart | null>(null);
     const [loading, setLoading] = useState(true);
     const [slip, setSlip] = useState<File | null>(null);
@@ -65,6 +71,31 @@ export default function CheckoutPage() {
 
             setLoading(false);
         }
+        async function loadAddress() {
+
+            const result = await getAddresses();
+
+            const sorted = [...result.addresses].sort(
+                (a, b) => Number(b.isDefault) - Number(a.isDefault)
+            );
+
+
+            setAddresses(sorted);
+
+
+            const defaultAddress =
+                sorted.find(x => x.isDefault);
+
+
+            if (defaultAddress) {
+                setSelectedAddress(defaultAddress);
+            }
+
+        }
+
+
+        loadProfile();
+        loadAddress();
 
         loadCart();
     }, [itemsParam]);
@@ -86,7 +117,6 @@ export default function CheckoutPage() {
         (sum, item) => sum + item.lineTotal,
         0
     );
-
 
     const total = subtotal + cart.deliveryFee;
     return (
@@ -279,28 +309,208 @@ export default function CheckoutPage() {
                         <h2 className=" text-lg">
                             ที่อยู่จัดส่ง
                         </h2>
-                        <Link
-                            href="/profile"
+                        <button
+                            onClick={() => setOpenAddressModal(true)}
                             className="
-                                text-orange-500
-                                flex
-                                items-center
-                            "
+text-orange-500
+flex
+items-center
+"
                         >
                             เปลี่ยน
                             <ArrowRight size={16} />
-                        </Link>
+                        </button>
                     </div>
-                    <p className="mt-3 font-medium">
-                        {profile
-                            ? `${profile.firstname} ${profile.lastname}`
-                            : "กำลังโหลด..."}
-                    </p>
-                    <p className="text-gray-600 whitespace-pre-line">
-                        {profile?.address || "ยังไม่ได้เพิ่มที่อยู่"}
-                    </p>
+                    {selectedAddress ? (
+
+                        <div className="mt-3">
+
+                            <p className="font-medium">
+                                {selectedAddress.receiverName}
+                            </p>
+
+
+                            <p>
+                                {selectedAddress.phone}
+                            </p>
+
+
+                            <p className="text-gray-600">
+                                {selectedAddress.address}
+                            </p>
+
+
+                            <p className="text-gray-600">
+                                {selectedAddress.subdistrict}
+                                {" "}
+                                {selectedAddress.district}
+                            </p>
+
+
+                            <p className="text-gray-600">
+                                {selectedAddress.province}
+                                {" "}
+                                {selectedAddress.postalCode}
+                            </p>
+
+                        </div>
+
+                    )
+                        :
+                        (
+                            <p className="text-gray-500">
+                                ยังไม่ได้เพิ่มที่อยู่
+                            </p>
+                        )}
                 </section>
             }
+            {openAddressModal && (
+
+                <div
+                    className="
+fixed inset-0
+bg-black/40
+flex
+items-center
+justify-center
+z-50
+"
+                    onClick={() => setOpenAddressModal(false)}
+                >
+
+
+                    <div
+                        className="
+bg-white
+rounded-3xl
+p-6
+w-full
+max-w-lg
+"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+
+
+                        <h2 className="
+text-xl
+font-semibold
+mb-5
+text-orange-500
+">
+                            เลือกที่อยู่จัดส่ง
+                        </h2>
+
+
+
+                        <div className="space-y-3">
+
+
+                            {addresses.map(item => (
+
+
+                                <button
+                                    key={item.id}
+                                    onClick={() => {
+
+                                        setSelectedAddress(item);
+                                        setOpenAddressModal(false);
+
+                                    }}
+
+                                    className={`
+w-full
+text-left
+border
+rounded-2xl
+p-4
+
+${selectedAddress?.id === item.id
+                                            ? "border-orange-500 bg-orange-50"
+                                            : ""
+                                        }
+
+`}
+                                >
+
+
+                                    <div className="flex justify-between">
+
+
+                                        <p className="font-semibold">
+
+                                            {item.receiverName}
+
+                                        </p>
+
+
+                                        {
+                                            item.isDefault &&
+                                            <span
+                                                className="
+text-xs
+bg-green-100
+text-green-600
+px-2
+py-1
+rounded-full
+"
+                                            >
+                                                ที่อยู่หลัก
+                                            </span>
+                                        }
+
+
+                                    </div>
+
+
+                                    <p>
+                                        {item.phone}
+                                    </p>
+
+
+                                    <p className="text-gray-600">
+                                        {item.address}
+                                    </p>
+
+
+                                    <p className="text-gray-600">
+
+                                        {item.province}
+
+                                    </p>
+
+
+                                </button>
+
+
+                            ))}
+
+
+
+                        </div>
+
+
+
+                        <button
+                            onClick={() => router.push("/profile")}
+                            className="
+mt-5
+w-full
+py-3
+rounded-xl
+bg-orange-500
+text-white
+"
+                        >
+                            + เพิ่มที่อยู่ใหม่
+                        </button>
+
+
+                    </div>
+
+                </div>
+
+            )}
             {/* QR */}
             <section className="
                 bg-orange-50
@@ -455,10 +665,9 @@ export default function CheckoutPage() {
                                 {
                                     slipUrl: upload.path,
 
-                                    deliveryAddress:
-                                        cart.deliveryOption
-                                            ? "ที่อยู่ลูกค้า"
-                                            : undefined,
+                                    deliveryAddress: selectedAddress
+                                        ? JSON.stringify(selectedAddress)
+                                        : undefined,
                                 }
                             );
 
