@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-08T00:00:00Z",
+  "title": "Design System: EasyPrint",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Printer Flame",
+        "canonical": "#F46A2F",
+        "tonalRamp": ["#3d1508", "#6b2410", "#a03a18", "#c94e22", "#F46A2F", "#f88e68", "#fbbfa3", "#fdeee5"]
+      },
+      "primary-light": {
+        "role": "primary",
+        "displayName": "Warm Amber",
+        "canonical": "#FFB273",
+        "tonalRamp": ["#4a2500", "#7a3d00", "#b85d00", "#e07820", "#FFB273", "#ffd0a5", "#ffe8cc", "#fff5eb"]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Flame Deep",
+        "canonical": "#E05B22",
+        "tonalRamp": ["#380f02", "#621c08", "#9c2f12", "#cc461c", "#E05B22", "#e98a60", "#f2bba2", "#fae5d8"]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Print Shop Aqua",
+        "canonical": "#4bc5e0",
+        "tonalRamp": ["#062830", "#0d4d5e", "#187d99", "#2da8c6", "#4bc5e0", "#82d9ed", "#b8ecf5", "#e4f7fb"]
+      },
+      "secondary-soft": {
+        "role": "secondary",
+        "displayName": "Aqua Mist",
+        "canonical": "#96f2eb",
+        "tonalRamp": ["#053230", "#0a5752", "#148e87", "#2dc2ba", "#5edad4", "#96f2eb", "#c4f9f6", "#e6fdfb"]
+      },
+      "secondary-dark": {
+        "role": "secondary",
+        "displayName": "Teal Confirm",
+        "canonical": "#14b8a6",
+        "tonalRamp": ["#042b28", "#0a4f49", "#0e8079", "#12a89a", "#14b8a6", "#4dd5c8", "#9eeae3", "#d5f5f2"]
+      },
+      "accent-emerald": {
+        "role": "tertiary",
+        "displayName": "Go Green",
+        "canonical": "#10b981",
+        "tonalRamp": ["#052e1d", "#0a5436", "#0d8056", "#10a872", "#10b981", "#34cfa1", "#80e5c6", "#c4f3e5"]
+      },
+      "accent-amber": {
+        "role": "tertiary",
+        "displayName": "Rating Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["#3b2000", "#6b3e00", "#a06000", "#d08600", "#f59e0b", "#f8bc50", "#fad98a", "#fdf0c4"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#f8fafc",
+        "tonalRamp": ["#0f172a", "#1e293b", "#475569", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9", "#f8fafc"]
+      },
+      "neutral-text": {
+        "role": "neutral",
+        "displayName": "Ink Navy",
+        "canonical": "#1e293b",
+        "tonalRamp": ["#0a0f1a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#f1f5f9"]
+      },
+      "neutral-muted": {
+        "role": "neutral",
+        "displayName": "Cloud",
+        "canonical": "#94a3b8",
+        "tonalRamp": ["#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f8fafc"]
+      },
+      "error": {
+        "role": "neutral",
+        "displayName": "Danger Red",
+        "canonical": "#ef4444",
+        "tonalRamp": ["#3f0808", "#7f1212", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fee2e2"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines: page title บน landing, wordmark บน auth panel" },
+      "headline": { "displayName": "Headline", "purpose": "ชื่อร้านค้าใน card listing, modal headings" },
+      "title": { "displayName": "Title", "purpose": "Section headings, navbar brand, card section labels" },
+      "body": { "displayName": "Body", "purpose": "Descriptions, addresses, times, general copy" },
+      "label": { "displayName": "Label", "purpose": "Chip text, badge text, filter labels, input labels" }
+    },
+    "shadows": [
+      { "name": "rest-whisper", "value": "0 1px 2px rgba(0,0,0,0.05)", "purpose": "Card ที่ rest — เกือบมองไม่เห็น" },
+      { "name": "hover-lift", "value": "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)", "purpose": "Shop card และ role selector on hover" },
+      { "name": "nav-float", "value": "0 1px 3px rgba(0,0,0,0.08)", "purpose": "Sticky navbar" },
+      { "name": "modal-presence", "value": "0 25px 50px -12px rgba(0,0,0,0.25)", "purpose": "Dialog และ modal overlays" },
+      { "name": "auth-card-warm", "value": "0 25px 60px -15px rgba(15,23,42,0.15), 0 10px 28px -10px rgba(244,106,47,0.15)", "purpose": "Login form card — signature bi-layer shadow พร้อม orange glow" }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "ease-in-out", "purpose": "Default transition สำหรับ color/shadow/border state changes" },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Hover state transitions บน chips และ buttons" },
+      { "name": "duration-standard", "value": "200ms", "purpose": "Input focus transition, card hover" },
+      { "name": "duration-slow", "value": "300ms", "purpose": "Button transform transitions" },
+      { "name": "float-slow", "value": "10s ease-in-out infinite alternate", "purpose": "Decorative sphere float บน auth panel" }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px", "purpose": "Mobile → tablet: แสดง desktop filter dropdowns, auth buttons, ซ่อน mobile drawer" },
+      { "name": "lg", "value": "1024px", "purpose": "Tablet → desktop: เปิด 2-column shop grid, auth split layout" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA หลักทุกตัว: เข้าสู่ระบบ, สั่งซื้อ, ยืนยัน ใช้ Printer Flame บน white/slate",
+      "html": "<button class=\"ds-btn-primary\">เข้าสู่ระบบ</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; background-color: #F46A2F; color: #ffffff; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 0.875rem; font-weight: 700; border-radius: 9999px; padding: 14px 24px; border: none; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(244,106,47,0.2), 0 4px 6px -4px rgba(244,106,47,0.2); transition: background-color 200ms ease-in-out, transform 300ms ease-in-out, box-shadow 200ms ease-in-out; } .ds-btn-primary:hover { background-color: #E05B22; transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(244,106,47,0.25), 0 8px 10px -6px rgba(244,106,47,0.2); } .ds-btn-primary:active { transform: translateY(0); } .ds-btn-primary:focus-visible { outline: 2px solid #F46A2F; outline-offset: 2px; }"
+    },
+    {
+      "name": "Gradient CTA Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Gradient variant สำหรับ navbar 'สมัครสมาชิก' — สีไล่จาก orange ไป amber",
+      "html": "<button class=\"ds-btn-gradient\">สมัครสมาชิก</button>",
+      "css": ".ds-btn-gradient { display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(to right, #f97316, #f59e0b); color: #ffffff; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 9999px; padding: 8px 24px; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: background 200ms, transform 200ms, box-shadow 200ms; } .ds-btn-gradient:hover { background: linear-gradient(to right, #ea6a00, #d97706); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.15); } .ds-btn-gradient:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }"
+    },
+    {
+      "name": "Disabled Button",
+      "kind": "button",
+      "refersTo": "button-disabled",
+      "description": "State ของ button เมื่อ form validation ยังไม่ผ่าน",
+      "html": "<button class=\"ds-btn-disabled\" disabled>กำลังดำเนินการ...</button>",
+      "css": ".ds-btn-disabled { display: inline-flex; align-items: center; justify-content: center; background-color: #cbd5e1; color: #ffffff; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 0.875rem; font-weight: 700; border-radius: 9999px; padding: 14px 24px; border: none; cursor: not-allowed; box-shadow: none; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Input field สำหรับ email, password, text — pill shape พร้อม icon prefix",
+      "html": "<div class=\"ds-input-wrapper\"><svg class=\"ds-input-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c0-4 3.6-7 8-7s8 3 8 7\"/></svg><input class=\"ds-input-field\" type=\"email\" placeholder=\"example@email.com\" /></div>",
+      "css": ".ds-input-wrapper { position: relative; } .ds-input-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: #94a3b8; pointer-events: none; } .ds-input-field { width: 100%; padding: 14px 16px 14px 44px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9999px; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 0.875rem; color: #1e293b; transition: border-color 200ms, box-shadow 200ms; outline: none; } .ds-input-field::placeholder { color: #94a3b8; } .ds-input-field:focus { border-color: #F46A2F; box-shadow: 0 0 0 1px #F46A2F; }"
+    },
+    {
+      "name": "Teal Select",
+      "kind": "input",
+      "refersTo": "chip-teal",
+      "description": "Filter dropdown ใช้ Aqua Mist background แทน default browser select style",
+      "html": "<div class=\"ds-select-wrapper\"><select class=\"ds-select-field\"><option>ทั้งหมด</option><option>รับเอง</option><option>ร้านจัดส่งให้</option></select><svg class=\"ds-select-arrow\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"6 9 12 15 18 9\"/></svg></div>",
+      "css": ".ds-select-wrapper { position: relative; } .ds-select-field { width: 100%; padding: 10px 40px 10px 16px; background-color: rgba(150,242,235,0.6); color: #1e293b; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 0.875rem; font-weight: 700; border-radius: 9999px; border: none; appearance: none; cursor: pointer; transition: background-color 150ms; outline: none; } .ds-select-field:hover { background-color: #82e5dd; } .ds-select-field:focus-visible { box-shadow: 0 0 0 2px #14b8a6; } .ds-select-arrow { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #475569; pointer-events: none; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip-teal",
+      "description": "Chip ตัวกรองใน mobile quick-tap bar — มี unselected (teal mist) และ selected (teal confirm) state",
+      "html": "<div style=\"display:flex;gap:8px;\"><button class=\"ds-chip\">รับเอง</button><button class=\"ds-chip ds-chip--selected\">ร้านจัดส่งให้</button><button class=\"ds-chip ds-chip--orange\">ทั้งหมด</button></div>",
+      "css": ".ds-chip { padding: 6px 14px; border-radius: 9999px; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 0.75rem; font-weight: 700; border: none; cursor: pointer; transition: background-color 150ms, color 150ms; background-color: rgba(150,242,235,0.6); color: #1e293b; } .ds-chip:hover { background-color: #82e5dd; } .ds-chip--selected { background-color: #14b8a6; color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); } .ds-chip--orange { background-color: #f97316; color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }"
+    },
+    {
+      "name": "Shop Card",
+      "kind": "card",
+      "refersTo": "card-shop",
+      "description": "Card รายการร้านค้าใน marketplace listing — orange border, image thumbnail, row layout",
+      "html": "<a class=\"ds-shop-card\" href=\"#\"><div class=\"ds-shop-card__image\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" style=\"width:40px;height:40px;color:#94a3b8;\"><path d=\"M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3\"/></svg></div><div class=\"ds-shop-card__body\"><div class=\"ds-shop-card__header\"><h3 class=\"ds-shop-card__name\">ร้านพิมพ์ใจดี</h3><span class=\"ds-badge ds-badge--open\"><span class=\"ds-badge__dot\"></span>เปิดทำการ</span></div><span class=\"ds-chip\" style=\"font-size:11px;\">งานเอกสาร, โปสเตอร์</span><div class=\"ds-shop-card__meta\"><span>📍 มหาวิทยาลัยอุบลราชธานี</span><span>⏰ 08:00 – 17:00</span></div></div></a>",
+      "css": ".ds-shop-card { display: flex; flex-direction: row; gap: 16px; padding: 16px; background-color: #ffffff; border: 2px solid #fdba74; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); text-decoration: none; transition: border-color 150ms, box-shadow 150ms; cursor: pointer; } .ds-shop-card:hover { border-color: #fb923c; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); } .ds-shop-card__image { width: 96px; height: 96px; background: linear-gradient(135deg, #e2e8f0, #cbd5e1); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; transition: transform 150ms; } .ds-shop-card:hover .ds-shop-card__image { transform: scale(1.02); } .ds-shop-card__body { flex: 1; display: flex; flex-direction: column; gap: 6px; overflow: hidden; } .ds-shop-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; } .ds-shop-card__name { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 900; color: #f97316; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; } .ds-shop-card__meta { display: flex; flex-direction: column; gap: 4px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; color: #475569; } .ds-badge { display: inline-flex; align-items: center; gap: 4px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.625rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; flex-shrink: 0; } .ds-badge--open { background-color: #10b981; color: #ffffff; } .ds-badge--closed { background-color: #94a3b8; color: #ffffff; } .ds-badge__dot { width: 6px; height: 6px; border-radius: 50%; background-color: #ffffff; animation: ds-pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; } @keyframes ds-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }"
+    },
+    {
+      "name": "Sticky Navbar",
+      "kind": "nav",
+      "refersTo": "button-primary",
+      "description": "Header navigation ที่ sticky ประกอบด้วย logo + brand name + auth buttons",
+      "html": "<header class=\"ds-navbar\"><a class=\"ds-navbar__logo\" href=\"#\"><div class=\"ds-navbar__logo-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width:18px;height:18px;\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-7.5 4.5h.008v.008h-.008V15Z\" /></svg></div><span class=\"ds-navbar__wordmark\">EASY<span>PRINT</span></span></a><a class=\"ds-navbar__signup\" href=\"#\">สมัครสมาชิก</a></header>",
+      "css": ".ds-navbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background-color: rgba(255,255,255,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.08); } .ds-navbar__logo { display: flex; align-items: center; gap: 8px; text-decoration: none; } .ds-navbar__logo-icon { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #f97316, #f59e0b); display: flex; align-items: center; justify-content: center; color: #ffffff; box-shadow: 0 4px 6px rgba(249,115,22,0.25); transition: transform 200ms; } .ds-navbar__logo:hover .ds-navbar__logo-icon { transform: scale(1.05); } .ds-navbar__wordmark { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1.25rem; font-weight: 900; color: #f97316; letter-spacing: -0.02em; } .ds-navbar__signup { background: linear-gradient(to right, #f97316, #f59e0b); color: #ffffff; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 9999px; padding: 8px 24px; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: background 200ms, transform 200ms; } .ds-navbar__signup:hover { background: linear-gradient(to right, #ea6a00, #d97706); transform: translateY(-1px); }"
+    },
+    {
+      "name": "Status Badge (Open/Closed)",
+      "kind": "chip",
+      "refersTo": "badge-open",
+      "description": "Real-time open/closed status indicator บน shop cards",
+      "html": "<div style=\"display:flex;gap:8px;align-items:center;\"><span class=\"ds-status ds-status--open\"><span class=\"ds-status__dot\"></span>เปิดทำการ</span><span class=\"ds-status ds-status--closed\"><span class=\"ds-status__dot\"></span>ปิดทำการ</span></div>",
+      "css": ".ds-status { display: inline-flex; align-items: center; gap: 4px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.6875rem; font-weight: 700; padding: 4px 10px; border-radius: 9999px; } .ds-status--open { background-color: #10b981; color: #ffffff; } .ds-status--closed { background-color: #94a3b8; color: #ffffff; } .ds-status__dot { width: 6px; height: 6px; border-radius: 50%; background-color: #ffffff; } .ds-status--open .ds-status__dot { animation: ds-pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; } @keyframes ds-pulse { 0%,100%{opacity:1}50%{opacity:.4} }"
+    },
+    {
+      "name": "Register Modal",
+      "kind": "custom",
+      "refersTo": "card-shop",
+      "description": "Role-selection modal ที่ popup เมื่อ user คลิก 'สมัครสมาชิก' — 2 card options (ลูกค้า/ร้านค้า)",
+      "html": "<div class=\"ds-modal-backdrop\"><div class=\"ds-modal\"><h2 class=\"ds-modal__title\">สมัครสมาชิก</h2><p class=\"ds-modal__subtitle\">คุณต้องการสมัครในฐานะอะไร?</p><div class=\"ds-modal__grid\"><a class=\"ds-role-card ds-role-card--teal\" href=\"#\"><div class=\"ds-role-card__icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width:28px;height:28px;\"><path d=\"M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z\"/></svg></div><p class=\"ds-role-card__title\">ลูกค้า</p><p class=\"ds-role-card__desc\">สั่งพิมพ์งานออนไลน์</p><span class=\"ds-role-card__cta ds-role-card__cta--teal\">เลือก</span></a><a class=\"ds-role-card ds-role-card--orange\" href=\"#\"><div class=\"ds-role-card__icon ds-role-card__icon--orange\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width:28px;height:28px;\"><path d=\"M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z\"/></svg></div><p class=\"ds-role-card__title\">ร้านค้า</p><p class=\"ds-role-card__desc\">รับออเดอร์ออนไลน์</p><span class=\"ds-role-card__cta ds-role-card__cta--orange\">เลือก</span></a></div></div></div>",
+      "css": ".ds-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 16px; } .ds-modal { background: #ffffff; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); padding: 28px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; } .ds-modal__title { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1.25rem; font-weight: 900; color: #f97316; text-align: center; margin: 0; } .ds-modal__subtitle { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; color: #94a3b8; text-align: center; margin: 0; } .ds-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } .ds-role-card { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px; border: 2px solid #e2e8f0; border-radius: 16px; text-decoration: none; transition: border-color 150ms, box-shadow 150ms, transform 150ms; text-align: center; } .ds-role-card--teal:hover { border-color: #14b8a6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transform: translateY(-4px); } .ds-role-card--orange:hover { border-color: #fb923c; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transform: translateY(-4px); } .ds-role-card__icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background-color: #ccfbf1; color: #14b8a6; transition: background-color 150ms, color 150ms; } .ds-role-card--teal:hover .ds-role-card__icon { background-color: #14b8a6; color: #ffffff; } .ds-role-card__icon--orange { background-color: #ffedd5; color: #f97316; } .ds-role-card--orange:hover .ds-role-card__icon--orange { background-color: #f97316; color: #ffffff; } .ds-role-card__title { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 900; color: #1e293b; margin: 0; } .ds-role-card__desc { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.6875rem; color: #94a3b8; margin: 0; } .ds-role-card__cta { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; } .ds-role-card__cta--teal { color: #14b8a6; } .ds-role-card__cta--orange { color: #f97316; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Warm Express Lane",
+    "overview": "EasyPrint's design language marries warmth with efficiency — the visual equivalent of a friendly shop counter where the queue moves fast. The palette pairs sun-baked orange (#F46A2F) with cool aqua-teal (#4bc5e0/#96f2eb) to signal both the heat of a printer and the calm of a task completed. Everything is round: inputs are pills, cards have generous curves, buttons never have a sharp edge. The overall feel is immediately approachable.\n\nTypography leans heavily on ultra-bold weights (font-black, 900) for headings, which gives each screen a confident, legible anchor even on small mobile viewports. Body copy and metadata stay medium-weight and modest, so the hierarchy is unmistakable at a glance.\n\nThe anti-reference is the overloaded enterprise dashboard: too many columns, too much chrome, no breathing room. EasyPrint trades density for clarity.",
+    "keyCharacteristics": [
+      "Round-everything form language (pills and 2xl/3xl radius on all interactive elements)",
+      "Two-tone warmth: orange primary + aqua-teal secondary",
+      "Ultra-bold headings that anchor screens without needing large type sizes",
+      "Shadows used as motion feedback, not as decorative depth",
+      "Bright semantic colors for status (emerald = open, slate = closed, amber = stars)"
+    ],
+    "rules": [
+      { "name": "The Two-Tone Balance Rule", "body": "ห้ามใช้ orange และ teal ในพื้นที่ใกล้เคียงกันในน้ำหนักที่เท่ากัน เลือกอย่างใดอย่างหนึ่งเป็นตัวนำในแต่ละ section เสมอ", "section": "colors" },
+      { "name": "The Semantic Color Lock Rule", "body": "Go Green (#10b981) สงวนไว้สำหรับ 'เปิดทำการ' เท่านั้น Danger Red (#ef4444) สงวนไว้สำหรับ error/destructive actions เท่านั้น", "section": "colors" },
+      { "name": "The Weight Anchor Rule", "body": "ทุกหน้าต้องมีอย่างน้อยหนึ่ง element ที่ใช้ font-black (900) เพื่อเป็น visual anchor ห้าม screen ที่มีแต่ font-medium ทั้งหมด", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surface อยู่ที่ rest จะ flat หรือ shadow-xs เท่านั้น Shadow เพิ่มขึ้นเมื่อ interact ห้าม apply shadow-lg บน element ที่ไม่ interactive", "section": "elevation" },
+      { "name": "The Round-Everything Rule", "body": "ห้ามใช้ border-radius ที่น้อยกว่า 8px กับ interactive elements (buttons, inputs, chips, cards) ทุกตัว", "section": "shapes" }
+    ],
+    "dos": [
+      "Do ใช้ font-weight 900 (font-black) สำหรับ page heading หรือ section anchor ทุก screen",
+      "Do ใช้ border-radius: 9999px กับ buttons, inputs, chips, badges ทุกตัว",
+      "Do ใช้ shadow เพื่อสื่อถึง interaction state (rest = flat/shadow-xs, hover = shadow-md, modal = shadow-2xl)",
+      "Do ใช้ Aqua Mist (#96f2eb) เป็นพื้นหลัง chip/select ที่ยังไม่ถูกเลือก และ Teal Confirm (#14b8a6) เมื่อ selected",
+      "Do ให้ orange เป็นสีนำบน white/slate surfaces — ทุก CTA สำคัญต้องเป็น Printer Flame (#F46A2F)",
+      "Do รักษา border-2 สำหรับ shop card เพื่อให้ orange border มองเห็นได้ชัดเจนบน white background"
+    ],
+    "donts": [
+      "Don't ใช้ sharp corners (border-radius < 8px) กับ interactive element ใดๆ",
+      "Don't ใช้ Go Green (#10b981) หรือ Danger Red (#ef4444) นอกจาก status badge และ error message ตามลำดับ",
+      "Don't overlay orange กับ teal ในน้ำหนักที่เท่ากันในพื้นที่เดียวกัน",
+      "Don't สร้าง UI ที่มี sidebar navigation, collapsible panels, หรือ deep nesting",
+      "Don't ใช้สี gray-only หรือ monotone สำหรับ surface หลัก — ต้องมี orange หรือ teal เป็น accent อยู่เสมอ",
+      "Don't duplicate auth panel's split-screen + floating sphere pattern ไปยัง screens อื่น"
+    ]
+  }
+}

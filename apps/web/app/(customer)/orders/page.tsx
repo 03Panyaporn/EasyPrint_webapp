@@ -54,7 +54,7 @@ export default function CustomerOrdersPage() {
           </div>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition"
           >
             ค้นหาร้านถ่ายเอกสาร
           </Link>

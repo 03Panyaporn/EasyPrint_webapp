@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Store, Truck, MapPin, CheckCircle2, Clock, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Store, Truck, AlertCircle } from "lucide-react";
 import { getOrder, type ApiOrder } from "@/lib/api/orders";
 import { getShop } from "@/lib/api/shops";
 import { statusConfig, cancelReasonLabels } from "@/components/shop/orders/statusConfig";
@@ -54,7 +54,7 @@ export default function OrderStatusPage({ params }: { params: { orderId: string 
         </div>
         <Link
           href="/orders"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition"
         >
           <ArrowLeft size={16} /> กลับไปยังประวัติสั่งพิมพ์
         </Link>
