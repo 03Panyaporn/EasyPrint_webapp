@@ -10,6 +10,8 @@ import {
   FileText,
   Search,
   Package,
+  Ruler,
+  Tag,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -23,11 +25,11 @@ const PRICING_MODEL_LABEL: Record<PricingModel, string> = {
   fixed: "เหมาจ่าย",
 };
 
-const PRICING_MODEL_ICON: Record<PricingModel, string> = {
-  per_page: "📄",
-  per_piece: "📦",
-  per_sqm: "📏",
-  fixed: "🏷️",
+const PRICING_MODEL_ICON: Record<PricingModel, typeof FileText> = {
+  per_page: FileText,
+  per_piece: Package,
+  per_sqm: Ruler,
+  fixed: Tag,
 };
 
 const STATUS_BADGE = {
@@ -172,9 +174,10 @@ export default function MainServicesList({
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
-                      <span className="text-4xl opacity-40">
-                        {PRICING_MODEL_ICON[service.pricingModel]}
-                      </span>
+                      {(() => {
+                        const Icon = PRICING_MODEL_ICON[service.pricingModel];
+                        return <Icon size={36} className="text-orange-300" strokeWidth={1.5} />;
+                      })()}
                     </div>
                   )}
                   {/* Status badge overlay */}
@@ -212,8 +215,8 @@ export default function MainServicesList({
                       aria-label="เปิดใช้งาน/แบบร่าง"
                     >
                       <span
-                        className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform ${
-                          service.isActive ? "translate-x-[1.25rem]" : "translate-x-0.5"
+                        className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform ${
+                          service.isActive ? "translate-x-[1.125rem]" : "translate-x-0"
                         }`}
                       />
                     </button>
@@ -244,6 +247,12 @@ export default function MainServicesList({
                         ฿{service.basePrice}/{service.unit}
                       </span>
                     )}
+                  </div>
+
+                  {/* จำนวน Option / จำนวนบริการเสริม — ตัวเลขชัดเจนตาม spec */}
+                  <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                    <span>Option: {service.options.length} หัวข้อ</span>
+                    <span>บริการเสริม: {addOnNames.length} รายการ</span>
                   </div>
 
                   {/* Options chips */}

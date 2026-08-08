@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { FileText, Loader2, Upload, CheckCircle2, XCircle } from "lucide-react";
-import { calculateLineItem, type ScopedAmount, type PricingModel } from "@easyprint/shared";
+import { FileText, Loader2, Upload, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { buildLineItemBreakdown, type ScopedAmount, type PricingModel } from "@easyprint/shared";
 import type { WizardFormData } from "./ServiceBuilderWizard";
 import type { AddOnService, AllowedFileType } from "../types";
 
@@ -22,13 +22,24 @@ function getExtension(fileName: string): string {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
 }
 
-// นับหน้าไฟล์ PDF จริงฝั่ง browser เท่านั้น — ไม่มีการอัปโหลดขึ้น storage เพราะเป็นแค่ทดสอบราคาให้ร้านดู
-async function countPdfPages(file: File): Promise<number> {
+// อ่านไฟล์ PDF จริงฝั่ง browser เท่านั้น — ไม่มีการอัปโหลดขึ้น storage เพราะเป็นแค่ทดสอบราคา/หน้าตาให้ร้านดู
+async function loadPdf(file: File) {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const bytes = await file.arrayBuffer();
-  const pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
-  return pdfDoc.numPages;
+  return pdfjsLib.getDocument({ data: bytes }).promise;
+}
+
+async function renderPdfPageThumbnail(pdfDoc: import("pdfjs-dist").PDFDocumentProxy, pageNum: number) {
+  const page = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 1.2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas not supported");
+  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+  return canvas.toDataURL("image/png");
 }
 
 export default function Step6Preview({
@@ -46,11 +57,27 @@ export default function Step6Preview({
   const [fileError, setFileError] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [rawPageCount, setRawPageCount] = useState(0);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [thumbnailPage, setThumbnailPage] = useState(1);
+  const [pdfDoc, setPdfDoc] = useState<import("pdfjs-dist").PDFDocumentProxy | null>(null);
+
+  const goToThumbnailPage = async (pageNum: number) => {
+    if (!pdfDoc || pageNum < 1 || pageNum > rawPageCount) return;
+    setThumbnailPage(pageNum);
+    try {
+      setThumbnailUrl(await renderPdfPageThumbnail(pdfDoc, pageNum));
+    } catch {
+      // ไม่ critical — แค่พรีวิว
+    }
+  };
 
   const handleFileSelect = async (selected: File | null) => {
     setFile(selected);
     setFileError("");
     setRawPageCount(0);
+    setThumbnailUrl(null);
+    setPdfDoc(null);
+    setThumbnailPage(1);
     if (!selected) return;
 
     const ext = getExtension(selected.name) as AllowedFileType;
@@ -66,8 +93,10 @@ export default function Step6Preview({
       }
       setPdfLoading(true);
       try {
-        const count = await countPdfPages(selected);
-        setRawPageCount(count);
+        const doc = await loadPdf(selected);
+        setPdfDoc(doc);
+        setRawPageCount(doc.numPages);
+        setThumbnailUrl(await renderPdfPageThumbnail(doc, 1));
       } catch {
         setFileError("ไม่สามารถอ่านไฟล์ PDF นี้ได้ — ไฟล์อาจเสียหาย");
       } finally {
@@ -95,46 +124,55 @@ export default function Step6Preview({
   const [widthCm, setWidthCm] = useState<number | "">(100);
   const [heightCm, setHeightCm] = useState<number | "">(100);
 
-  const totalPrice = useMemo(() => {
-    if (pricingMode === "quantity_tier") {
-      const tier = data.step2.quantityTiers.find((t) => selections["qty_tier"] === String(t.minQty));
-      return tier?.unitPrice ?? 0;
-    }
+  const breakdown = useMemo(() => {
+    if (pricingMode === "quantity_tier") return null;
 
     const basePrice = data.step3.colorTiers[0]?.pricePerUnit ?? (typeof data.step2.basePrice === "number" ? data.step2.basePrice : 0);
     const selectedColorTier = data.step3.colorTiers.find((c) => c.label === selections["color"]);
 
     const optionDeltas: ScopedAmount[] = data.step3.options
-      .map((opt) => {
+      .map((opt): ScopedAmount | null => {
         const val = opt.values.find((v) => v.name === selections[opt.name]);
-        return val ? { scope: val.priceScope, amount: val.extraPrice } : null;
+        return val ? { scope: val.priceScope, amount: val.extraPrice, label: val.name } : null;
       })
       .filter((d): d is ScopedAmount => d !== null);
 
     const addOnCharges: ScopedAmount[] = selectedPreviewAddOns
-      .map((id) => {
+      .map((id): ScopedAmount | null => {
         const ao = availableAddOns.find((a) => a.id === id);
-        return ao ? { scope: ao.scope, amount: ao.price } : null;
+        return ao ? { scope: ao.scope, amount: ao.price, label: ao.name } : null;
       })
       .filter((d): d is ScopedAmount => d !== null);
 
-    const result = calculateLineItem({
-      pricingModel,
-      basePrice,
-      colorTierPricePerUnit: selectedColorTier?.pricePerUnit,
-      quantity,
-      pageCountingMode: "by_file_page",
-      rawPageCount,
-      widthCm: typeof widthCm === "number" ? widthCm : 0,
-      heightCm: typeof heightCm === "number" ? heightCm : 0,
-      minArea: typeof data.step2.minArea === "number" ? data.step2.minArea : undefined,
-      areaRoundingIncrement: typeof data.step2.areaRoundingIncrement === "number" ? data.step2.areaRoundingIncrement : 0.1,
-      quantityTiers: data.step2.quantityTiers.map((t) => ({ ...t, maxQty: t.maxQty ?? null })),
+    return buildLineItemBreakdown(
+      {
+        pricingModel,
+        basePrice,
+        colorTierPricePerUnit: selectedColorTier?.pricePerUnit,
+        quantity,
+        pageCountingMode: data.step2.pageCountingMode,
+        rawPageCount,
+        widthCm: typeof widthCm === "number" ? widthCm : 0,
+        heightCm: typeof heightCm === "number" ? heightCm : 0,
+        minArea: typeof data.step2.minArea === "number" ? data.step2.minArea : undefined,
+        areaRoundingIncrement: typeof data.step2.areaRoundingIncrement === "number" ? data.step2.areaRoundingIncrement : 0.1,
+        quantityTiers: data.step2.quantityTiers.map((t) => ({ ...t, maxQty: t.maxQty ?? null })),
+        optionDeltas,
+        addOnCharges,
+      },
       optionDeltas,
       addOnCharges,
-    });
-    return result.lineTotal;
+      selectedColorTier ? selectedColorTier.label : data.step3.colorTiers.length > 0 ? data.step3.colorTiers[0].label : undefined
+    );
   }, [data, selections, selectedPreviewAddOns, availableAddOns, pricingModel, pricingMode, quantity, rawPageCount, widthCm, heightCm]);
+
+  const quantityTierPrice = useMemo(() => {
+    if (pricingMode !== "quantity_tier") return 0;
+    const tier = data.step2.quantityTiers.find((t) => selections["qty_tier"] === String(t.minQty));
+    return tier?.unitPrice ?? 0;
+  }, [pricingMode, data.step2.quantityTiers, selections]);
+
+  const totalPrice = pricingMode === "quantity_tier" ? quantityTierPrice : (breakdown?.lineTotal ?? 0);
 
   const modeLabel = {
     per_page: "หน้า",
@@ -142,6 +180,8 @@ export default function Step6Preview({
     per_sqm: "ตร.ม.",
     quantity_tier: "ชุด",
   }[pricingMode];
+
+  const unitLabel = { per_page: "แผ่น", per_sqm: "ตร.ม.", per_piece: "", quantity_tier: "" }[pricingMode];
 
   return (
     <div className="space-y-6">
@@ -213,6 +253,39 @@ export default function Step6Preview({
                 <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
                   <CheckCircle2 size={12} /> นามสกุลไฟล์ผ่านเงื่อนไขที่ตั้งไว้
                 </p>
+              )}
+
+              {/* PDF Thumbnail */}
+              {thumbnailUrl && (
+                <div className="mt-3 rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="aspect-[3/4] bg-gray-100 flex items-center justify-center max-h-64">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={thumbnailUrl} alt="พรีวิวหน้า PDF" className="max-w-full max-h-full object-contain" />
+                  </div>
+                  {rawPageCount > 1 && (
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-white">
+                      <button
+                        type="button"
+                        onClick={() => goToThumbnailPage(thumbnailPage - 1)}
+                        disabled={thumbnailPage <= 1}
+                        className="p-1 rounded-lg text-gray-500 disabled:opacity-30 hover:bg-gray-100"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="text-xs font-semibold text-gray-600">
+                        หน้า {thumbnailPage} / {rawPageCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => goToThumbnailPage(thumbnailPage + 1)}
+                        disabled={thumbnailPage >= rawPageCount}
+                        className="p-1 rounded-lg text-gray-500 disabled:opacity-30 hover:bg-gray-100"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -372,6 +445,34 @@ export default function Step6Preview({
                     );
                   })}
               </div>
+            </div>
+          )}
+
+          {/* ── สูตรการคำนวณราคา (breakdown) ── */}
+          {breakdown && (breakdown.rows.length > 0 || breakdown.perItemRows.length > 0) && (
+            <div className="pt-3 border-t border-dashed border-gray-200 space-y-1">
+              <p className="text-xs font-semibold text-gray-500 mb-1.5">สูตรการคำนวณราคา</p>
+              {breakdown.rows.map((r, i) => (
+                <div key={`row-${i}`} className="flex items-center justify-between text-xs text-gray-600">
+                  <span>
+                    {r.label} {r.rate.toLocaleString()} × {r.quantity.toLocaleString()}
+                    {unitLabel ? ` ${unitLabel}` : ""}
+                  </span>
+                  <span className="font-medium">{r.subtotal.toLocaleString()}</span>
+                </div>
+              ))}
+              {breakdown.copies > 1 && breakdown.rows.length > 0 && (
+                <div className="flex items-center justify-between text-xs text-gray-500 italic">
+                  <span>รวมต่อชุด {breakdown.perCopySubtotal.toLocaleString()} × {breakdown.copies} ชุด</span>
+                  <span>{(breakdown.perCopySubtotal * breakdown.copies).toLocaleString()}</span>
+                </div>
+              )}
+              {breakdown.perItemRows.map((r, i) => (
+                <div key={`flat-${i}`} className="flex items-center justify-between text-xs text-gray-600">
+                  <span>{r.label}</span>
+                  <span className="font-medium">{r.subtotal.toLocaleString()}</span>
+                </div>
+              ))}
             </div>
           )}
 

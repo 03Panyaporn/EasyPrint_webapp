@@ -28,6 +28,12 @@ function isUniqueViolation(err: unknown): boolean {
   return typeof err === "object" && err !== null && (err as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
 }
 
+// Postgres foreign_key_violation — เช็คตอนลบ addon ที่ยังถูกอ้างอิงอยู่ใน cart_item_addons (ไม่มี ON DELETE CASCADE ตั้งใจไว้ เพราะไม่อยากลบของในตะกร้าลูกค้าแบบเงียบๆ)
+const POSTGRES_FOREIGN_KEY_VIOLATION = "23503";
+function isForeignKeyViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === POSTGRES_FOREIGN_KEY_VIOLATION;
+}
+
 // เช็คว่า request มี JWT ที่ login เป็น shop_owner ของร้าน :shopId นี้จริง ก่อนให้แก้ไข/ลบข้อมูล
 // คืน { error } object ถ้าไม่ผ่าน (พร้อมตั้ง set.status ให้แล้ว) หรือ null ถ้าผ่าน — ตรวจสอบสิทธิ์แบบเดียวกับที่ /auth/me ใช้อ่าน cookie
 // export ไว้ให้ routes/orders.ts เรียกใช้ร่วมด้วย กันเขียนลอจิกตรวจสิทธิ์ซ้ำ
@@ -551,10 +557,20 @@ export const servicesRoutes = new Elysia()
 
     // ON DELETE CASCADE บน main_service_addons + service_options (+ service_option_values ต่อเนื่อง)
     // + service_color_tiers + service_quantity_tiers ลบข้อมูลที่ผูกกับบริการนี้ให้อัตโนมัติ
-    const [deleted] = await db
-      .delete(mainServices)
-      .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
-      .returning();
+    // แต่ cart_items ไม่มี CASCADE (ตั้งใจ กันลบของในตะกร้าลูกค้าแบบเงียบๆ) — ถ้ามีตะกร้าอ้างอิงอยู่ Postgres จะ throw foreign_key_violation
+    let deleted: typeof mainServices.$inferSelect | undefined;
+    try {
+      [deleted] = await db
+        .delete(mainServices)
+        .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
+        .returning();
+    } catch (err) {
+      if (isForeignKeyViolation(err)) {
+        set.status = 400;
+        return { error: "ไม่สามารถลบได้ เนื่องจากมีลูกค้าเพิ่มบริการนี้ไว้ในตะกร้าอยู่ กรุณาปิดใช้งานแทนการลบ" };
+      }
+      throw err;
+    }
 
     if (!deleted) {
       set.status = 404;
@@ -661,16 +677,25 @@ export const servicesRoutes = new Elysia()
     if (authError) return authError;
 
     // ON DELETE CASCADE บน main_service_addons ลบ binding ที่บริการหลักอื่นผูกไว้กับบริการเสริมนี้ให้อัตโนมัติ
-    const [deleted] = await db
-      .delete(addOnServices)
-      .where(and(eq(addOnServices.id, params.id), eq(addOnServices.shopId, params.shopId)))
-      .returning();
+    // แต่ cart_item_addons ไม่มี CASCADE (ตั้งใจ กันลบของในตะกร้าลูกค้าแบบเงียบๆ) — ถ้ามีตะกร้าอ้างอิงอยู่ Postgres จะ throw foreign_key_violation
+    try {
+      const [deleted] = await db
+        .delete(addOnServices)
+        .where(and(eq(addOnServices.id, params.id), eq(addOnServices.shopId, params.shopId)))
+        .returning();
 
-    if (!deleted) {
-      set.status = 404;
-      return { error: "ไม่พบบริการเสริมนี้" };
+      if (!deleted) {
+        set.status = 404;
+        return { error: "ไม่พบบริการเสริมนี้" };
+      }
+      return { addOn: serializeAddOnService(deleted) };
+    } catch (err) {
+      if (isForeignKeyViolation(err)) {
+        set.status = 400;
+        return { error: "ไม่สามารถลบได้ เนื่องจากมีลูกค้าเพิ่มบริการเสริมนี้ไว้ในตะกร้าอยู่ กรุณาปิดใช้งานแทนการลบ" };
+      }
+      throw err;
     }
-    return { addOn: serializeAddOnService(deleted) };
   })
 
   // ── ตัวเลือกการจัดส่ง ────────────────────────

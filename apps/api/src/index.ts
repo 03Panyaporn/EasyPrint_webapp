@@ -8,6 +8,7 @@ import { adminRoutes } from "./routes/admin";
 import { shopsRoutes } from "./routes/shops";
 import { ordersRoutes } from "./routes/orders";
 import { cartRoutes } from "./routes/cart";
+import { addressRoutes } from "./routes/addresses";
 
 const isProd = process.env.NODE_ENV === "production";
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "http://localhost:3000";
@@ -24,6 +25,7 @@ const app = new Elysia()
   .use(shopsRoutes)
   .use(ordersRoutes)
   .use(cartRoutes)
+  .use(addressRoutes)
 
   // ห้ามใช้ 3000 เป็นค่า default เพราะ Next.js (apps/web) ก็ใช้พอร์ตนี้เป็นค่าเริ่มต้นเหมือนกัน
   // บน Windows ทั้งสองฝั่ง bind พอร์ตเดียวกันได้แบบไม่ error (คนละ address family, IPv4 vs IPv6)

@@ -48,7 +48,8 @@ function LoginForm() {
     setIsSubmitting(true);
     try {
       const { user } = await login({ email, password, rememberMe });
-      router.push(redirectTo ?? ROLE_HOME[user.role] ?? "/");
+      // replace แทน push — ไม่งั้นหน้า login จะค้างอยู่ใน history ใต้หน้าที่ redirect ไป กด "ย้อนกลับ" แล้วเจอฟอร์ม login (หน้าที่ยังไม่ได้ล็อกอิน) อีกรอบ
+      router.replace(redirectTo ?? ROLE_HOME[user.role] ?? "/");
       router.refresh();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

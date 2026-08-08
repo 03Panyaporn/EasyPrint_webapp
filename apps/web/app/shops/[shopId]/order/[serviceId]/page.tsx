@@ -18,6 +18,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
+import { isShopOpenNow } from "@/lib/shopHours";
 import { getMainServices, getAddOnServices } from "@/lib/api/services";
 import { addCartItem } from "@/lib/api/cart";
 import { uploadFile } from "@/lib/api/uploads";
@@ -168,6 +169,8 @@ function OrderBuilderForm({
 }) {
   const router = useRouter();
   const pricingModel = mainService.pricingModel;
+  // ร้านปิดอยู่ตอนนี้ (นอกเวลาทำการ) — ลูกค้ายังดูรายละเอียด/ราคาได้ตามปกติ แค่สั่งพิมพ์/เพิ่มลงตะกร้าไม่ได้
+  const shopClosed = !isShopOpenNow(shop.openingHours);
 
   // ── ตัวเลือกของบริการ (dynamic options) ──
   // dropdown/radio/checkbox เก็บเป็น valueId, number/text เก็บเป็นข้อความดิบ — คีย์ตาม option.id ทั้งหมด
@@ -387,7 +390,6 @@ function OrderBuilderForm({
       }
     }
     if (quantity === "" || Number(quantity) < 1) errs.quantity = "กรุณากรอกจำนวนอย่างน้อย 1";
-    if (mainService.requiresFileUpload && !file) errs.file = pricingModel === "per_page" ? "กรุณาอัปโหลดไฟล์ PDF" : "กรุณาอัปโหลดไฟล์งานพิมพ์";
     if (pricingModel === "per_page" && file && pdfError) errs.file = pdfError;
 
     setErrors(errs);
@@ -397,6 +399,10 @@ function OrderBuilderForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setNeedsLogin(false);
+    if (shopClosed) {
+      setErrors({ submit: "ร้านนี้ปิดทำการอยู่ขณะนี้ ไม่สามารถสั่งพิมพ์ได้ กรุณากลับมาใหม่ตอนร้านเปิด" });
+      return;
+    }
     if (!validate()) return;
 
     setIsSubmitting(true);
@@ -501,7 +507,16 @@ function OrderBuilderForm({
 
       <form id="order-form" onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 py-5 lg:py-8">
         <h1 className="text-lg sm:text-xl font-black text-slate-800 mb-1">{mainService.name}</h1>
-        {mainService.description && <p className="text-sm text-slate-500 mb-5">{mainService.description}</p>}
+        {mainService.description && <p className="text-sm text-slate-500 mb-3">{mainService.description}</p>}
+
+        {shopClosed && (
+          <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600">
+            <AlertTriangle size={16} className="text-slate-400 shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm">
+              ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายละเอียดและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
           {/* ── ฟอร์มหลัก ── */}
@@ -599,45 +614,43 @@ function OrderBuilderForm({
               </FieldCard>
             )}
 
-            {/* อัปโหลดไฟล์ */}
-            {mainService.requiresFileUpload && (
-              <FieldCard label={pricingModel === "per_page" ? "ไฟล์งานพิมพ์ (PDF)" : "ไฟล์งานพิมพ์"} required>
-                <label className="block border-2 border-dashed border-slate-200 rounded-xl p-5 text-center hover:border-orange-400 transition-colors cursor-pointer bg-slate-50/50">
-                  <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-                  {file ? (
-                    <p className="text-sm text-slate-700 font-semibold flex items-center justify-center gap-1.5">
-                      <FileText size={16} className="text-orange-500" /> {file.name}
+            {/* อัปโหลดไฟล์ — ไม่บังคับ ลูกค้าแนบได้ถ้าต้องการ (per_page ยังต้องแนบเพื่อให้ระบบนับหน้า/คำนวณราคาได้ แต่ไม่บล็อกการเพิ่มลงตะกร้า) */}
+            <FieldCard label={pricingModel === "per_page" ? "ไฟล์งานพิมพ์ (PDF)" : "ไฟล์งานพิมพ์ (ไม่บังคับ)"}>
+              <label className="block border-2 border-dashed border-slate-200 rounded-xl p-5 text-center hover:border-orange-400 transition-colors cursor-pointer bg-slate-50/50">
+                <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                {file ? (
+                  <p className="text-sm text-slate-700 font-semibold flex items-center justify-center gap-1.5">
+                    <FileText size={16} className="text-orange-500" /> {file.name}
+                  </p>
+                ) : (
+                  <>
+                    <Upload size={22} className="mx-auto text-slate-400 mb-1.5" />
+                    <p className="text-sm text-slate-600 font-medium">
+                      คลิกเพื่ออัปโหลด {pricingModel === "per_page" ? "(PDF เท่านั้น)" : `(${mainService.allowedFileTypes.join(", ").toUpperCase()})`}
                     </p>
-                  ) : (
-                    <>
-                      <Upload size={22} className="mx-auto text-slate-400 mb-1.5" />
-                      <p className="text-sm text-slate-600 font-medium">
-                        คลิกเพื่ออัปโหลด {pricingModel === "per_page" ? "(PDF เท่านั้น)" : `(${mainService.allowedFileTypes.join(", ").toUpperCase()})`}
-                      </p>
-                    </>
-                  )}
-                </label>
-                {errors.file && <p className="text-xs text-red-500 mt-1.5">{errors.file}</p>}
+                  </>
+                )}
+              </label>
+              {errors.file && <p className="text-xs text-red-500 mt-1.5">{errors.file}</p>}
 
-                {/* พรีวิวบนมือถือ แสดงต่อจากช่องอัปโหลดเลย (บนจอใหญ่ใช้คอลัมน์ขวาแทน) */}
-                <div className="lg:hidden mt-3">
-                  <PreviewPanel
-                    pricingModel={pricingModel}
-                    file={file}
-                    pdfLoading={pdfLoading}
-                    pdfError={pdfError}
-                    pdfPreviewUrl={pdfPreviewUrl}
-                    pdfPageCount={pdfPageCount}
-                    pdfCurrentPage={pdfCurrentPage}
-                    pdfPaperSizeLabel={pdfPaperSizeLabel}
-                    goToPdfPage={goToPdfPage}
-                    areaPreviewUrl={areaPreviewUrl}
-                    widthCm={widthCm}
-                    heightCm={heightCm}
-                  />
-                </div>
-              </FieldCard>
-            )}
+              {/* พรีวิวบนมือถือ แสดงต่อจากช่องอัปโหลดเลย (บนจอใหญ่ใช้คอลัมน์ขวาแทน) */}
+              <div className="lg:hidden mt-3">
+                <PreviewPanel
+                  pricingModel={pricingModel}
+                  file={file}
+                  pdfLoading={pdfLoading}
+                  pdfError={pdfError}
+                  pdfPreviewUrl={pdfPreviewUrl}
+                  pdfPageCount={pdfPageCount}
+                  pdfCurrentPage={pdfCurrentPage}
+                  pdfPaperSizeLabel={pdfPaperSizeLabel}
+                  goToPdfPage={goToPdfPage}
+                  areaPreviewUrl={areaPreviewUrl}
+                  widthCm={widthCm}
+                  heightCm={heightCm}
+                />
+              </div>
+            </FieldCard>
 
             {mainService.availableAddOns.length > 0 && (
               <FieldCard label="บริการเสริม">
@@ -699,32 +712,36 @@ function OrderBuilderForm({
             {/* ปุ่ม submit บนจอใหญ่ (มือถือใช้แถบ sticky ด้านล่างแทน) */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || shopClosed}
               className="hidden lg:flex w-full items-center justify-center gap-1.5 py-3.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 rounded-xl shadow-md shadow-orange-200 transition"
             >
               {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-              {isUploading ? "กำลังอัปโหลดไฟล์..." : isSubmitting ? "กำลังเพิ่ม..." : `เพิ่มลงตะกร้า · ฿${previewTotal.toLocaleString()}`}
+              {shopClosed
+                ? "ร้านปิดอยู่ขณะนี้"
+                : isUploading
+                  ? "กำลังอัปโหลดไฟล์..."
+                  : isSubmitting
+                    ? "กำลังเพิ่ม..."
+                    : `เพิ่มลงตะกร้า · ฿${previewTotal.toLocaleString()}`}
             </button>
           </div>
 
           {/* ── พรีวิวคอลัมน์ขวา (จอใหญ่เท่านั้น) ── */}
           <div className="hidden lg:block order-1 lg:order-2 lg:sticky lg:top-20 space-y-4">
-            {mainService.requiresFileUpload && (
-              <PreviewPanel
-                pricingModel={pricingModel}
-                file={file}
-                pdfLoading={pdfLoading}
-                pdfError={pdfError}
-                pdfPreviewUrl={pdfPreviewUrl}
-                pdfPageCount={pdfPageCount}
-                pdfCurrentPage={pdfCurrentPage}
-                pdfPaperSizeLabel={pdfPaperSizeLabel}
-                goToPdfPage={goToPdfPage}
-                areaPreviewUrl={areaPreviewUrl}
-                widthCm={widthCm}
-                heightCm={heightCm}
-              />
-            )}
+            <PreviewPanel
+              pricingModel={pricingModel}
+              file={file}
+              pdfLoading={pdfLoading}
+              pdfError={pdfError}
+              pdfPreviewUrl={pdfPreviewUrl}
+              pdfPageCount={pdfPageCount}
+              pdfCurrentPage={pdfCurrentPage}
+              pdfPaperSizeLabel={pdfPaperSizeLabel}
+              goToPdfPage={goToPdfPage}
+              areaPreviewUrl={areaPreviewUrl}
+              widthCm={widthCm}
+              heightCm={heightCm}
+            />
 
             <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-1.5 text-sm">
               <div className="flex justify-between text-slate-600">
@@ -746,11 +763,11 @@ function OrderBuilderForm({
         <button
           type="submit"
           form="order-form"
-          disabled={isSubmitting}
+          disabled={isSubmitting || shopClosed}
           className="px-6 py-3 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 rounded-full shadow-md shadow-orange-200 transition flex items-center gap-1.5 shrink-0"
         >
           {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-          {isUploading ? "กำลังอัปโหลด..." : isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มลงตะกร้า"}
+          {shopClosed ? "ร้านปิดอยู่" : isUploading ? "กำลังอัปโหลด..." : isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มลงตะกร้า"}
         </button>
       </div>
 
