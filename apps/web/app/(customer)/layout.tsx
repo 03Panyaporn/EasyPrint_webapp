@@ -36,7 +36,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             href="/Dashboard"
             className={`font-bold pb-0.5 text-base transition ${pathname === "/Dashboard"
               ? "text-orange-500 border-b-2 border-orange-500"
-              : "text-gray-700 hover:text-orange-500"
+              : "text-slate-700 hover:text-orange-500"
               }`}
           >
             หน้าหลัก
@@ -45,7 +45,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             href="/status"
             className={`font-bold pb-0.5 text-base transition ${pathname.startsWith("/status")
               ? "text-orange-500 border-b-2 border-orange-500"
-              : "text-gray-700 hover:text-orange-500"
+              : "text-slate-700 hover:text-orange-500"
               }`}
           >
             ติดตามสถานะ
@@ -54,7 +54,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             href="/message"
             className={`font-bold pb-0.5 text-base transition ${pathname.startsWith("/message")
               ? "text-orange-500 border-b-2 border-orange-500"
-              : "text-gray-700 hover:text-orange-500"
+              : "text-slate-700 hover:text-orange-500"
               }`}
           >
             แชท
@@ -63,7 +63,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             href="/messageadmin"
             className={`font-bold pb-0.5 text-base transition ${pathname.startsWith("/messageadmin")
               ? "text-orange-500 border-b-2 border-orange-500"
-              : "text-gray-700 hover:text-orange-500"
+              : "text-slate-700 hover:text-orange-500"
               }`}
           >
             ติดต่อแอดมิน
@@ -96,7 +96,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         <div className="sm:hidden flex items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl text-slate-700 hover:text-orange-500 hover:bg-orange-50 transition focus:outline-none"
+            className="p-2 rounded-xl text-slate-700 hover:text-orange-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             aria-label="Toggle Mobile Menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -177,7 +177,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setLogoutOpen(false)}
-                className="px-4 py-2 rounded-xl border border-gray-300 hover:bg-gray-100"
+                className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
               >
                 ยกเลิก
               </button>
@@ -191,7 +191,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
 
                   router.push("/");
                 }}
-                className="px-4 py-2 rounded-xl bg-orange-500 text-white hover:bg-orange-600"
+                className="px-4 py-2 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 ออกจากระบบ
               </button>
