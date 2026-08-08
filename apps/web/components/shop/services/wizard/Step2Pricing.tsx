@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, FileText, Package, Maximize2, Hash } from "lucide-react";
-import type { ColorTier, QuantityTier } from "../types";
+import type { ColorTier, PageCountingMode, QuantityTier } from "../types";
 
 export type PricingMode = "per_page" | "per_piece" | "per_sqm" | "quantity_tier";
 
@@ -13,6 +13,7 @@ export interface Step2Data {
   areaRoundingIncrement: number | "";
   colorTiers: ColorTier[];
   quantityTiers: QuantityTier[];
+  pageCountingMode: PageCountingMode;
 }
 
 const PRICING_CARDS: {
@@ -102,6 +103,11 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
       hasOverlappingQuantityTiers(data.quantityTiers)
     ) {
       errs.quantityTiers = "ช่วงจำนวนของราคาขั้นบันไดห้ามทับซ้อนกัน กรุณาตรวจสอบ";
+    } else if (
+      (data.pricingMode === "per_piece" || data.pricingMode === "quantity_tier") &&
+      data.quantityTiers.some((t) => t.unitPrice <= 0)
+    ) {
+      errs.quantityTiers = "ราคาขั้นบันไดทุกช่วงต้องมากกว่า 0 บาท";
     }
 
     setErrors(errs);
@@ -185,6 +191,46 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
         <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100">
           <p className="text-xs text-orange-700">
             💡 ราคาพื้นฐาน{data.pricingMode === "per_page" ? " (ขาวดำ)" : ""} ตั้งได้ในขั้นตอนถัดไป &quot;ตัวเลือกสินค้า&quot; (ส่วนสี)
+          </p>
+        </div>
+      )}
+
+      {/* ── Per Page: วิธีนับหน้า — สี(ColorTier) คิดตามหน้าจริงเสมอ ตัวเลขนี้กระทบแค่ Option/บริการเสริมที่ราคาต่อแผ่น (ขนาดกระดาษ/ประเภทกระดาษ/รูปแบบการพิมพ์) ── */}
+      {data.pricingMode === "per_page" && (
+        <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100 space-y-3">
+          <h3 className="text-sm font-semibold text-orange-800">วิธีนับจำนวนหน้า</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => update({ pageCountingMode: "by_file_page" })}
+              className={`p-3 rounded-xl border-2 text-left transition-all ${
+                data.pageCountingMode === "by_file_page"
+                  ? "border-orange-400 bg-white shadow-sm"
+                  : "border-orange-100 bg-white/60 hover:border-orange-200"
+              }`}
+            >
+              <p className={`text-xs font-semibold ${data.pageCountingMode === "by_file_page" ? "text-orange-700" : "text-gray-700"}`}>
+                นับตามหน้าไฟล์ (ค่าเริ่มต้น)
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1">1 หน้าในไฟล์ = 1 หน้า เช่น ไฟล์ 10 หน้า พิมพ์หน้าเดียว = 10 หน้า</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => update({ pageCountingMode: "by_sheet" })}
+              className={`p-3 rounded-xl border-2 text-left transition-all ${
+                data.pageCountingMode === "by_sheet"
+                  ? "border-orange-400 bg-white shadow-sm"
+                  : "border-orange-100 bg-white/60 hover:border-orange-200"
+              }`}
+            >
+              <p className={`text-xs font-semibold ${data.pageCountingMode === "by_sheet" ? "text-orange-700" : "text-gray-700"}`}>
+                นับตามแผ่นกระดาษ
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1">พิมพ์หน้า-หลัง 2 หน้าไฟล์ = 1 แผ่น เช่น ไฟล์ 10 หน้า พิมพ์หน้าหลัง = 5 แผ่น</p>
+            </button>
+          </div>
+          <p className="text-[11px] text-orange-700">
+            💡 ผลต่างมีแค่ราคา &quot;กระดาษ/ขนาด/รูปแบบการพิมพ์&quot; (ตัวเลือกที่ราคาต่อแผ่น) เท่านั้น — ค่าสีคิดตามจำนวนหน้าที่พิมพ์จริงเสมอ ไม่ว่าจะเลือกโหมดไหน
           </p>
         </div>
       )}

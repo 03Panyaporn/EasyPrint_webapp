@@ -15,6 +15,7 @@ export interface QuantityTierRule {
 export interface ScopedAmount {
   scope: PriceScope;
   amount: number;
+  label?: string; // ใช้แสดงผล breakdown เท่านั้น (เช่น Preview) ไม่มีผลต่อการคำนวณราคา
 }
 
 // by_sheet = พิมพ์สองหน้า ปัดขึ้นครึ่งหนึ่งเสมอ (11 หน้า → 6 แผ่น) ห้ามปัดลง
@@ -63,7 +64,8 @@ export interface CalculateLineItemInput {
 }
 
 export interface CalculateLineItemResult {
-  billedPages?: number;
+  billedPages?: number; // จำนวน "แผ่น" ที่นับได้ตาม page_counting_mode — ใช้คูณกับ option/add-on ที่ price_scope=per_page เท่านั้น
+  rawPageCount?: number; // จำนวน "หน้า" จริงจากไฟล์ (ไม่ปัดตาม page_counting_mode) — ใช้คูณกับราคาสี (ColorTier/basePrice) เสมอ
   billedArea?: number;
   baseUnitRate: number;
   perCopyAmount: number; // ราคาต่อ 1 ชุด/ชิ้น (รวม option/addon ที่ scope ตรงกับหน่วยคิดราคาของ pricing model นี้แล้ว)
@@ -79,17 +81,33 @@ export function calculateLineItem(input: CalculateLineItemInput): CalculateLineI
   const perItemFlat = sumByScope(optionDeltas, "per_item") + sumByScope(addOnCharges, "per_item");
 
   if (input.pricingModel === "per_page") {
-    const billedPages = countBilledPages(input.rawPageCount ?? 0, input.pageCountingMode ?? "by_file_page");
+    const rawPageCount = input.rawPageCount ?? 0;
+    const billedPages = countBilledPages(rawPageCount, input.pageCountingMode ?? "by_file_page");
     const baseUnitRate = input.colorTierPricePerUnit ?? input.basePrice;
+    // สี (ColorTier/basePrice) คิดตาม "หน้า" จริงเสมอ (ไม่ปัดตาม page_counting_mode) — หมึกใช้ตามจำนวนหน้าที่พิมพ์จริง
+    const colorAmount = baseUnitRate * rawPageCount;
+    // กระดาษ/ขนาด/รูปแบบการพิมพ์ (option ที่ price_scope=per_page) คิดตาม "แผ่น" ที่นับได้ — กระดาษซื้อเป็นแผ่น ไม่ใช่หน้า
     const perPageSum = sumByScope(optionDeltas, "per_page") + sumByScope(addOnCharges, "per_page");
-    const perCopyAmount = (baseUnitRate + perPageSum) * billedPages;
-    return { billedPages, baseUnitRate, perCopyAmount, perItemFlat, lineTotal: perCopyAmount * input.quantity + perItemFlat };
+    const optionAmount = perPageSum * billedPages;
+    const perCopyAmount = colorAmount + optionAmount;
+    return {
+      billedPages,
+      rawPageCount,
+      baseUnitRate,
+      perCopyAmount,
+      perItemFlat,
+      lineTotal: perCopyAmount * input.quantity + perItemFlat,
+    };
   }
 
   if (input.pricingModel === "per_piece") {
-    // QuantityTier (ถ้ามีและ match) เป็นตัวกำหนด base rate แทน ColorTier/basePrice ไปเลย — ไม่ผสมกัน (ดู assumption ใน plan)
+    // QuantityTier (ถ้ามีและ match) เป็นตัวกำหนด base rate แทน basePrice — แต่ราคาสีที่เลือกยังบวกเพิ่มเสมอ ไม่ถูกแทนที่จนหายไป
+    // คิดราคาสีเป็น "ส่วนต่าง" จาก basePrice (ขาวดำ) แล้วบวกทับบนราคาขั้นบันได เช่น ขั้นบันได ฿2.5, สี +฿1 (จาก basePrice) → ฿3.5/ชิ้น
     const tierRate = input.quantityTiers?.length ? findQuantityTierUnitPrice(input.quantity, input.quantityTiers) : undefined;
-    const baseUnitRate = tierRate ?? input.colorTierPricePerUnit ?? input.basePrice;
+    const baseUnitRate =
+      tierRate != null
+        ? tierRate + (input.colorTierPricePerUnit != null ? input.colorTierPricePerUnit - input.basePrice : 0)
+        : (input.colorTierPricePerUnit ?? input.basePrice);
     const perPieceSum = sumByScope(optionDeltas, "per_piece") + sumByScope(addOnCharges, "per_piece");
     const perCopyAmount = baseUnitRate + perPieceSum;
     return { baseUnitRate, perCopyAmount, perItemFlat, lineTotal: perCopyAmount * input.quantity + perItemFlat };
@@ -110,3 +128,65 @@ export function calculateLineItem(input: CalculateLineItemInput): CalculateLineI
 
 // allow-list ของ price_scope ต่อ pricing model อยู่ที่ ../schemas/service.ts (ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL)
 // เพราะ Zod schema ก็ต้องใช้กฎเดียวกัน — import จากที่นั่นแทนที่จะประกาศซ้ำที่นี่ กันสองฝั่ง drift กัน
+
+export interface LineItemBreakdownRow {
+  label: string;
+  rate: number;
+  quantity: number; // ตัวคูณของแถวนี้ (หน้า/แผ่น/ตร.ม./1 แล้วแต่ scope) — 1 = ไม่คูณอะไร (per_item)
+  subtotal: number;
+}
+
+export interface LineItemBreakdown {
+  rows: LineItemBreakdownRow[]; // สี/ตัวเลือก/บริการเสริมที่คูณตามหน่วย (per copy)
+  perItemRows: LineItemBreakdownRow[]; // ตัวที่ price_scope=per_item บวกครั้งเดียว ไม่คูณ quantity (ชุด) ด้วย
+  perCopySubtotal: number; // ผลรวม rows ก่อนคูณ quantity (ชุด)
+  copies: number;
+  lineTotal: number; // ต้องเท่ากับ calculateLineItem(...).lineTotal เป๊ะ (คำนวณจากฟังก์ชันเดียวกัน ไม่ใช่สูตรที่สอง)
+}
+
+// สร้างรายการ breakdown แบบละเอียดต่อรายการ (เช่น "สี 5×10=50") ให้ Preview ใช้แสดงผล
+// เรียก calculateLineItem ภายในเพื่อได้ยอดรวมที่ถูกต้องเป๊ะ (ไม่มีสูตรคำนวณราคาชุดที่สอง) ส่วนนี้แค่ "จัดกลุ่มแสดงผล" ทีละรายการเท่านั้น
+export function buildLineItemBreakdown(
+  input: CalculateLineItemInput,
+  labeledOptionDeltas: ScopedAmount[],
+  labeledAddOnCharges: ScopedAmount[],
+  colorLabel?: string
+): LineItemBreakdown {
+  const result = calculateLineItem({ ...input, optionDeltas: labeledOptionDeltas, addOnCharges: labeledAddOnCharges });
+  const rows: LineItemBreakdownRow[] = [];
+  const perItemRows: LineItemBreakdownRow[] = [];
+
+  const scaledScope: PriceScope | null =
+    input.pricingModel === "per_page" ? "per_page" : input.pricingModel === "per_sqm" ? "per_sqm" : input.pricingModel === "per_piece" ? "per_piece" : null;
+  const scaledQty =
+    input.pricingModel === "per_page"
+      ? result.billedPages ?? 0
+      : input.pricingModel === "per_sqm"
+        ? result.billedArea ?? 0
+        : 1; // per_piece/fixed: ตัวคูณ "ต่อชุด" คือ 1 เพราะ quantity (ชิ้น) ถูกคูณตอน copies อยู่แล้ว
+
+  // แถวสี/ราคาพื้นฐาน — per_page คูณด้วย "หน้า" จริงเสมอ (คนละจำนวนกับ option ที่คูณด้วย "แผ่น")
+  const colorQty = input.pricingModel === "per_page" ? (result.rawPageCount ?? 0) : scaledQty;
+  if (colorLabel) {
+    rows.push({ label: colorLabel, rate: result.baseUnitRate, quantity: colorQty, subtotal: result.baseUnitRate * colorQty });
+  }
+
+  [...labeledOptionDeltas, ...labeledAddOnCharges].forEach((d) => {
+    if (!d.label) return;
+    if (d.scope === "per_item") {
+      perItemRows.push({ label: d.label, rate: d.amount, quantity: 1, subtotal: d.amount });
+    } else if (d.scope === scaledScope) {
+      rows.push({ label: d.label, rate: d.amount, quantity: scaledQty, subtotal: d.amount * scaledQty });
+    }
+  });
+
+  const perCopySubtotal = rows.reduce((sum, r) => sum + r.subtotal, 0);
+
+  return {
+    rows,
+    perItemRows,
+    perCopySubtotal,
+    copies: input.quantity,
+    lineTotal: result.lineTotal,
+  };
+}

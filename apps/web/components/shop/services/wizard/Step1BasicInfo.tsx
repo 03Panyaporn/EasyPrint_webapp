@@ -81,6 +81,7 @@ export default function Step1BasicInfo({ data, onChange, onNext, onBack, mode, o
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[...SERVICE_TEMPLATES, BLANK_TEMPLATE].map((tpl) => {
               const selected = selectedTemplateId === tpl.id;
+              const Icon = tpl.icon;
               return (
                 <button
                   key={tpl.id}
@@ -92,7 +93,7 @@ export default function Step1BasicInfo({ data, onChange, onNext, onBack, mode, o
                       : "border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"
                   }`}
                 >
-                  <span className="text-xl">{tpl.icon}</span>
+                  <Icon size={20} className={selected ? "text-orange-500" : "text-gray-400"} strokeWidth={1.75} />
                   <span className={`text-xs font-semibold ${selected ? "text-orange-700" : "text-gray-700"}`}>{tpl.label}</span>
                   {selected && (
                     <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">

@@ -69,7 +69,7 @@ export const quantityTierSchema = z.object({
   id: z.string().uuid().optional(),
   minQty: z.number().int().positive("จำนวนขั้นต่ำต้องเป็นจำนวนเต็มบวก"),
   maxQty: z.number().int().positive().nullable().optional(), // null/undefined = ไม่จำกัด
-  unitPrice: z.number().nonnegative("ราคาต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
+  unitPrice: z.number().positive("ราคาต้องมากกว่า 0 บาท"), // ขั้นบันไดราคาต้องมีราคาจริง ต่างจาก OptionValue/ColorTier ที่ 0 ได้ (เช่น ราคาพื้นฐานฟรี)
 });
 export type QuantityTierInput = z.infer<typeof quantityTierSchema>;
 

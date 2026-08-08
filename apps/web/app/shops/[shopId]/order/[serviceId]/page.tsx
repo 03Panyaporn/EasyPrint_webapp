@@ -387,7 +387,6 @@ function OrderBuilderForm({
       }
     }
     if (quantity === "" || Number(quantity) < 1) errs.quantity = "กรุณากรอกจำนวนอย่างน้อย 1";
-    if (mainService.requiresFileUpload && !file) errs.file = pricingModel === "per_page" ? "กรุณาอัปโหลดไฟล์ PDF" : "กรุณาอัปโหลดไฟล์งานพิมพ์";
     if (pricingModel === "per_page" && file && pdfError) errs.file = pdfError;
 
     setErrors(errs);
@@ -599,45 +598,43 @@ function OrderBuilderForm({
               </FieldCard>
             )}
 
-            {/* อัปโหลดไฟล์ */}
-            {mainService.requiresFileUpload && (
-              <FieldCard label={pricingModel === "per_page" ? "ไฟล์งานพิมพ์ (PDF)" : "ไฟล์งานพิมพ์"} required>
-                <label className="block border-2 border-dashed border-slate-200 rounded-xl p-5 text-center hover:border-orange-400 transition-colors cursor-pointer bg-slate-50/50">
-                  <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-                  {file ? (
-                    <p className="text-sm text-slate-700 font-semibold flex items-center justify-center gap-1.5">
-                      <FileText size={16} className="text-orange-500" /> {file.name}
+            {/* อัปโหลดไฟล์ — ไม่บังคับ ลูกค้าแนบได้ถ้าต้องการ (per_page ยังต้องแนบเพื่อให้ระบบนับหน้า/คำนวณราคาได้ แต่ไม่บล็อกการเพิ่มลงตะกร้า) */}
+            <FieldCard label={pricingModel === "per_page" ? "ไฟล์งานพิมพ์ (PDF)" : "ไฟล์งานพิมพ์ (ไม่บังคับ)"}>
+              <label className="block border-2 border-dashed border-slate-200 rounded-xl p-5 text-center hover:border-orange-400 transition-colors cursor-pointer bg-slate-50/50">
+                <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                {file ? (
+                  <p className="text-sm text-slate-700 font-semibold flex items-center justify-center gap-1.5">
+                    <FileText size={16} className="text-orange-500" /> {file.name}
+                  </p>
+                ) : (
+                  <>
+                    <Upload size={22} className="mx-auto text-slate-400 mb-1.5" />
+                    <p className="text-sm text-slate-600 font-medium">
+                      คลิกเพื่ออัปโหลด {pricingModel === "per_page" ? "(PDF เท่านั้น)" : `(${mainService.allowedFileTypes.join(", ").toUpperCase()})`}
                     </p>
-                  ) : (
-                    <>
-                      <Upload size={22} className="mx-auto text-slate-400 mb-1.5" />
-                      <p className="text-sm text-slate-600 font-medium">
-                        คลิกเพื่ออัปโหลด {pricingModel === "per_page" ? "(PDF เท่านั้น)" : `(${mainService.allowedFileTypes.join(", ").toUpperCase()})`}
-                      </p>
-                    </>
-                  )}
-                </label>
-                {errors.file && <p className="text-xs text-red-500 mt-1.5">{errors.file}</p>}
+                  </>
+                )}
+              </label>
+              {errors.file && <p className="text-xs text-red-500 mt-1.5">{errors.file}</p>}
 
-                {/* พรีวิวบนมือถือ แสดงต่อจากช่องอัปโหลดเลย (บนจอใหญ่ใช้คอลัมน์ขวาแทน) */}
-                <div className="lg:hidden mt-3">
-                  <PreviewPanel
-                    pricingModel={pricingModel}
-                    file={file}
-                    pdfLoading={pdfLoading}
-                    pdfError={pdfError}
-                    pdfPreviewUrl={pdfPreviewUrl}
-                    pdfPageCount={pdfPageCount}
-                    pdfCurrentPage={pdfCurrentPage}
-                    pdfPaperSizeLabel={pdfPaperSizeLabel}
-                    goToPdfPage={goToPdfPage}
-                    areaPreviewUrl={areaPreviewUrl}
-                    widthCm={widthCm}
-                    heightCm={heightCm}
-                  />
-                </div>
-              </FieldCard>
-            )}
+              {/* พรีวิวบนมือถือ แสดงต่อจากช่องอัปโหลดเลย (บนจอใหญ่ใช้คอลัมน์ขวาแทน) */}
+              <div className="lg:hidden mt-3">
+                <PreviewPanel
+                  pricingModel={pricingModel}
+                  file={file}
+                  pdfLoading={pdfLoading}
+                  pdfError={pdfError}
+                  pdfPreviewUrl={pdfPreviewUrl}
+                  pdfPageCount={pdfPageCount}
+                  pdfCurrentPage={pdfCurrentPage}
+                  pdfPaperSizeLabel={pdfPaperSizeLabel}
+                  goToPdfPage={goToPdfPage}
+                  areaPreviewUrl={areaPreviewUrl}
+                  widthCm={widthCm}
+                  heightCm={heightCm}
+                />
+              </div>
+            </FieldCard>
 
             {mainService.availableAddOns.length > 0 && (
               <FieldCard label="บริการเสริม">
@@ -709,22 +706,20 @@ function OrderBuilderForm({
 
           {/* ── พรีวิวคอลัมน์ขวา (จอใหญ่เท่านั้น) ── */}
           <div className="hidden lg:block order-1 lg:order-2 lg:sticky lg:top-20 space-y-4">
-            {mainService.requiresFileUpload && (
-              <PreviewPanel
-                pricingModel={pricingModel}
-                file={file}
-                pdfLoading={pdfLoading}
-                pdfError={pdfError}
-                pdfPreviewUrl={pdfPreviewUrl}
-                pdfPageCount={pdfPageCount}
-                pdfCurrentPage={pdfCurrentPage}
-                pdfPaperSizeLabel={pdfPaperSizeLabel}
-                goToPdfPage={goToPdfPage}
-                areaPreviewUrl={areaPreviewUrl}
-                widthCm={widthCm}
-                heightCm={heightCm}
-              />
-            )}
+            <PreviewPanel
+              pricingModel={pricingModel}
+              file={file}
+              pdfLoading={pdfLoading}
+              pdfError={pdfError}
+              pdfPreviewUrl={pdfPreviewUrl}
+              pdfPageCount={pdfPageCount}
+              pdfCurrentPage={pdfCurrentPage}
+              pdfPaperSizeLabel={pdfPaperSizeLabel}
+              goToPdfPage={goToPdfPage}
+              areaPreviewUrl={areaPreviewUrl}
+              widthCm={widthCm}
+              heightCm={heightCm}
+            />
 
             <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-1.5 text-sm">
               <div className="flex justify-between text-slate-600">

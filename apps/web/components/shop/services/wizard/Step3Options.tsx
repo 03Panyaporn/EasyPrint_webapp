@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, GripVertical } from "lucide-react";
 import type {
   ServiceOption,
   ServiceOptionValue,
   ColorTier,
   PricingModel,
   PriceScope,
+  PageCountingMode,
   OptionPriceCategory,
   ServiceOptionType,
 } from "../types";
@@ -62,24 +63,31 @@ const DEFAULT_COLOR_TIERS: ColorTier[] = [
   { label: "สี", pricePerUnit: 5 },
 ];
 
-const PRICE_SCOPE_LABELS: Record<PriceScope, string> = {
-  per_item: "ต่อรายการ",
-  per_page: "บาท/หน้า",
-  per_piece: "บาท/ชิ้น",
-  per_sqm: "บาท/ตร.ม.",
-};
+// label ของ per_page ต้องสลับตาม "วิธีนับหน้า" ที่เลือกไว้ใน Step2 — เพราะ Option ที่ scope=per_page คูณด้วย "แผ่นที่นับได้" (billedPages) เสมอ
+// ถ้าเลือกโหมด by_sheet ไว้ Option กลุ่มนี้จะถูกคิดเงินเป็น "ต่อแผ่น" จริงๆ ไม่ใช่ "ต่อหน้า" ตามตัวหนังสือเดิม — ต้องเปลี่ยน label ให้ตรงกับพฤติกรรมจริง กันร้านค้าสับสน
+// (ราคาสี/ColorTier ไม่เกี่ยวกับอันนี้ — สีคิดตามหน้าไฟล์จริงเสมอไม่ว่าจะเลือกโหมดไหน ดู ColorSection ด้านล่างที่ label คงที่ "บาท/หน้า")
+function getPriceScopeLabels(pageCountingMode: PageCountingMode): Record<PriceScope, string> {
+  return {
+    per_item: "ต่อรายการ",
+    per_page: pageCountingMode === "by_sheet" ? "บาท/แผ่น" : "บาท/หน้า",
+    per_piece: "บาท/ชิ้น",
+    per_sqm: "บาท/ตร.ม.",
+  };
+}
 
 const STANDARD_OPTION_NAMES = ["ขนาดกระดาษ", "ประเภทกระดาษ", "รูปแบบการพิมพ์"];
 
 // ─── Single option value row editor ──────────────────────────────────────────
+// priceScope ไม่ให้ตั้งแยกรายค่าอีกต่อไป (เดิมแต่ละแถวเลือกเองได้ ทำให้ค่าในหัวข้อเดียวกัน เช่น A4/A3 ตั้งคนละ scope กันได้ สับสน/ไม่สมเหตุผล)
+// ย้ายไปตั้งครั้งเดียวที่ระดับหัวข้อ (OptionSection) แทน แสดงแค่ label เฉยๆ ตรงนี้
 function ValueRow({
   value,
-  allowedScopes,
+  scopeLabel,
   onChange,
   onRemove,
 }: {
   value: ServiceOptionValue;
-  allowedScopes: PriceScope[];
+  scopeLabel: string;
   onChange: (v: ServiceOptionValue) => void;
   onRemove: () => void;
 }) {
@@ -101,19 +109,7 @@ function ValueRow({
         placeholder="0"
         className="w-20 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25"
       />
-      {allowedScopes.length > 1 ? (
-        <select
-          value={value.priceScope}
-          onChange={(e) => onChange({ ...value, priceScope: e.target.value as PriceScope })}
-          className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/25"
-        >
-          {allowedScopes.map((s) => (
-            <option key={s} value={s}>{PRICE_SCOPE_LABELS[s]}</option>
-          ))}
-        </select>
-      ) : (
-        <span className="text-xs text-gray-400 w-20">{PRICE_SCOPE_LABELS[value.priceScope]}</span>
-      )}
+      <span className="text-xs text-gray-400 w-20 shrink-0">{scopeLabel}</span>
       <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition">
         <Trash2 size={13} />
       </button>
@@ -125,17 +121,22 @@ function ValueRow({
 function OptionSection({
   option,
   pricingModel,
+  pageCountingMode,
   isStandard,
   onChange,
   onRemove,
 }: {
   option: ServiceOption;
   pricingModel: PricingModel;
+  pageCountingMode: PageCountingMode;
   isStandard: boolean;
   onChange: (o: ServiceOption) => void;
   onRemove: () => void;
 }) {
   const allowedScopes = SCOPE_MAP[pricingModel];
+  const scopeLabels = getPriceScopeLabels(pageCountingMode);
+  // ทุกค่าในหัวข้อเดียวกันใช้ scope เดียวกันเสมอ (ตั้งครั้งเดียวระดับหัวข้อ กันตั้งไม่ตรงกันเองรายค่า) — อิงจากค่าแรกที่มีอยู่ ถ้ายังไม่มีค่าเลยใช้ default ของ pricingModel
+  const groupScope: PriceScope = option.values[0]?.priceScope ?? allowedScopes[0];
   const [draftName, setDraftName] = useState("");
 
   const addValue = () => {
@@ -144,7 +145,7 @@ function OptionSection({
     if (option.values.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
     onChange({
       ...option,
-      values: [...option.values, { name, extraPrice: 0, priceScope: allowedScopes[0] }],
+      values: [...option.values, { name, extraPrice: 0, priceScope: groupScope }],
     });
     setDraftName("");
   };
@@ -155,11 +156,17 @@ function OptionSection({
   const updateValue = (i: number, v: ServiceOptionValue) =>
     onChange({ ...option, values: option.values.map((old, idx) => (idx === i ? v : old)) });
 
+  const changeGroupScope = (scope: PriceScope) =>
+    onChange({ ...option, values: option.values.map((v) => ({ ...v, priceScope: scope })) });
+
   return (
     <div className="rounded-2xl border border-gray-200 overflow-hidden">
       {/* Section header */}
       <div className={`flex items-center justify-between px-4 py-3 ${isStandard ? "bg-gray-50" : "bg-orange-50"}`}>
         <div className="flex items-center gap-2">
+          <span title="ลากเพื่อจัดเรียงลำดับ" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition p-0.5 -ml-1">
+            <GripVertical size={15} />
+          </span>
           {isStandard ? (
             <span className="text-sm font-bold text-gray-700">{option.name}</span>
           ) : (
@@ -177,11 +184,25 @@ function OptionSection({
             </span>
           )}
         </div>
-        {!isStandard && (
-          <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition p-1">
-            <Trash2 size={15} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {allowedScopes.length > 1 && (
+            <select
+              value={groupScope}
+              onChange={(e) => changeGroupScope(e.target.value as PriceScope)}
+              title="ขอบเขตราคา ใช้ร่วมกันทุกตัวเลือกในหัวข้อนี้"
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500/25 bg-white"
+            >
+              {allowedScopes.map((s) => (
+                <option key={s} value={s}>{scopeLabels[s]}</option>
+              ))}
+            </select>
+          )}
+          {!isStandard && (
+            <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition p-1">
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Values */}
@@ -190,7 +211,7 @@ function OptionSection({
           <ValueRow
             key={i}
             value={v}
-            allowedScopes={allowedScopes}
+            scopeLabel={scopeLabels[groupScope]}
             onChange={(updated) => updateValue(i, updated)}
             onRemove={() => removeValue(i)}
           />
@@ -300,6 +321,7 @@ interface Step3OptionsProps {
   data: Step3Data;
   pricingMode: PricingMode;
   pricingModel: PricingModel;
+  pageCountingMode: PageCountingMode;
   onChange: (data: Step3Data) => void;
   onNext: () => void;
   onBack: () => void;
@@ -311,6 +333,7 @@ export default function Step3Options({
   data,
   pricingMode,
   pricingModel,
+  pageCountingMode,
   onChange,
   onNext,
   onBack,
@@ -329,6 +352,16 @@ export default function Step3Options({
   }
 
   const [errors, setErrors] = useState<string[]>([]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  // ลากเรียงลำดับ Option Group — backend เก็บลำดับผ่าน sortOrder อยู่แล้ว (ดู writeOptions ฝั่ง services.ts) แค่ต้องส่ง array ตามลำดับใหม่ตอนบันทึก
+  const reorderOptions = (from: number, to: number) => {
+    if (from === to) return;
+    const next = [...data.options];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange({ ...data, options: next });
+  };
 
   const validate = () => {
     const errs: string[] = [];
@@ -385,6 +418,14 @@ export default function Step3Options({
         </p>
       </div>
 
+      {pricingMode === "per_page" && pageCountingMode === "by_sheet" && (
+        <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+          <p className="text-xs text-blue-700">
+            ℹ️ เลือก &quot;นับตามแผ่นกระดาษ&quot; ไว้ในขั้นตอนที่แล้ว — ตัวเลือกที่คิดราคาแบบ &quot;บาท/แผ่น&quot; ด้านล่างจะคูณตามจำนวนแผ่นจริง (ไม่ใช่จำนวนหน้าไฟล์) ส่วนราคาสียังคิดตามจำนวนหน้าไฟล์จริงเหมือนเดิม
+          </p>
+        </div>
+      )}
+
       {/* Color section (only for per_page / per_piece) */}
       {showColor && (
         <ColorSection
@@ -394,18 +435,33 @@ export default function Step3Options({
         />
       )}
 
-      {/* Standard + custom option sections */}
+      {/* Standard + custom option sections — ลากด้วยไอคอนจับที่หัวข้อเพื่อจัดเรียงลำดับ */}
       {data.options.map((opt, i) => {
         const isStandard = STANDARD_OPTION_NAMES.includes(opt.name);
         return (
-          <OptionSection
+          <div
             key={i}
-            option={opt}
-            pricingModel={pricingModel}
-            isStandard={isStandard}
-            onChange={(updated) => updateOption(i, updated)}
-            onRemove={() => removeOption(i)}
-          />
+            draggable
+            onDragStart={() => setDragIndex(i)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragIndex !== null && dragIndex !== i) {
+                reorderOptions(dragIndex, i);
+                setDragIndex(i);
+              }
+            }}
+            onDragEnd={() => setDragIndex(null)}
+            className={dragIndex === i ? "opacity-50" : undefined}
+          >
+            <OptionSection
+              option={opt}
+              pricingModel={pricingModel}
+              pageCountingMode={pageCountingMode}
+              isStandard={isStandard}
+              onChange={(updated) => updateOption(i, updated)}
+              onRemove={() => removeOption(i)}
+            />
+          </div>
         );
       })}
 

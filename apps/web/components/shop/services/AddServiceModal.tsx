@@ -1263,17 +1263,35 @@ export default function AddServiceModal({
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 หน่วยคิดราคา
               </label>
+              {/* บริการเสริมคิดราคาครั้งเดียวเสมอ (scope=per_item ตายตัว ไม่คูณตามจำนวน/หน้า/ตร.ม.) — จำกัดตัวเลือกหน่วยให้เหลือแค่คำที่ไม่สื่อว่าคูณได้ กัน "แผ่น"/"หน้า" ที่ทำให้เข้าใจผิดว่าราคาคูณตามจำนวน
+                  ถ้าบริการเสริมเดิมมี unit นอกชุดนี้อยู่แล้ว (สร้างไว้ก่อนจำกัดตัวเลือก) ให้โชว์เป็นตัวเลือกเสริมไว้ กันข้อมูลเดิมหาย/dropdown ว่าง */}
               <select
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 bg-white"
               >
-                <option value="แผ่น">ต่อแผ่น</option>
-                <option value="เล่ม">ต่อเล่ม</option>
-                <option value="ชิ้น">ต่อชิ้น</option>
-                <option value="หน้า">ต่อหน้า</option>
-                <option value="งาน">ต่องาน</option>
+                {serviceType === "addon" && !["ชิ้น", "เล่ม", "งาน"].includes(unit) && (
+                  <option value={unit}>ต่อ{unit} (เดิม)</option>
+                )}
+                {serviceType === "addon" ? (
+                  <>
+                    <option value="ชิ้น">ต่อชิ้น</option>
+                    <option value="เล่ม">ต่อเล่ม</option>
+                    <option value="งาน">ต่องาน</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="แผ่น">ต่อแผ่น</option>
+                    <option value="เล่ม">ต่อเล่ม</option>
+                    <option value="ชิ้น">ต่อชิ้น</option>
+                    <option value="หน้า">ต่อหน้า</option>
+                    <option value="งาน">ต่องาน</option>
+                  </>
+                )}
               </select>
+              {serviceType === "addon" && (
+                <p className="text-[11px] text-gray-400 mt-1">ราคานี้คิดครั้งเดียวต่อรายการเสมอ ไม่คูณตามจำนวน/หน้า/ขนาด</p>
+              )}
             </div>
           </div>
 

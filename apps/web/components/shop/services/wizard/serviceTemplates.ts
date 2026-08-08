@@ -1,12 +1,14 @@
 // Service Template — สร้าง Default Option/ColorTier/QuantityTier ให้ตามประเภทสินค้าที่ร้านเลือก
 // Template มีหน้าที่ "ตั้งค่าเริ่มต้น" เท่านั้น ไม่ได้ล็อก logic ใดๆ — ร้านค้าแก้ไข/เพิ่ม/ลบ Option และราคาได้ทั้งหมดหลังจากนั้น
 // ไม่ผูกกับ "งานเอกสาร" อย่างเดียวตามสเปก — รองรับป้ายไวนิล/โปสเตอร์/สติ๊กเกอร์/นามบัตร/Roll Up/X-Stand ด้วย
+import type { LucideIcon } from "lucide-react";
+import { FileText, Image, Palette, Tag, CreditCard, Flag, PanelTop, PencilLine } from "lucide-react";
 import type { ColorTier, OptionPriceCategory, PriceScope, QuantityTier, ServiceOption, ServiceOptionType } from "../types";
 import type { PricingMode } from "./Step2Pricing";
 
 export interface ServiceTemplate {
   id: string;
-  icon: string;
+  icon: LucideIcon;
   label: string;
   hint: string;
   pricingMode: PricingMode;
@@ -42,7 +44,7 @@ function option(
 export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   {
     id: "document",
-    icon: "📄",
+    icon: FileText,
     label: "งานเอกสาร",
     hint: "ปริ้นเอกสาร, ชีทเรียน, รายงาน — คิดตามจำนวนหน้า",
     pricingMode: "per_page",
@@ -72,13 +74,25 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   },
   {
     id: "vinyl_banner",
-    icon: "🖼️",
+    icon: Image,
     label: "ป้ายไวนิล",
     hint: "ป้ายไวนิลหน้าร้าน, แบนเนอร์ — คิดตามตารางเมตร",
     pricingMode: "per_sqm",
     colorTiers: colorTiers(150, 150),
     quantityTiers: [],
     options: [
+      option(
+        "ขนาด",
+        "size",
+        "per_item",
+        [
+          { name: "กรอกขนาดเอง (กว้าง x สูง)", extraPrice: 0 },
+          { name: "A3 (มาตรฐาน)", extraPrice: 0 },
+          { name: "A2 (มาตรฐาน)", extraPrice: 50 },
+          { name: "A1 (มาตรฐาน)", extraPrice: 120 },
+        ],
+        "dropdown"
+      ),
       option(
         "ประเภทวัสดุ",
         "other",
@@ -108,13 +122,24 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   },
   {
     id: "poster",
-    icon: "🎨",
+    icon: Palette,
     label: "โปสเตอร์",
     hint: "โปสเตอร์โฆษณา, งานอีเวนต์ — คิดตามตารางเมตร",
     pricingMode: "per_sqm",
     colorTiers: colorTiers(180, 180),
     quantityTiers: [],
     options: [
+      option(
+        "ขนาด",
+        "size",
+        "per_item",
+        [
+          { name: "กรอกขนาดเอง (กว้าง x สูง)", extraPrice: 0 },
+          { name: "A3 (มาตรฐาน)", extraPrice: 0 },
+          { name: "A2 (มาตรฐาน)", extraPrice: 30 },
+        ],
+        "dropdown"
+      ),
       option(
         "ประเภทกระดาษ/วัสดุ",
         "other",
@@ -133,7 +158,7 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   },
   {
     id: "sticker",
-    icon: "🏷️",
+    icon: Tag,
     label: "สติ๊กเกอร์",
     hint: "สติ๊กเกอร์ตัดรูปทรง, สติ๊กเกอร์ฉลาก — คิดตามชิ้น",
     pricingMode: "per_piece",
@@ -169,15 +194,16 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   },
   {
     id: "name_card",
-    icon: "🪪",
+    icon: CreditCard,
     label: "นามบัตร",
     hint: "นามบัตรพนักงาน/ธุรกิจ — ราคาลดหลั่นตามจำนวน",
     pricingMode: "per_piece",
-    colorTiers: colorTiers(2, 3),
+    colorTiers: colorTiers(3, 2),
     quantityTiers: [
-      { minQty: 100, maxQty: 199, unitPrice: 2 },
-      { minQty: 200, maxQty: 499, unitPrice: 1.75 },
-      { minQty: 500, maxQty: null, unitPrice: 1.5 },
+      { minQty: 100, maxQty: 199, unitPrice: 2.5 },
+      { minQty: 200, maxQty: 499, unitPrice: 2.25 },
+      { minQty: 500, maxQty: 999, unitPrice: 1.8 },
+      { minQty: 1000, maxQty: null, unitPrice: 1.6 },
     ],
     options: [
       option(
@@ -206,7 +232,7 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   },
   {
     id: "roll_up",
-    icon: "🎌",
+    icon: Flag,
     label: "Roll Up",
     hint: "ป้ายตั้งพื้น Roll Up พร้อมขาตั้ง — คิดตามชิ้น",
     pricingMode: "per_piece",
@@ -241,7 +267,7 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   },
   {
     id: "x_stand",
-    icon: "🖼️",
+    icon: PanelTop,
     label: "X-Stand",
     hint: "ป้ายตั้งพื้นทรง X พร้อมขาตั้ง — คิดตามชิ้น",
     pricingMode: "per_piece",
@@ -275,7 +301,7 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
 // "กำหนดเอง" — ไม่ seed อะไรเลย ให้ร้านสร้างเองทั้งหมด (เทียบเท่าพฤติกรรมเดิมก่อนมี template)
 export const BLANK_TEMPLATE: ServiceTemplate = {
   id: "blank",
-  icon: "✏️",
+  icon: PencilLine,
   label: "กำหนดเอง",
   hint: "เริ่มจากบริการเปล่า ตั้งค่าทุกอย่างเอง",
   pricingMode: "per_page",

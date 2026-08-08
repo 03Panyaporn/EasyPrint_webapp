@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X, Plus, FileText } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import type { AllowedFileType } from "../types";
 
 export interface Step4Data {
@@ -53,131 +53,84 @@ export default function Step4FileUpload({ data, onChange, onNext, onBack }: Step
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-900">ไฟล์ที่ลูกค้าต้องอัปโหลด</h2>
-        <p className="text-sm text-gray-500 mt-1">กำหนดว่าบริการนี้ต้องการไฟล์จากลูกค้าหรือไม่</p>
+        <h2 className="text-xl font-bold text-gray-900">ไฟล์ที่ลูกค้าอัปโหลด</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          ลูกค้าแนบไฟล์งานได้เสมอ (ไม่บังคับ) — กำหนดแค่ประเภทไฟล์ที่ร้านรับ
+        </p>
       </div>
 
-      {/* Toggle */}
-      <div
-        className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-          data.requiresFileUpload
-            ? "border-orange-400 bg-orange-50"
-            : "border-gray-200 bg-white hover:border-gray-300"
-        }`}
-        onClick={() =>
-          onChange({
-            ...data,
-            requiresFileUpload: !data.requiresFileUpload,
-            allowedFileTypes: !data.requiresFileUpload ? ["pdf", "jpg", "png"] : data.allowedFileTypes,
-          })
-        }
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition ${
-              data.requiresFileUpload ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-400"
-            }`}
-          >
-            <Upload size={20} />
-          </div>
-          <div>
-            <p className="font-semibold text-gray-800 text-sm">ต้องอัปโหลดไฟล์</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {data.requiresFileUpload
-                ? "ลูกค้าจะต้องแนบไฟล์งานก่อนสั่งพิมพ์"
-                : "ลูกค้าไม่ต้องอัปโหลดไฟล์ (เช่น บริการออกแบบ)"}
-            </p>
+      {/* File type selector */}
+      <div className="space-y-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+        {/* Preset file types */}
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-gray-700">ประเภทไฟล์ที่รับ</p>
+          <div className="flex flex-wrap gap-2">
+            {ALL_FILE_TYPES.map((ft) => {
+              const selected = data.allowedFileTypes.includes(ft.value);
+              return (
+                <button
+                  key={ft.value}
+                  onClick={() => toggleFileType(ft.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
+                    selected
+                      ? "bg-orange-50 border-orange-500 text-orange-600 shadow-sm"
+                      : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"
+                  }`}
+                >
+                  .{ft.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Toggle switch */}
-        <div
-          className={`relative w-12 h-6 rounded-full transition-colors ${
-            data.requiresFileUpload ? "bg-orange-500" : "bg-gray-200"
-          }`}
-        >
-          <div
-            className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-              data.requiresFileUpload ? "translate-x-6" : "translate-x-0.5"
-            }`}
-          />
-        </div>
-      </div>
-
-      {/* File type selector — only when upload required */}
-      {data.requiresFileUpload && (
-        <div className="space-y-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-          {/* Preset file types */}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-gray-700">ประเภทไฟล์ที่รับ</p>
-            <div className="flex flex-wrap gap-2">
-              {ALL_FILE_TYPES.map((ft) => {
-                const selected = data.allowedFileTypes.includes(ft.value);
-                return (
-                  <button
-                    key={ft.value}
-                    onClick={() => toggleFileType(ft.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
-                      selected
-                        ? "bg-orange-50 border-orange-500 text-orange-600 shadow-sm"
-                        : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"
-                    }`}
-                  >
-                    .{ft.label}
+        {/* Custom types (tags row) */}
+        {data.allowedFileTypes.some((t) => !ALL_FILE_TYPES.map((f) => f.value).includes(t)) && (
+          <div className="flex flex-wrap gap-1.5">
+            {data.allowedFileTypes
+              .filter((t) => !ALL_FILE_TYPES.map((f) => f.value).includes(t))
+              .map((t) => (
+                <span
+                  key={t}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-gray-200 text-gray-600 rounded-lg"
+                >
+                  .{t.toUpperCase()}
+                  <button onClick={() => removeFileType(t)} className="hover:text-red-500 transition ml-0.5">
+                    <X size={11} />
                   </button>
-                );
-              })}
-            </div>
+                </span>
+              ))}
           </div>
+        )}
 
-          {/* Custom types (tags row) */}
-          {data.allowedFileTypes.some((t) => !ALL_FILE_TYPES.map((f) => f.value).includes(t)) && (
-            <div className="flex flex-wrap gap-1.5">
-              {data.allowedFileTypes
-                .filter((t) => !ALL_FILE_TYPES.map((f) => f.value).includes(t))
-                .map((t) => (
-                  <span
-                    key={t}
-                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-gray-200 text-gray-600 rounded-lg"
-                  >
-                    .{t.toUpperCase()}
-                    <button onClick={() => removeFileType(t)} className="hover:text-red-500 transition ml-0.5">
-                      <X size={11} />
-                    </button>
-                  </span>
-                ))}
-            </div>
-          )}
-
-          {/* Add custom type */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 shrink-0">เพิ่มนามสกุลอื่น:</span>
-            <input
-              type="text"
-              value={customType}
-              onChange={(e) => setCustomType(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addCustomType()}
-              placeholder="เช่น docx, xlsx"
-              className="flex-1 max-w-[140px] px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25"
-            />
-            <button
-              onClick={addCustomType}
-              disabled={!customType.trim()}
-              className="px-2.5 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition"
-            >
-              <Plus size={13} />
-            </button>
-          </div>
-
-          {data.allowedFileTypes.length === 0 && (
-            <p className="text-xs text-red-500">⚠ ต้องเลือกอย่างน้อย 1 ประเภทไฟล์</p>
-          )}
-
-          <p className="text-xs text-gray-400 pt-2 border-t border-gray-200">
-            ขนาดไฟล์สูงสุดและจำนวนไฟล์ต่อรายการถูกกำหนดโดยระบบส่วนกลาง ร้านค้าไม่ต้องตั้งค่าเอง
-          </p>
+        {/* Add custom type */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 shrink-0">เพิ่มนามสกุลอื่น:</span>
+          <input
+            type="text"
+            value={customType}
+            onChange={(e) => setCustomType(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCustomType()}
+            placeholder="เช่น docx, xlsx"
+            className="flex-1 max-w-[140px] px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25"
+          />
+          <button
+            onClick={addCustomType}
+            disabled={!customType.trim()}
+            className="px-2.5 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition"
+          >
+            <Plus size={13} />
+          </button>
         </div>
-      )}
+
+        {data.allowedFileTypes.length === 0 && (
+          <p className="text-xs text-red-500">⚠ ต้องเลือกอย่างน้อย 1 ประเภทไฟล์</p>
+        )}
+
+        <p className="text-xs text-gray-400 pt-2 border-t border-gray-200">
+          ขนาดไฟล์สูงสุดและจำนวนไฟล์ต่อรายการถูกกำหนดโดยระบบส่วนกลาง ร้านค้าไม่ต้องตั้งค่าเอง
+        </p>
+      </div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-100">

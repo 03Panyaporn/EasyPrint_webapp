@@ -56,7 +56,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
           ? (baseColorTier?.pricePerUnit ?? 0)
           : (typeof form.step2.basePrice === "number" ? form.step2.basePrice : 0),
     unit: model === "per_page" ? "หน้า" : model === "per_sqm" ? "แผ่น" : "ชิ้น",
-    pageCountingMode: "by_file_page",
+    pageCountingMode: form.step2.pageCountingMode,
     colorTiers: colorMode ? extraColorTiers.map((t) => ({ label: t.label, pricePerUnit: t.pricePerUnit })) : [],
     quantityTiers: form.step2.quantityTiers.map((t) => ({
       minQty: t.minQty,
@@ -91,6 +91,7 @@ const INITIAL_FORM: WizardFormData = {
     areaRoundingIncrement: 0.1,
     colorTiers: [],
     quantityTiers: [],
+    pageCountingMode: "by_file_page",
   },
   step3: { colorTiers: [], options: [] },
   step4: { requiresFileUpload: true, allowedFileTypes: ["pdf", "jpg", "png"] },
@@ -122,6 +123,7 @@ function formFromService(service: MainService): WizardFormData {
       areaRoundingIncrement: service.areaRoundingIncrement ?? 0.1,
       colorTiers: service.colorTiers,
       quantityTiers: service.quantityTiers,
+      pageCountingMode: service.pageCountingMode,
     },
     step3: { colorTiers: step3ColorTiers, options: service.options },
     step4: {
@@ -289,6 +291,7 @@ export default function ServiceBuilderWizard({
               data={form.step3}
               pricingMode={form.step2.pricingMode}
               pricingModel={pricingModel}
+              pageCountingMode={form.step2.pageCountingMode}
               onChange={(d) => setForm({ ...form, step3: d })}
               onNext={next}
               onBack={back}
