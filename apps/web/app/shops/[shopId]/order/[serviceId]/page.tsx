@@ -18,6 +18,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
+import { isShopOpenNow } from "@/lib/shopHours";
 import { getMainServices, getAddOnServices } from "@/lib/api/services";
 import { addCartItem } from "@/lib/api/cart";
 import { uploadFile } from "@/lib/api/uploads";
@@ -168,6 +169,8 @@ function OrderBuilderForm({
 }) {
   const router = useRouter();
   const pricingModel = mainService.pricingModel;
+  // ร้านปิดอยู่ตอนนี้ (นอกเวลาทำการ) — ลูกค้ายังดูรายละเอียด/ราคาได้ตามปกติ แค่สั่งพิมพ์/เพิ่มลงตะกร้าไม่ได้
+  const shopClosed = !isShopOpenNow(shop.openingHours);
 
   // ── ตัวเลือกของบริการ (dynamic options) ──
   // dropdown/radio/checkbox เก็บเป็น valueId, number/text เก็บเป็นข้อความดิบ — คีย์ตาม option.id ทั้งหมด
@@ -396,6 +399,10 @@ function OrderBuilderForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setNeedsLogin(false);
+    if (shopClosed) {
+      setErrors({ submit: "ร้านนี้ปิดทำการอยู่ขณะนี้ ไม่สามารถสั่งพิมพ์ได้ กรุณากลับมาใหม่ตอนร้านเปิด" });
+      return;
+    }
     if (!validate()) return;
 
     setIsSubmitting(true);
@@ -500,7 +507,16 @@ function OrderBuilderForm({
 
       <form id="order-form" onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 py-5 lg:py-8">
         <h1 className="text-lg sm:text-xl font-black text-slate-800 mb-1">{mainService.name}</h1>
-        {mainService.description && <p className="text-sm text-slate-500 mb-5">{mainService.description}</p>}
+        {mainService.description && <p className="text-sm text-slate-500 mb-3">{mainService.description}</p>}
+
+        {shopClosed && (
+          <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600">
+            <AlertTriangle size={16} className="text-slate-400 shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm">
+              ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายละเอียดและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
           {/* ── ฟอร์มหลัก ── */}
@@ -696,11 +712,17 @@ function OrderBuilderForm({
             {/* ปุ่ม submit บนจอใหญ่ (มือถือใช้แถบ sticky ด้านล่างแทน) */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || shopClosed}
               className="hidden lg:flex w-full items-center justify-center gap-1.5 py-3.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 rounded-xl shadow-md shadow-orange-200 transition"
             >
               {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-              {isUploading ? "กำลังอัปโหลดไฟล์..." : isSubmitting ? "กำลังเพิ่ม..." : `เพิ่มลงตะกร้า · ฿${previewTotal.toLocaleString()}`}
+              {shopClosed
+                ? "ร้านปิดอยู่ขณะนี้"
+                : isUploading
+                  ? "กำลังอัปโหลดไฟล์..."
+                  : isSubmitting
+                    ? "กำลังเพิ่ม..."
+                    : `เพิ่มลงตะกร้า · ฿${previewTotal.toLocaleString()}`}
             </button>
           </div>
 
@@ -741,11 +763,11 @@ function OrderBuilderForm({
         <button
           type="submit"
           form="order-form"
-          disabled={isSubmitting}
+          disabled={isSubmitting || shopClosed}
           className="px-6 py-3 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 rounded-full shadow-md shadow-orange-200 transition flex items-center gap-1.5 shrink-0"
         >
           {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-          {isUploading ? "กำลังอัปโหลด..." : isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มลงตะกร้า"}
+          {shopClosed ? "ร้านปิดอยู่" : isUploading ? "กำลังอัปโหลด..." : isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มลงตะกร้า"}
         </button>
       </div>
 

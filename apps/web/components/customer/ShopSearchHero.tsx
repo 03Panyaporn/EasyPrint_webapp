@@ -1,0 +1,111 @@
+"use client";
+
+import type { CSSProperties } from "react";
+import { Search, Printer, Upload, FileText, Palette, Send, ChevronLeft } from "lucide-react";
+
+// grid จุดเล็กๆ ตกแต่งพื้นหลัง — ทำด้วย radial-gradient ซ้ำ ไม่ต้องใช้ภาพ
+const DOT_GRID_STYLE: CSSProperties = {
+  backgroundImage: "radial-gradient(circle, rgba(234,88,12,0.35) 1.5px, transparent 1.5px)",
+  backgroundSize: "10px 10px",
+};
+
+interface ShopSearchHeroProps {
+  searchText: string;
+  onSearchTextChange: (v: string) => void;
+  onViewAllClick: () => void;
+}
+
+export default function ShopSearchHero({
+  searchText,
+  onSearchTextChange,
+  onViewAllClick,
+}: ShopSearchHeroProps) {
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#fdf2e9] via-[#fce3cc] to-[#f8c89b] pt-10 sm:pt-14 pb-10 px-4 sm:px-6">
+      {/* ── ตกแต่งพื้นหลัง ── */}
+      <div className="absolute -top-16 -left-16 w-56 h-56 rounded-full bg-orange-200/50 blur-2xl pointer-events-none" />
+      <div className="absolute top-10 left-[38%] w-16 h-16 rounded-full border-2 border-orange-300/60 pointer-events-none hidden sm:block" />
+      <div className="absolute top-6 right-[8%] w-14 h-14 rounded-2xl bg-teal-400/90 shadow-lg flex items-center justify-center rotate-12 pointer-events-none hidden sm:flex">
+        <Send className="w-6 h-6 text-white -rotate-12" />
+      </div>
+      <div className="absolute top-8 right-[22%] w-14 h-10 rounded-lg pointer-events-none hidden lg:block" style={DOT_GRID_STYLE} />
+      <div className="absolute bottom-10 right-[16%] w-16 h-12 rounded-lg pointer-events-none hidden lg:block" style={DOT_GRID_STYLE} />
+      <button
+        type="button"
+        onClick={onViewAllClick}
+        aria-label="ดูร้านค้าทั้งหมด"
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-r-full bg-orange-500 hover:bg-orange-600 shadow-lg flex items-center justify-center transition hidden sm:flex"
+      >
+        <ChevronLeft className="w-4 h-4 text-white rotate-180" />
+      </button>
+
+      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-center">
+        {/* Left: headline + CTA + search */}
+        <div className="space-y-5 text-center lg:text-left">
+          <div className="inline-block bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-orange-200 shadow-sm">
+            <p className="text-orange-600 font-bold text-[11px] sm:text-xs tracking-wide">EASYPRINT MARKETPLACE</p>
+          </div>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-slate-800 tracking-tight leading-tight">
+            หาร้านพิมพ์ที่ใช่
+            <br />
+            สำหรับงานของคุณ
+          </h1>
+          <p className="text-slate-500 font-semibold text-sm sm:text-base max-w-md mx-auto lg:mx-0">
+            เปรียบเทียบร้าน บริการ ราคา และรีวิว เลือกสั่งพิมพ์ได้ง่ายในที่เดียว
+          </p>
+
+          <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+            <button
+              onClick={onViewAllClick}
+              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full px-6 py-2.5 text-sm shadow-lg shadow-orange-500/20 transition"
+            >
+              <Search className="w-4 h-4" />
+              ค้นหาร้านพิมพ์
+            </button>
+            <button
+              onClick={onViewAllClick}
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-full px-6 py-2.5 text-sm shadow-sm border border-slate-100 transition"
+            >
+              ดูบริการทั้งหมด
+            </button>
+          </div>
+
+          {/* Search bar */}
+          <div className="bg-white rounded-2xl shadow-xl p-2 flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto lg:mx-0">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => onSearchTextChange(e.target.value)}
+              placeholder="ค้นหาชื่อร้าน หรือบริการที่ต้องการ..."
+              className="flex-1 px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none rounded-xl"
+            />
+            <button
+              onClick={onViewAllClick}
+              className="flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl px-5 py-2.5 text-sm transition shrink-0"
+            >
+              <Search className="w-4 h-4" />
+              ค้นหา
+            </button>
+          </div>
+        </div>
+
+        {/* Right: decorative illustration (composed from icons — ไม่มีภาพประกอบจริง) */}
+        <div className="hidden lg:flex items-center justify-center relative h-64">
+          <div className="absolute w-52 h-52 rounded-full bg-white/40 blur-2xl" />
+          <div className="relative w-44 h-44 bg-white rounded-[2rem] shadow-2xl flex items-center justify-center rotate-[-4deg]">
+            <Printer className="w-20 h-20 text-orange-500" />
+          </div>
+          <div className="absolute top-2 right-8 w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center rotate-6">
+            <FileText className="w-8 h-8 text-teal-500" />
+          </div>
+          <div className="absolute bottom-4 left-4 w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center -rotate-6">
+            <Palette className="w-8 h-8 text-amber-500" />
+          </div>
+          <div className="absolute bottom-10 right-2 w-14 h-14 bg-orange-500 rounded-full shadow-xl flex items-center justify-center animate-bounce">
+            <Upload className="w-6 h-6 text-white" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

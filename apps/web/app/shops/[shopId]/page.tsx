@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Printer, MapPin, ShoppingCart, Loader2 } from "lucide-react";
+import { ArrowLeft, Printer, MapPin, ShoppingCart, Loader2, AlertTriangle } from "lucide-react";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
+import { isShopOpenNow } from "@/lib/shopHours";
 import { getMainServices } from "@/lib/api/services";
 import { getShopCart } from "@/lib/api/cart";
 import { ApiError } from "@/lib/api/client";
@@ -49,6 +50,8 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   }, [params.shopId]);
 
   const activeServices = mainServices.filter((s) => s.isActive);
+  // ร้านปิดอยู่ตอนนี้ (นอกเวลาทำการ) — ลูกค้ายังเข้ามาดูรายการบริการ/ราคาได้ตามปกติ แค่กดสั่งพิมพ์ไม่ได้
+  const shopClosed = shop ? !isShopOpenNow(shop.openingHours) : false;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -116,6 +119,15 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
             </div>
           </div>
 
+          {shopClosed && (
+            <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600">
+              <AlertTriangle size={16} className="text-slate-400 shrink-0 mt-0.5" />
+              <p className="text-xs sm:text-sm">
+                ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายการบริการและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด
+              </p>
+            </div>
+          )}
+
           {/* Main services */}
           <div>
             <h2 className="text-lg font-bold text-slate-800 mb-3">บริการของร้าน</h2>
@@ -147,12 +159,21 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                         </div>
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-sm font-black text-orange-600">{priceLabel}</span>
-                          <Link
-                            href={`/shops/${params.shopId}/order/${service.id}`}
-                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-full shadow-xs transition"
-                          >
-                            สั่งพิมพ์
-                          </Link>
+                          {shopClosed ? (
+                            <span
+                              title="ร้านปิดทำการอยู่ขณะนี้"
+                              className="px-3.5 py-1.5 text-xs font-bold text-slate-400 bg-slate-100 rounded-full cursor-not-allowed"
+                            >
+                              ร้านปิดอยู่
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/shops/${params.shopId}/order/${service.id}`}
+                              className="px-3.5 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-full shadow-xs transition"
+                            >
+                              สั่งพิมพ์
+                            </Link>
+                          )}
                         </div>
                       </div>
                     </div>
