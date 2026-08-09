@@ -341,7 +341,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
             {categories.length > 0 && (
               <div className="relative mt-5 sm:mt-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8">
                 <div
-                  className="backdrop-blur-md rounded-2xl border border-white/40 py-4 sm:py-5"
+                  className="backdrop-blur-md rounded-2xl border border-white/40 py-4 sm:py-5 w-fit max-w-full mx-auto"
                   style={{
                     background:
                       "linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 100%)",
@@ -359,7 +359,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                   <div
                     ref={categoryScrollRef}
                     onScroll={updateCategoryScrollMeta}
-                    className="flex gap-2.5 overflow-x-auto no-scrollbar snap-x snap-proximity px-5 sm:px-6 sm:flex-wrap sm:justify-between sm:overflow-visible"
+                    className="flex gap-6 overflow-x-auto no-scrollbar snap-x snap-proximity px-6 sm:px-12 sm:flex-wrap sm:justify-center sm:gap-12 sm:overflow-visible"
                   >
                     {categories.map((type) => {
                       const Icon = resolveCategoryIcon(type);
