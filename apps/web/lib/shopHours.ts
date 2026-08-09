@@ -35,5 +35,5 @@ export function formatTodayHours(openingHours: ShopOpeningHours[] | null): strin
   const todayEntry = findTodayEntry(openingHours);
   if (!todayEntry) return "ไม่ระบุเวลาทำการ";
   if (!todayEntry.isOpen) return "ปิดทำการวันนี้";
-  return `วันนี้ ${todayEntry.openTime} - ${todayEntry.closeTime}`;
+  return `เปิด ${todayEntry.openTime} - ${todayEntry.closeTime}`;
 }
