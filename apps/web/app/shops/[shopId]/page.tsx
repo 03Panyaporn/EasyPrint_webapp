@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -54,26 +54,15 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-const MOCK_REVIEWS = [
-  {
-    id: 1,
-    name: "ชาริสา น.",
-    avatar: "https://i.pravatar.cc/150?u=12",
-    rating: 5,
-    text: "ปกติหาร้านพิมพ์งานถูกใจยากมาก แต่ใช้บริการร้านนี้แล้วประทับใจสุดๆ สีสด กระดาษดี ไว้คราวหน้ามาใช้บริการอีกแน่นอน 🔥🔥🔥",
-    likes: 647,
-    time: "6 เดือนที่แล้ว",
-  },
-  {
-    id: 2,
-    name: "พงศกร ส.",
-    avatar: "https://i.pravatar.cc/150?u=24",
-    rating: 4,
-    text: "ถูกใจมากครับ! พิมพ์งานไวที่สุดตั้งแต่เคยใช้บริการมา งานออกมาเนี๊ยบมาก ติดนิดเดียวตรงที่รอนานช่วงเย็น แต่รวมๆ แล้วโอเคมากครับ! 🤩",
-    likes: 124,
-    time: "1 ปีที่แล้ว",
-  }
-];
+const MOCK_REVIEWS: {
+  id: number;
+  name: string;
+  avatar: string;
+  rating: number;
+  text: string;
+  likes: number;
+  time: string;
+}[] = [];
 
 export default function ShopDetailPage({ params }: { params: { shopId: string } }) {
   const router = useRouter();
@@ -85,6 +74,45 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   const [isFavorite, setIsFavorite] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [activeReviewFilter, setActiveReviewFilter] = useState("ทั้งหมด");
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const categoryTrackRef = useRef<HTMLDivElement>(null);
+  const [categoryScrollMeta, setCategoryScrollMeta] = useState({ thumbPct: 100, leftPct: 0, scrollable: false });
+
+  // อัปเดตแถบบอกตำแหน่งเลื่อนของแถวประเภทงาน — เรียกทั้งตอน scroll และตอนรายการเปลี่ยน (ร้านมีของหลายแบบจนล้นจอมือถือ)
+  const updateCategoryScrollMeta = () => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    const { scrollWidth, clientWidth, scrollLeft } = el;
+    const scrollable = scrollWidth > clientWidth + 4;
+    const thumbPct = scrollable ? Math.max((clientWidth / scrollWidth) * 100, 15) : 100;
+    const maxScroll = scrollWidth - clientWidth;
+    const leftPct = scrollable && maxScroll > 0 ? (scrollLeft / maxScroll) * (100 - thumbPct) : 0;
+    setCategoryScrollMeta({ thumbPct, leftPct, scrollable });
+  };
+
+  // ลากที่ตัวแถบบอกตำแหน่งเลื่อนโดยตรงก็เลื่อนแถวประเภทงานได้ ไม่ต้องลากที่ไอคอนเท่านั้น
+  const seekCategoryScrollFromClientX = (clientX: number) => {
+    const track = categoryTrackRef.current;
+    const row = categoryScrollRef.current;
+    if (!track || !row) return;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    row.scrollLeft = ratio * (row.scrollWidth - row.clientWidth);
+  };
+
+  const handleCategoryTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // บาง edge case (เช่น pointer id ที่เบราว์เซอร์ไม่ถือว่า active) capture ไม่ได้ ก็ไม่เป็นไร ยังลากต่อ (onPointerMove) ได้อยู่แค่ไม่ล็อกเป้าหมายเวลาลากออกนอกแถบ
+    }
+    seekCategoryScrollFromClientX(e.clientX);
+  };
+
+  const handleCategoryTrackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pressure === 0) return; // ลากอยู่เท่านั้นถึงจะขยับ (ไม่ใช่แค่เมาส์ hover ผ่าน)
+    seekCategoryScrollFromClientX(e.clientX);
+  };
 
   const toggleFavorite = () => {
     const nextState = !isFavorite;
@@ -142,10 +170,22 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   const todayHours = shop ? formatTodayHours(shop.openingHours) : "";
   const categories = shop?.serviceTypes ?? [];
 
+  useEffect(() => {
+    updateCategoryScrollMeta();
+    window.addEventListener("resize", updateCategoryScrollMeta);
+    return () => window.removeEventListener("resize", updateCategoryScrollMeta);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length]);
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* หน้านี้เข้าได้เฉพาะคนที่ login แล้ว (เช็คใน useEffect ด้านบน) ใช้ header แยกเฉพาะหน้านี้ */}
-      <ShopDetailHeader cartCount={cartCount} />
+      <ShopDetailHeader
+        cartCount={cartCount}
+        openNow={openNow}
+        isFavorite={isFavorite}
+        onToggleFavorite={toggleFavorite}
+      />
 
       {loading ? (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-400">
@@ -200,8 +240,9 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                 boxShadow: "4px -4px 14px rgba(249,115,22,0.22), inset -3px 3px 8px rgba(0,0,0,0.10)",
               }}
             />
-            <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex items-center gap-4 sm:gap-6">
-              <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 z-10">
+            <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+              {/* สถานะเปิด/ปิด + ปุ่มรายการโปรด — จอ PC เหมือนเดิม (ลอยมุมขวาบนของการ์ดโปรไฟล์) / มือถือใช้ที่ breadcrumbs แทน (ดูใน ShopDetailHeader) เลยซ่อนอันนี้บนมือถือ */}
+              <div className="hidden sm:flex sm:absolute sm:top-6 sm:right-6 justify-end items-center gap-2 z-10">
                 <span
                   className={`inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-3.5 py-1.5 rounded-full ${
                     openNow
@@ -224,11 +265,11 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                   )}
                   <span className="tracking-wide">{openNow ? "เปิดทำการ" : "ปิดทำการ"}</span>
                 </span>
-                
+
                 <button
                   onClick={toggleFavorite}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all active:scale-95 ring-1 ring-black/5 ${
-                    isFavorite 
+                  className={`w-8 h-8 sm:w-9 sm:h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all active:scale-95 ring-1 ring-black/5 shrink-0 ${
+                    isFavorite
                       ? "bg-white text-rose-500 shadow-md shadow-rose-200/50"
                       : "bg-white/90 text-slate-400 hover:text-rose-500 hover:bg-white shadow-sm"
                   }`}
@@ -238,49 +279,60 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                 </button>
               </div>
 
-              <div className="relative w-20 h-20 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 shadow-lg ring-1 ring-black/5">
-                {shop.shopPhotoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={shop.shopPhotoUrl}
-                    alt={shop.name}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
-                    <Printer className="w-8 h-8 text-slate-400/70" />
-                  </div>
-                )}
-              </div>
-
-              <div className="relative flex-1 min-w-0 space-y-1.5 sm:space-y-2">
-                <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight truncate pr-20 sm:pr-0">
-                  {shop.name}
-                </h1>
-
-                <a
-                  href={shop.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.address || shop.name)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 font-medium hover:text-orange-600 transition-colors group cursor-pointer w-fit"
-                >
-                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0 group-hover:scale-110 transition-transform" />
-                  <span className="truncate group-hover:underline">{shop.address ?? "-"}</span>
-                </a>
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 font-medium">
-                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
-                  <span className="truncate">{todayHours}</span>
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className="relative w-20 h-20 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 shadow-lg ring-1 ring-black/5">
+                  {shop.shopPhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={shop.shopPhotoUrl}
+                      alt={shop.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
+                      <Printer className="w-8 h-8 text-slate-400/70" />
+                    </div>
+                  )}
                 </div>
 
-                {/* อัปเดตตามภาพ (Mock Data) */}
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <div className="flex items-center">
-                    <span className="font-black text-slate-800 mr-1.5">4.9</span>
-                    {[...Array(5)].map((_, idx) => (
-                      <Star key={idx} className={`w-3.5 h-3.5 ${idx === 4 ? "text-orange-300 fill-orange-300" : "text-orange-500 fill-orange-500"}`} />
-                    ))}
+                <div className="relative flex-1 min-w-0 space-y-1.5 sm:space-y-2">
+                  <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight truncate sm:pr-0">
+                    {shop.name}
+                  </h1>
+
+                  <a
+                    href={shop.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.address || shop.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 font-medium hover:text-orange-600 transition-colors group cursor-pointer w-fit"
+                  >
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="truncate group-hover:underline">{shop.address ?? "-"}</span>
+                  </a>
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 font-medium">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
+                    <span className="truncate">{todayHours}</span>
                   </div>
-                  <span className="text-xs text-slate-400 font-medium border-l border-slate-200 pl-2">(6.8k รีวิว)</span>
+
+                  {/* อัปเดตตามภาพ (Mock Data) — กดแล้วเลื่อนไปที่ส่วนคะแนนและรีวิวด้านล่าง */}
+                  <a
+                    href="#reviews"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById("reviews")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="flex items-center gap-1.5 pt-0.5 w-fit cursor-pointer rounded-md hover:opacity-80 active:scale-95 transition outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2"
+                  >
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, idx) => (
+                        <Star key={idx} className="w-3.5 h-3.5 text-slate-200 fill-slate-200" />
+                      ))}
+                      <span className="font-black text-slate-800 ml-1.5">0.0</span>
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium border-l border-slate-200 pl-2 hover:text-orange-600 hover:underline transition-colors">
+                      (0 รีวิว)
+                    </span>
+                  </a>
                 </div>
               </div>
             </div>
@@ -289,7 +341,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
             {categories.length > 0 && (
               <div className="relative mt-5 sm:mt-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8">
                 <div
-                  className="backdrop-blur-md rounded-2xl border border-white/40 px-5 py-4 sm:px-6 sm:py-5"
+                  className="backdrop-blur-md rounded-2xl border border-white/40 py-4 sm:py-5"
                   style={{
                     background:
                       "linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 100%)",
@@ -303,11 +355,19 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                     ].join(", "),
                   }}
                 >
-                  <div className="flex justify-between">
+                  {/* มือถือ: กรอบทั้งกรอบ (รวม padding) เป็นพื้นที่เลื่อนได้เลย ลากตรงไหนในกรอบก็เลื่อน ไม่ต้องลากตรงไอคอนเท่านั้น / sm ขึ้นไป: พับบรรทัดกึ่งกลางตามปกติ มีที่ว่างพอ */}
+                  <div
+                    ref={categoryScrollRef}
+                    onScroll={updateCategoryScrollMeta}
+                    className="flex gap-2.5 overflow-x-auto no-scrollbar snap-x snap-proximity px-5 sm:px-6 sm:flex-wrap sm:justify-between sm:overflow-visible"
+                  >
                     {categories.map((type) => {
                       const Icon = resolveCategoryIcon(type);
                       return (
-                        <div key={type} className="flex flex-col items-center gap-1.5 text-center">
+                        <div
+                          key={type}
+                          className="snap-start shrink-0 w-[74px] sm:w-auto flex flex-col items-center gap-1.5 text-center py-1 sm:py-0"
+                        >
                           <Icon
                             className="w-5 h-5 sm:w-5 sm:h-5 text-slate-500"
                             strokeWidth={1.5}
@@ -318,24 +378,43 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                       );
                     })}
                   </div>
+
+                  {/* แถบบอกตำแหน่งเลื่อน — ลากที่แถบนี้โดยตรงก็เลื่อนแถวได้เหมือนกัน โชว์เฉพาะมือถือและเฉพาะตอนเนื้อหาล้นจอ (เลื่อนได้จริง) */}
+                  {categoryScrollMeta.scrollable && (
+                    <div className="sm:hidden mt-3 px-5">
+                      <div
+                        ref={categoryTrackRef}
+                        onPointerDown={handleCategoryTrackPointerDown}
+                        onPointerMove={handleCategoryTrackPointerMove}
+                        className="relative h-1 rounded-full bg-black/10 overflow-hidden cursor-pointer touch-none"
+                      >
+                        <div
+                          className="h-full rounded-full bg-slate-400 pointer-events-none"
+                          style={{ width: `${categoryScrollMeta.thumbPct}%`, marginLeft: `${categoryScrollMeta.leftPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </section>
 
-          <main className="bg-slate-50/80 px-4 sm:px-6 lg:px-8 pb-14">
+          <main className="bg-slate-50/80 pb-14">
 
             {shopClosed && (
-              <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800 mt-6">
-                <AlertTriangle size={18} className="text-amber-500 shrink-0" />
-                <p className="text-xs sm:text-sm font-medium">
-                  ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายการบริการและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด
-                </p>
+              <div className="max-w-6xl mx-auto mt-6 px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800">
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0" />
+                  <p className="text-xs sm:text-sm font-medium">
+                    ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายการบริการและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด
+                  </p>
+                </div>
               </div>
             )}
 
             {/* ── Services ───────────────────────────────────────────── */}
-            <section className="max-w-6xl mx-auto pt-10 sm:pt-14">
+            <section className="max-w-6xl mx-auto pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
               <SectionHeading>บริการของร้าน</SectionHeading>
               {activeServices.length === 0 ? (
                 <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border-2 border-dashed border-slate-200 text-slate-400 text-sm">
@@ -404,7 +483,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
             </section>
 
             {/* ── Ratings & Reviews ───────────────────────────────────────────── */}
-            <section className="max-w-6xl mx-auto mt-10 sm:mt-14 pb-4">
+            <section id="reviews" className="max-w-6xl mx-auto mt-10 sm:mt-14 pb-4 px-4 sm:px-6 lg:px-8 scroll-mt-24">
               <div className="mb-6">
                 <SectionHeading>คะแนนและรีวิว</SectionHeading>
               </div>
@@ -412,22 +491,22 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
               {/* Overall Rating Box */}
               <div className="flex flex-col sm:flex-row gap-5 sm:gap-8 items-center justify-center sm:justify-start bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-md shadow-slate-200/60 mb-6">
                 <div className="flex flex-col items-center justify-center text-center sm:border-r border-slate-100 sm:pr-8">
-                  <div className="text-4xl sm:text-5xl font-black text-slate-900 mb-1.5 tracking-tighter">4.9</div>
+                  <div className="text-4xl sm:text-5xl font-black text-slate-900 mb-1.5 tracking-tighter">0.0</div>
                   <div className="flex items-center gap-1 mb-1.5">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`w-4 h-4 sm:w-4.5 sm:h-4.5 ${i === 4 ? 'text-orange-300 fill-orange-300' : 'text-orange-500 fill-orange-500'}`} />
+                      <Star key={i} className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-200 fill-slate-200" />
                     ))}
                   </div>
-                  <div className="text-xs sm:text-sm text-slate-500 font-medium">(6.8k รีวิว)</div>
+                  <div className="text-xs sm:text-sm text-slate-500 font-medium">(0 รีวิว)</div>
                 </div>
                 
                 <div className="flex flex-col gap-1.5 sm:gap-2 w-full max-w-[220px] sm:max-w-[240px]">
                   {[
-                    { star: 5, pct: 85 },
-                    { star: 4, pct: 65 },
-                    { star: 3, pct: 15 },
-                    { star: 2, pct: 25 },
-                    { star: 1, pct: 5 },
+                    { star: 5, pct: 0 },
+                    { star: 4, pct: 0 },
+                    { star: 3, pct: 0 },
+                    { star: 2, pct: 0 },
+                    { star: 1, pct: 0 },
                   ].map(row => (
                     <div key={row.star} className="flex items-center gap-3">
                       <span className="w-3 text-sm font-bold text-slate-600 text-right">{row.star}</span>
