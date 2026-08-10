@@ -34,12 +34,25 @@ const CANCEL_REASON_LABELS: Record<CancelReason, string> = {
   other: "อื่นๆ",
 };
 
-// รันเลขที่ออเดอร์ "#0001" ต่อร้าน — นับจำนวนออเดอร์เดิมของร้านนี้ +1 แล้ว pad เป็น 4 หลัก
+// รันเลขที่ออเดอร์ "#0001" ต่อร้าน — ดูเลขล่าสุดของร้านแล้ว +1 (ปลอดภัยกว่า count() เผื่อมีการลบออเดอร์)
 // ไม่ atomic 100% ในทางทฤษฎี (สั่งพร้อมกันเป๊ะๆ อาจได้เลขซ้ำ) แต่กันไว้อีกชั้นด้วย unique constraint (shop_id, code)
 // ที่ endpoint POST /orders ด้านล่างจะลองใหม่อัตโนมัติถ้าเลขชนกันจริง
 export async function generateOrderCode(shopId: string): Promise<string> {
-  const [row] = await db.select({ total: count() }).from(orders).where(eq(orders.shopId, shopId));
-  return `#${String((row?.total ?? 0) + 1).padStart(4, "0")}`;
+  const [lastOrder] = await db
+    .select({ code: orders.code })
+    .from(orders)
+    .where(eq(orders.shopId, shopId))
+    .orderBy(desc(orders.createdAt))
+    .limit(1);
+
+  let nextNum = 1;
+  if (lastOrder && lastOrder.code) {
+    const currentNum = parseInt(lastOrder.code.replace(/\D/g, ""), 10);
+    if (!isNaN(currentNum)) {
+      nextNum = currentNum + 1;
+    }
+  }
+  return `#${String(nextNum).padStart(4, "0")}`;
 }
 
 // รหัสอ้างอิงเต็มระบบ ไม่ซ้ำกันทั้งระบบ (วันที่ + สุ่ม 4 ตัวอักษร) เช่น "ORD-20260516-B0F2"
@@ -345,6 +358,11 @@ export const ordersRoutes = new Elysia()
         return { error: "ออเดอร์นี้จบสถานะแล้ว ยกเลิกไม่ได้อีก" };
       }
     } else {
+      // ถ้าออเดอร์อยู่ในสถานะเป้าหมายอยู่แล้ว ให้ถือว่าสำเร็จเลย (Idempotent) ช่วยป้องกันบั๊กจากการกดปุ่มเบิ้ล
+      if (row.order.status === nextStatus) {
+        return { order: serializeOrder(row.order, row.customer) };
+      }
+
       const allowed = getAllowedNextStatus(row.order);
       if (allowed !== nextStatus) {
         set.status = 400;

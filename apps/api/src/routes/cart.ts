@@ -675,6 +675,17 @@ export const cartRoutes = new Elysia()
         });
       }
 
+      // นำ colorTier เข้าไปรวมใน optionsSnapshot ด้วย เพื่อไม่ให้ข้อมูลสูญหาย
+      if (colorTier) {
+        optionsSnapshot.unshift({
+          optionName: "สี",
+          valueName: colorTier.label,
+          textValue: null,
+          extraPrice: colorTier.pricePerUnit,
+          priceScope: mainService.pageCountingMode === "none" ? "per_piece" : "per_page",
+        });
+      }
+
       // ดึง add-on services
       const addOnBindings = await db.select().from(cartItemAddOns).where(eq(cartItemAddOns.cartItemId, row.id));
       const addOnCharges: ScopedAmount[] = [];

@@ -8,13 +8,14 @@ interface FileThumbnailProps {
   order: Order;
   kind: "file" | "slip";
   size?: "sm" | "md" | "lg";
+  align?: "center" | "left";
   onClick?: () => void;
 }
 
 const boxPx = { sm: 64, md: 96, lg: 128 };
 const textWidth = { sm: "max-w-[80px]", md: "max-w-[112px]", lg: "max-w-[144px]" };
 
-export default function FileThumbnail({ order, kind, size = "sm", onClick }: FileThumbnailProps) {
+export default function FileThumbnail({ order, kind, size = "sm", align = "center", onClick }: FileThumbnailProps) {
   const file = kind === "slip" ? order.paymentSlip : order.file;
   const target = boxPx[size];
   const scale = target / MOCK_WIDTH;
@@ -23,9 +24,9 @@ export default function FileThumbnail({ order, kind, size = "sm", onClick }: Fil
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 group mx-auto ${
-        onClick ? "cursor-pointer" : "cursor-default"
-      }`}
+      className={`flex flex-col gap-1.5 group ${
+        align === "center" ? "items-center mx-auto" : "items-start"
+      } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       <div
         className="relative overflow-hidden rounded-lg ring-1 ring-gray-100 group-hover:ring-orange-300 transition-all shrink-0"
@@ -49,11 +50,7 @@ export default function FileThumbnail({ order, kind, size = "sm", onClick }: Fil
           </div>
         )}
       </div>
-      <div className="text-center">
-        <p className={`text-[11px] font-medium text-gray-700 truncate ${textWidth[size]}`}>
-          {file.name}
-        </p>
-      </div>
+
     </button>
   );
 }
