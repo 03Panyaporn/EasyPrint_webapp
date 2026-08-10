@@ -40,11 +40,13 @@ const formatCategoryName = (rawName: string) => {
   return rawName.replace(" A4 / A3 (ขาวดำ & สี)", "");
 };
 
-const getFileAttachment = (url: string | null, fallbackName: string) => {
+// ใช้ชื่อไฟล์จริงที่ลูกค้าอัปโหลด (realName) ถ้ามี — ไม่งั้นเดาจาก URL (ออเดอร์เก่าก่อนมี fileName บันทึกไว้)
+const getFileAttachment = (url: string | null, fallbackName: string, realName?: string | null) => {
+  const isPdf = (url?.toLowerCase().endsWith(".pdf") || realName?.toLowerCase().endsWith(".pdf")) ?? false;
+  if (realName) return { name: realName, sizeLabel: "-", type: (isPdf ? "pdf" : "image") as "pdf" | "image" };
   if (!url) return { name: fallbackName, sizeLabel: "-", type: "image" as const };
   const lastSegment = url.split("/").pop();
   const name = lastSegment && lastSegment.length > 0 ? lastSegment : fallbackName;
-  const isPdf = url.toLowerCase().endsWith(".pdf");
   return { name, sizeLabel: "-", type: (isPdf ? "pdf" : "image") as "pdf" | "image" };
 };
 
@@ -354,16 +356,18 @@ export default function OrdersTable({
                         {/* 7. ไฟล์งาน */}
                         <td className={`py-3 px-4 text-center align-middle ${!isFirst ? "border-t border-gray-200" : ""}`}>
                           {(() => {
-                            const fileObj = item 
-                              ? getFileAttachment(item.fileUrl || order.rawFileUrl || "", `${order.code}-ไฟล์งาน`)
+                            const fileObj = item
+                              ? getFileAttachment(item.fileUrl || order.fileUrl || "", `${order.code}-ไฟล์งาน`, item.fileName)
                               : order.file;
-                            const mockFileOrder = { ...order, file: fileObj };
+                            // item แต่ละอันมีไฟล์งานของตัวเอง — ใช้ signed URL ของ item นี้โดยเฉพาะ ไม่ใช่ของออเดอร์ทั้งก้อน
+                            const itemFileUrl = item ? (item.fileSignedUrl ?? order.rawFileUrl) : order.rawFileUrl;
+                            const itemFileOrder = { ...order, file: fileObj, rawFileUrl: itemFileUrl };
                             return (
                               <FileThumbnail
-                                order={mockFileOrder}
+                                order={itemFileOrder}
                                 kind="file"
                                 align="center"
-                                onClick={() => onPreviewFile(mockFileOrder, "file")}
+                                onClick={() => onPreviewFile(itemFileOrder, "file")}
                               />
                             );
                           })()}

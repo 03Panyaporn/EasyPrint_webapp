@@ -26,6 +26,8 @@ export type ApiOrderItem = {
   }>;
   itemSubtotal: number;
   fileUrl: string | null;
+  fileName?: string | null; // ชื่อไฟล์ต้นฉบับที่ลูกค้าอัปโหลด (ไม่ใช่ path ใน storage)
+  fileSignedUrl?: string | null; // signed URL ชั่วคราวสำหรับดูไฟล์งานจริง (bucket "order-files" เป็น private)
   note: string | null;
 };
 
@@ -49,6 +51,7 @@ export type ApiOrder = {
   lamination: boolean | null;
   selectedAddOns: string[];
   fileUrl: string | null;
+  fileSignedUrl?: string | null; // signed URL ชั่วคราวของ fileUrl ด้านบน (ออเดอร์แบบเก่าที่ยังไม่มี items)
   items?: ApiOrderItem[];
   subtotal?: number;
   shippingFee?: number;
@@ -58,6 +61,7 @@ export type ApiOrder = {
   note?: string;
   delivery: { method: DeliveryMethod; address?: string };
   slipUrl: string;
+  slipSignedUrl?: string | null; // signed URL ชั่วคราวของ slipUrl (bucket "payment-slips" เป็น private)
   slipUploadedAt: string | null;
   cancelReason?: CancelReason;
   cancelNote?: string;

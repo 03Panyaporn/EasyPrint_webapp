@@ -524,14 +524,13 @@ export default function ShopRegisterPage() {
           </Field>
 
           {/* Social Media */}
-          <Field label="ช่องทาง Social Media (Facebook / Line / IG)" icon={<Share2 className="w-4 h-4" />} required>
+          <Field label="ช่องทาง Social Media (Facebook / Line / IG)" icon={<Share2 className="w-4 h-4" />} optional>
             <input
               type="text"
               name="socialMedia"
               value={form.socialMedia}
               onChange={handleChange}
               placeholder="เช่น FB: EasyPrint Shop / Line: @easyprint"
-              required
               className={inputCls}
             />
           </Field>

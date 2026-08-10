@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Loader2, LogIn, ShoppingCart, Minus, Plus, FileText } from "lucide-react";
+import { ArrowLeft, Trash2, Loader2, LogIn, ShoppingCart, Minus, Plus, FileText, MapPin } from "lucide-react";
 import { getCarts, updateCartItem, removeCartItem, setCartDeliveryOption, type Cart } from "@/lib/api/cart";
 import { getDeliveryOptions } from "@/lib/api/services";
+import { getAddresses } from "@/lib/api/addresses";
 import { ApiError } from "@/lib/api/client";
 import type { DeliveryOption } from "@/components/shop/services/types";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ export default function CartPage() {
   const [loadError, setLoadError] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [hasAddress, setHasAddress] = useState(true); // เริ่มที่ true กันไม่ให้ banner กระพริบก่อนโหลดเสร็จ
   const handleCheckout = () => {
     if (selectedItems.length === 0) return;
 
@@ -50,12 +52,13 @@ export default function CartPage() {
       setLoadError("");
       setNeedsLogin(false);
 
-      const res = await getCarts();
+      const [res, addressesRes] = await Promise.all([getCarts(), getAddresses()]);
       console.log(carts);
 
       setCarts(
         res.carts.filter((cart) => cart.items.length > 0)
       );
+      setHasAddress(addressesRes.addresses.length > 0);
 
       const entries = await Promise.all(
         res.carts.map(async (cart) => {
@@ -109,6 +112,7 @@ export default function CartPage() {
         addOnIds: item.addOns.map((a) => a.addOnServiceId),
         quantity: newQty,
         fileUrl: item.fileUrl,
+        fileName: item.fileName,
         note: item.note,
       });
       replaceCart(updated);
@@ -137,6 +141,13 @@ export default function CartPage() {
   };
 
   const handleDeliverySelect = async (shopId: string, deliveryOptionId: string) => {
+    // เลือกวิธีจัดส่งแบบ "ส่ง" (ไม่ใช่ "ยังไม่เลือก") ต้องมีที่อยู่จัดส่งบันทึกไว้ก่อนเสมอ
+    // ไม่งั้นตอน checkout จะไม่มีที่อยู่ให้ร้านจัดส่งไปส่ง (ดู cart/check-out/page.tsx)
+    if (deliveryOptionId && !hasAddress) {
+      alert("กรุณาเพิ่มที่อยู่จัดส่งก่อน จึงจะเลือกวิธีจัดส่งแบบนี้ได้");
+      return;
+    }
+
     try {
       const { cart: updated } = await setCartDeliveryOption(shopId, { deliveryOptionId: deliveryOptionId || null });
       replaceCart(updated);
@@ -379,6 +390,18 @@ export default function CartPage() {
                         </option>
                       ))}
                     </select>
+                    {!hasAddress && (
+                      <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-700">
+                        <MapPin size={14} className="shrink-0 mt-0.5" />
+                        <span>
+                          คุณยังไม่มีที่อยู่จัดส่ง กรุณา
+                          <Link href="/profile" className="font-semibold underline hover:text-amber-800">
+                            เพิ่มที่อยู่
+                          </Link>
+                          {" "}ก่อน จึงจะเลือกวิธีจัดส่งแบบส่งได้
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 

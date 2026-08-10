@@ -27,6 +27,7 @@ const cartItemBaseSchema = z.object({
   addOnIds: z.array(z.string().uuid()).default([]),
   quantity: z.number().int().positive().max(1000, "จำนวนต้องไม่เกิน 1000"),
   fileUrl: z.string().min(1, "กรุณาอัปโหลดไฟล์งานพิมพ์").optional(),
+  fileName: z.string().trim().max(255).optional(), // ชื่อไฟล์ต้นฉบับ (ไม่ใช่ path ใน storage) เก็บไว้แสดงผลใน UI เท่านั้น
   note: z.string().trim().max(500).optional(),
 });
 

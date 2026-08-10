@@ -13,6 +13,7 @@
 | GET | `/auth/me` | เช็ค session ปัจจุบันจาก cookie | ต้อง login |
 | POST | `/auth/forgot-password` | สร้าง reset token ส่งลิงก์ไปทางอีเมล (ตอบ success เหมือนกันไม่ว่าจะเจออีเมลหรือไม่) | ไม่ต้อง |
 | POST | `/auth/reset-password` | ยืนยัน token + ตั้งรหัสผ่านใหม่ (Argon2 hash) | ไม่ต้อง (ใช้ token แทน) |
+| POST | `/auth/change-password` | ผู้ใช้ล็อกอินอยู่แล้วเปลี่ยนรหัสผ่านเอง ตรวจรหัสผ่านปัจจุบันก่อน + ห้ามซ้ำกับรหัสเดิม | ต้อง login |
 
 ## Uploads
 

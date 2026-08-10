@@ -4,11 +4,13 @@ import type { Order, OrderFileAttachment } from "@/components/shop/orders/types"
 // แปลงข้อมูลจริงจาก API ให้เข้ากับ shape ของ Order (เดิมออกแบบไว้คู่กับ mock data) เพื่อใช้ UI component ชุดเดิมที่มีอยู่แล้วได้ทันที
 // (backend เก็บแค่ fileUrl/slipUrl เป็น string ไม่มีชื่อไฟล์/ขนาดไฟล์จริงเหมือน mock — เดาชื่อ/ประเภทจาก URL แทน)
 
-function guessFileAttachment(url: string | null, fallbackName: string): OrderFileAttachment {
+// ใช้ชื่อไฟล์จริงที่ลูกค้าอัปโหลด (realName) ถ้ามี — ไม่งั้นเดาจาก URL (ออเดอร์เก่าก่อนมี fileName บันทึกไว้)
+function guessFileAttachment(url: string | null, fallbackName: string, realName?: string | null): OrderFileAttachment {
+  const isPdf = (url?.toLowerCase().endsWith(".pdf") || realName?.toLowerCase().endsWith(".pdf")) ?? false;
+  if (realName) return { name: realName, sizeLabel: "-", type: isPdf ? "pdf" : "image" };
   if (!url) return { name: fallbackName, sizeLabel: "-", type: "image" };
   const lastSegment = url.split("/").pop();
   const name = lastSegment && lastSegment.length > 0 ? lastSegment : fallbackName;
-  const isPdf = url.toLowerCase().endsWith(".pdf");
   return { name, sizeLabel: "-", type: isPdf ? "pdf" : "image" };
 }
 
@@ -48,15 +50,16 @@ export function toOrder(api: ApiOrder): Order {
     copies,
     totalPages,
     addOns,
-    file: guessFileAttachment(firstItem?.fileUrl || api.fileUrl || "", `${api.code}-ไฟล์งาน`),
+    file: guessFileAttachment(firstItem?.fileUrl || api.fileUrl || "", `${api.code}-ไฟล์งาน`, firstItem?.fileName),
     paymentSlip: guessFileAttachment(api.slipUrl, `${api.code}-สลิป`),
     delivery: api.delivery,
     subtotal: api.subtotal,
     shippingFee: api.shippingFee,
     price: finalPrice,
     items: api.items,
-    rawFileUrl: firstItem?.fileUrl || api.fileUrl,
-    rawSlipUrl: api.slipUrl,
+    fileUrl: firstItem?.fileUrl || api.fileUrl || null,
+    rawFileUrl: firstItem?.fileSignedUrl || api.fileSignedUrl || null,
+    rawSlipUrl: api.slipSignedUrl || null,
     status: api.status,
     createdAtLabel: formatCreatedAtLabel(api.createdAt),
     note: api.note,

@@ -241,6 +241,7 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         unitPrice: calc.perCopyAmount,
         lineTotal: calc.lineTotal,
         fileUrl: row.fileUrl ?? undefined,
+        fileName: row.fileName ?? undefined,
         note: row.note ?? undefined,
       };
     })
@@ -408,6 +409,7 @@ export const cartRoutes = new Elysia()
         pageCount: serverPageCount,
         quantity: parsed.data.quantity,
         fileUrl: parsed.data.fileUrl,
+        fileName: parsed.data.fileName,
         note: parsed.data.note,
       })
       .returning();
@@ -506,6 +508,7 @@ export const cartRoutes = new Elysia()
         pageCount: serverPageCount ?? null,
         quantity: parsed.data.quantity,
         fileUrl: parsed.data.fileUrl,
+        fileName: parsed.data.fileName,
         note: parsed.data.note,
       })
       .where(eq(cartItems.id, params.id));
@@ -627,6 +630,7 @@ export const cartRoutes = new Elysia()
       additionalServicesSnapshotJson: object[];
       itemTotalPrice: string;
       fileUrl: string | null;
+      fileName: string | null;
     };
     const snapshots: Omit<SnapshotItem, "orderId">[] = [];
     let subtotal = 0;
@@ -741,6 +745,7 @@ export const cartRoutes = new Elysia()
         additionalServicesSnapshotJson: addOnsSnapshot,
         itemTotalPrice: calc.lineTotal.toFixed(2),
         fileUrl: row.fileUrl ?? null,
+        fileName: row.fileName ?? null,
       });
     }
 

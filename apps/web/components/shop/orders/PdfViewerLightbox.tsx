@@ -1,21 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  X,
-  Menu,
-  Minus,
-  Plus,
-  Printer,
-  Maximize2,
-  Minimize2,
-  FileText,
-  ChevronDown,
-  Check,
-} from "lucide-react";
+import { X, Maximize2, Minimize2, FileText, Download, ExternalLink } from "lucide-react";
 import { Order } from "./types";
-import DocumentPageContent from "./DocumentPageContent";
-import { buildMockPdfBlob, downloadBlob } from "./pdfMock";
 
 interface PdfViewerLightboxProps {
   order: Order | null;
@@ -23,14 +10,7 @@ interface PdfViewerLightboxProps {
 }
 
 export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxProps) {
-  const pageCount = order
-    ? Math.min(12, Math.max(3, Math.round(order.totalPages / 8)))
-    : 0;
-  const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(100);
-  const [showSidebar, setShowSidebar] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,52 +19,14 @@ export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxP
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2000);
-  };
-
   if (!order) return null;
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen().catch(() => {
-        showToast("เบราว์เซอร์ไม่อนุญาตโหมดเต็มจอ");
-      });
+      containerRef.current?.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen().catch(() => {});
     }
-  };
-
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank", "width=680,height=880");
-    if (!printWindow) {
-      showToast("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");
-      return;
-    }
-    printWindow.document.write(`
-      <html>
-        <head><title>${order.file.name}</title></head>
-        <body style="margin:0;padding:32px;font-family:sans-serif;display:flex;justify-content:center;background:#f3f4f6;">
-          <div style="width:100%;max-width:560px;background:#fff;padding:32px;box-shadow:0 1px 4px rgba(0,0,0,0.1);">
-            <div style="height:14px;width:66%;background:#1f2937;border-radius:9999px;margin-bottom:8px;"></div>
-            <div style="height:10px;width:50%;background:#d1d5db;border-radius:9999px;margin-bottom:24px;"></div>
-            <p style="color:#6b7280;font-size:13px;">ไฟล์งาน: ${order.file.name} (${order.file.sizeLabel})</p>
-            <p style="color:#6b7280;font-size:13px;">ออเดอร์: ${order.code} — ${order.customerName}</p>
-            <p style="color:#9ca3af;font-size:12px;margin-top:24px;">ตัวอย่างเอกสารจำลองสำหรับพิมพ์ (mock preview)</p>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  const handleDownload = () => {
-    const blob = buildMockPdfBlob(`EasyPrint mock file - order ${order.code}`);
-    downloadBlob(blob, order.file.name.endsWith(".pdf") ? order.file.name : `${order.file.name}.pdf`);
-    showToast("ดาวน์โหลดไฟล์แล้ว");
   };
 
   return (
@@ -100,108 +42,37 @@ export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxP
           <h2 className="text-sm font-bold text-gray-800 truncate">
             ดูไฟล์งาน <span className="font-normal text-gray-400">({order.file.name})</span>
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors shrink-0"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 text-gray-200 text-xs shrink-0">
-          <button
-            onClick={() => setShowSidebar((s) => !s)}
-            className={`p-1.5 rounded transition-colors ${
-              showSidebar ? "bg-white/10" : "hover:bg-white/10"
-            }`}
-            title={showSidebar ? "ซ่อนหน้าตัวอย่าง" : "แสดงหน้าตัวอย่าง"}
-          >
-            <Menu size={15} />
-          </button>
-
-          <div className="flex items-center gap-1 px-2 py-1 rounded cursor-default">
-            <span>
-              {currentPage} / {pageCount}
-            </span>
-            <ChevronDown size={12} className="text-gray-400" />
-          </div>
-
-          <div className="w-px h-4 bg-white/15" />
-
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
-              onClick={() => setZoom((z) => Math.max(50, z - 25))}
-              className="p-1.5 rounded hover:bg-white/10 transition-colors"
+              onClick={toggleFullscreen}
+              className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              title={isFullscreen ? "ออกจากเต็มจอ" : "ดูเต็มจอ"}
             >
-              <Minus size={14} />
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
-            <span className="w-11 text-center">{zoom}%</span>
             <button
-              onClick={() => setZoom((z) => Math.min(200, z + 25))}
-              className="p-1.5 rounded hover:bg-white/10 transition-colors"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
             >
-              <Plus size={14} />
+              <X size={18} />
             </button>
           </div>
-
-          <div className="flex-1" />
-
-          <button
-            onClick={handlePrint}
-            className="p-1.5 rounded hover:bg-white/10 transition-colors"
-            title="พิมพ์"
-          >
-            <Printer size={15} />
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded hover:bg-white/10 transition-colors"
-            title={isFullscreen ? "ออกจากเต็มจอ" : "ดูเต็มจอ"}
-          >
-            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-          </button>
         </div>
 
-        {/* Body */}
-        <div className="flex flex-1 min-h-0">
-          {/* Thumbnails sidebar */}
-          {showSidebar && (
-            <div className="w-24 bg-gray-900 overflow-y-auto py-4 flex flex-col items-center gap-3 shrink-0">
-              {Array.from({ length: pageCount }).map((_, i) => {
-                const page = i + 1;
-                const active = page === currentPage;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className="flex flex-col items-center gap-1 shrink-0"
-                  >
-                    <div
-                      className={`w-14 h-[72px] bg-white rounded-sm overflow-hidden ring-2 transition-all ${
-                        active ? "ring-blue-500" : "ring-transparent hover:ring-white/30"
-                      }`}
-                    >
-                      <DocumentPageContent compact />
-                    </div>
-                    <span className={`text-[10px] ${active ? "text-blue-400" : "text-gray-500"}`}>
-                      {page}
-                    </span>
-                  </button>
-                );
-              })}
+        {/* Body — ใช้ตัวแสดง PDF ในตัวของเบราว์เซอร์ แสดงไฟล์งานจริงที่ลูกค้าอัปโหลด (ไม่ใช่ mock) */}
+        <div className="flex-1 min-h-0 bg-gray-100">
+          {order.rawFileUrl ? (
+            <iframe
+              src={order.rawFileUrl}
+              title={order.file.name}
+              className="w-full h-full border-0"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-400">
+              <FileText size={32} />
+              <p className="text-sm">ไม่พบไฟล์งาน หรือลิงก์หมดอายุแล้ว</p>
             </div>
           )}
-
-          {/* Main page area */}
-          <div className="flex-1 bg-gray-100 overflow-y-auto p-6 flex justify-center">
-            <div
-              className="bg-white shadow-md border border-gray-200 shrink-0 h-fit"
-              style={{ width: `${(560 * zoom) / 100}px`, aspectRatio: "3 / 4" }}
-            >
-              <DocumentPageContent />
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -212,24 +83,30 @@ export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxP
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-gray-700 truncate">{order.file.name}</p>
-              <p className="text-[11px] text-gray-400">{order.file.sizeLabel}</p>
             </div>
           </div>
-          <button
-            onClick={handleDownload}
-            className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-md shadow-orange-200 transition-colors shrink-0"
-          >
-            ดาวน์โหลด
-          </button>
+          {order.rawFileUrl && (
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={order.rawFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold transition-colors"
+              >
+                <ExternalLink size={14} />
+                เปิดแท็บใหม่
+              </a>
+              <a
+                href={order.rawFileUrl}
+                download={order.file.name}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-md shadow-orange-200 transition-colors"
+              >
+                <Download size={14} />
+                ดาวน์โหลด
+              </a>
+            </div>
+          )}
         </div>
-
-        {/* Toast */}
-        {toast && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-xs rounded-xl shadow-xl">
-            <Check size={14} className="text-emerald-400" />
-            {toast}
-          </div>
-        )}
       </div>
     </div>
   );

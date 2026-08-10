@@ -5,6 +5,7 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
   registerShopSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
@@ -249,6 +250,44 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       .update(passwordResetTokens)
       .set({ usedAt: new Date() })
       .where(eq(passwordResetTokens.id, resetToken.id));
+
+    return { ok: true };
+  })
+
+  // เปลี่ยนรหัสผ่านตอนล็อกอินอยู่แล้ว (ต่างจาก reset-password ที่ไม่ต้องล็อกอิน ใช้ token จากอีเมลแทน)
+  .post("/change-password", async ({ body, cookie, set }) => {
+    const token = cookie[COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const parsed = changePasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
+    if (!user) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const currentPasswordOk = await verifyPassword(user.passwordHash, parsed.data.currentPassword);
+    if (!currentPasswordOk) {
+      set.status = 400;
+      return { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
+    }
+
+    if (parsed.data.currentPassword === parsed.data.newPassword) {
+      set.status = 400;
+      return { error: "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน" };
+    }
+
+    const passwordHash = await hashPassword(parsed.data.newPassword);
+    await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
 
     return { ok: true };
   });

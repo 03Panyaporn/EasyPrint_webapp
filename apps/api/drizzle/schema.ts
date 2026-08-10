@@ -307,7 +307,8 @@ export const cartItems = pgTable("cart_items", {
   heightCm: numeric("height_cm", { precision: 10, scale: 2 }),
   pageCount: integer("page_count"),
   quantity: integer("quantity").notNull().default(1),
-  fileUrl: text("file_url"), // storage path จาก bucket private "order-files" — ไฟล์งานพิมพ์ของลูกค้า
+  fileUrl: text("file_url"), // storage path จาก bucket private "order-files" — ไฟล์งานพิมพ์ของลูกค้า (ชื่อไฟล์เป็น UUID สุ่ม ไม่ใช่ชื่อไฟล์จริง)
+  fileName: text("file_name"), // ชื่อไฟล์ต้นฉบับที่ลูกค้าอัปโหลด (เก็บแยกจาก fileUrl เพราะ path ใน storage ถูกสุ่มเป็น UUID กันชื่อชนกัน) — ใช้แสดงผลใน UI เท่านั้น
   note: text("note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -417,7 +418,8 @@ export const orderItems = pgTable("order_items", {
   // additional_services_snapshot_json: [{name, extraPrice, scope}] ณ เวลา checkout
   additionalServicesSnapshotJson: jsonb("additional_services_snapshot_json").notNull().default([]),
   itemTotalPrice: numeric("item_total_price", { precision: 10, scale: 2 }).notNull(), // ราคารวมของ item นี้
-  fileUrl: text("file_url"), // storage path ของไฟล์งานพิมพ์ของ item นี้
+  fileUrl: text("file_url"), // storage path ของไฟล์งานพิมพ์ของ item นี้ (ชื่อไฟล์เป็น UUID สุ่ม ไม่ใช่ชื่อไฟล์จริง)
+  fileName: text("file_name"), // ชื่อไฟล์ต้นฉบับที่ลูกค้าอัปโหลด (snapshot มาจาก cart_items.file_name ตอน checkout) — ใช้แสดงผลใน UI เท่านั้น
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

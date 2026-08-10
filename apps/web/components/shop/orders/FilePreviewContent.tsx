@@ -1,4 +1,4 @@
-import { ArrowDown, Landmark, QrCode, Image as ImageIcon } from "lucide-react";
+import { ArrowDown, Landmark, QrCode, Image as ImageIcon, FileText } from "lucide-react";
 import { Order, OrderFileAttachment } from "./types";
 
 export const MOCK_WIDTH = 288; // = w-72 (18rem) — ความกว้างอ้างอิงสำหรับคำนวณ scale ตอนย่อเป็น thumbnail
@@ -17,7 +17,46 @@ function pickGradient(seed: string) {
   return imageGradients[hash % imageGradients.length];
 }
 
-/** ตัวอย่างสลิปโอนเงิน — จำลองสไตล์แอปธนาคาร (พื้นหลังฟ้า, วงกลมธนาคาร/พร้อมเพย์, QR) ด้วยข้อมูลสมมติ ไม่ใช่แบรนด์หรือข้อมูลจริง */
+/** สลิปโอนเงินจริงที่ลูกค้าอัปโหลด (ดึงจาก rawSlipUrl signed URL) — object-contain กันรูปสลิปยาวๆ ถูกครอปหาย */
+export function SlipImage({ url, name }: { url: string; name: string }) {
+  return (
+    <div
+      style={{ width: MOCK_WIDTH }}
+      className="rounded-2xl overflow-hidden shadow-lg select-none bg-gray-50 flex items-center justify-center"
+    >
+      <img src={url} alt={name} className="w-full h-auto max-h-[420px] object-contain" />
+    </div>
+  );
+}
+
+/** รูปไฟล์งานจริงที่ลูกค้าอัปโหลด (jpg/png — ดึงจาก rawFileUrl signed URL) */
+export function PhotoImage({ url, name }: { url: string; name: string }) {
+  return (
+    <div
+      style={{ width: MOCK_WIDTH, aspectRatio: "1 / 1" }}
+      className="bg-white rounded-lg shadow-lg border-4 border-white ring-1 ring-gray-200 overflow-hidden select-none flex flex-col"
+    >
+      <img src={url} alt={name} className="w-full h-full object-cover" />
+    </div>
+  );
+}
+
+/** ไฟล์งานที่เป็น PDF — thumbnail เล็กแสดงแค่ไอคอน + ชื่อไฟล์จริง (ตัวเนื้อหาจริงไปเปิดดูเต็มที่ PdfViewerLightbox ผ่าน iframe) */
+export function PdfFileCard({ name }: { name: string }) {
+  return (
+    <div
+      style={{ width: MOCK_WIDTH, aspectRatio: "3 / 4" }}
+      className="relative bg-white rounded-lg shadow-lg border border-gray-200 select-none overflow-hidden flex flex-col items-center justify-center gap-3 p-6"
+    >
+      <div className="w-14 h-14 rounded-xl bg-red-50 flex items-center justify-center">
+        <FileText size={26} className="text-red-500" />
+      </div>
+      <p className="text-xs text-gray-500 text-center truncate w-full">{name}</p>
+    </div>
+  );
+}
+
+/** ตัวอย่างสลิปโอนเงิน (fallback เมื่อไม่มี signed URL จริง เช่น ข้อมูลทดสอบ/ออเดอร์เก่าที่ไม่มีไฟล์) — จำลองสไตล์แอปธนาคารด้วยข้อมูลสมมติ ไม่ใช่แบรนด์หรือข้อมูลจริง */
 export function SlipMock({ order }: { order: Order }) {
   return (
     <div
@@ -101,7 +140,7 @@ export function SlipMock({ order }: { order: Order }) {
   );
 }
 
-/** ตัวอย่างไฟล์งานเอกสาร (PDF) — จำลองหน้ากระดาษที่พิมพ์ พร้อมป้ายประเภทงาน */
+/** ตัวอย่างไฟล์งานเอกสาร (PDF) — fallback เมื่อไม่มี signed URL จริง จำลองหน้ากระดาษที่พิมพ์ พร้อมป้ายประเภทงาน */
 export function DocumentMock({ order }: { order: Order }) {
   return (
     <div
@@ -131,7 +170,7 @@ export function DocumentMock({ order }: { order: Order }) {
   );
 }
 
-/** ตัวอย่างไฟล์งานรูปภาพ — จำลองกรอบรูปถ่าย/โปสเตอร์ */
+/** ตัวอย่างไฟล์งานรูปภาพ — fallback เมื่อไม่มี signed URL จริง จำลองกรอบรูปถ่าย/โปสเตอร์ */
 export function PhotoMock({ file }: { file: OrderFileAttachment }) {
   return (
     <div
@@ -151,6 +190,19 @@ export function PhotoMock({ file }: { file: OrderFileAttachment }) {
 }
 
 export function renderFileMock(order: Order, kind: "file" | "slip") {
-  if (kind === "slip") return <SlipMock order={order} />;
-  return order.file.type === "pdf" ? <DocumentMock order={order} /> : <PhotoMock file={order.file} />;
+  if (kind === "slip") {
+    return order.rawSlipUrl ? (
+      <SlipImage url={order.rawSlipUrl} name={order.paymentSlip.name} />
+    ) : (
+      <SlipMock order={order} />
+    );
+  }
+  if (order.file.type === "pdf") {
+    return <PdfFileCard name={order.file.name} />;
+  }
+  return order.rawFileUrl ? (
+    <PhotoImage url={order.rawFileUrl} name={order.file.name} />
+  ) : (
+    <PhotoMock file={order.file} />
+  );
 }

@@ -55,6 +55,8 @@ export interface OrderItemSnapshot {
   }>;
   itemSubtotal: number;
   fileUrl: string | null;
+  fileName?: string | null; // ชื่อไฟล์ต้นฉบับที่ลูกค้าอัปโหลด (ไม่ใช่ path ใน storage)
+  fileSignedUrl?: string | null; // signed URL ชั่วคราวสำหรับดูไฟล์งานจริงของ item นี้โดยเฉพาะ (bucket "order-files" เป็น private)
   note: string | null;
   delivery?: OrderDelivery; // Optional item-level delivery
 }
@@ -78,8 +80,9 @@ export interface Order {
   shippingFee?: number | null;
   price: number;
   items?: OrderItemSnapshot[];
-  rawFileUrl?: string | null;
-  rawSlipUrl?: string | null;
+  fileUrl?: string | null; // path ดิบระดับออเดอร์ (ไม่ signed) ใช้เดาชื่อไฟล์/นามสกุลเท่านั้น ห้ามใช้เป็น src โดยตรง (bucket private เปิดไม่ได้)
+  rawFileUrl?: string | null; // signed URL ที่เปิดดู/โหลดไฟล์งานจริงได้ (มาจาก fileSignedUrl ฝั่ง API)
+  rawSlipUrl?: string | null; // signed URL ที่เปิดดู/โหลดสลิปจริงได้ (มาจาก slipSignedUrl ฝั่ง API)
   status: OrderStatus;
   createdAtLabel: string; // เช่น "16 พ.ค. 10:30"
   note?: string; // หมายเหตุจากลูกค้าตอนสั่งซื้อ

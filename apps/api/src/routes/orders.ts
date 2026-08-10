@@ -12,6 +12,7 @@ import { orders, orderItems, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
+import { supabaseAdmin } from "../storage";
 
 // ต้องตรงกับ statusConfig.ts ฝั่ง frontend (apps/web/components/shop/orders/statusConfig.ts) — ใช้ในข้อความ error ตอนพยายามข้ามขั้นสถานะ
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -117,6 +118,7 @@ export function serializeOrder(
           }>) ?? [],
           itemSubtotal: Number(item.itemTotalPrice),
           fileUrl: item.fileUrl,
+          fileName: item.fileName,
           note: item.noteSnapshot,
         }))
       : undefined,
@@ -133,6 +135,31 @@ export function serializeOrder(
     cancelNote: order.cancelNote ?? undefined,
     createdAt: order.createdAt,
   };
+}
+
+// order-files/payment-slips เป็น private bucket ทั้งคู่ (ดูคอมเมนต์ apps/api/src/storage.ts) — ต้องออก signed URL ชั่วคราวให้ทุกครั้งที่ส่งข้อมูลออเดอร์กลับไปหน้าเว็บ
+// เพราะ path ดิบที่เก็บใน DB เปิดดูตรงๆ ไม่ได้ (ไม่ใช่ URL สาธารณะ)
+async function signStoragePath(bucket: string, path: string | null | undefined, expiresInSeconds = 3600): Promise<string | null> {
+  if (!path) return null;
+  const { data } = await supabaseAdmin.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
+  return data?.signedUrl ?? null;
+}
+
+// แนบ signed URL ของไฟล์งาน (ทั้งระดับออเดอร์แบบเก่าและระดับ item แบบใหม่) + สลิปโอนเงิน ให้กับออเดอร์ที่ serializeOrder แล้ว
+async function withSignedFileUrls<T extends ReturnType<typeof serializeOrder>>(order: T) {
+  const [fileSignedUrl, slipSignedUrl, items] = await Promise.all([
+    signStoragePath("order-files", order.fileUrl),
+    signStoragePath("payment-slips", order.slipUrl),
+    order.items
+      ? Promise.all(
+          order.items.map(async (item) => ({
+            ...item,
+            fileSignedUrl: await signStoragePath("order-files", item.fileUrl),
+          }))
+        )
+      : undefined,
+  ]);
+  return { ...order, fileSignedUrl, slipSignedUrl, items };
 }
 
 // ลำดับสถานะถัดไปที่ "เดินหน้า" ได้จากสถานะปัจจุบัน (ห้ามข้ามขั้น) — null = จบ flow แล้ว เปลี่ยนต่อไม่ได้อีก
@@ -237,7 +264,7 @@ export const ordersRoutes = new Elysia()
           }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
         }
 
-        return { order: serializeOrder(order, null) };
+        return { order: await withSignedFileUrls(serializeOrder(order, null)) };
       } catch (err) {
         lastError = err;
       }
@@ -272,7 +299,7 @@ export const ordersRoutes = new Elysia()
     const result = [];
     for (const r of rows) {
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, r.order.id));
-      result.push(serializeOrder(r.order, r.customer, items));
+      result.push(await withSignedFileUrls(serializeOrder(r.order, r.customer, items)));
     }
 
     return { orders: result };
@@ -298,7 +325,7 @@ export const ordersRoutes = new Elysia()
     for (const r of rows) {
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, r.order.id));
       result.push({
-        ...serializeOrder(r.order, null, items),
+        ...(await withSignedFileUrls(serializeOrder(r.order, null, items))),
         shopName: r.shop?.name ?? "ร้านค้า",
       });
     }
@@ -325,7 +352,7 @@ export const ordersRoutes = new Elysia()
 
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, row.order.id));
 
-    return { order: serializeOrder(row.order, row.customer, items) };
+    return { order: await withSignedFileUrls(serializeOrder(row.order, row.customer, items)) };
   })
 
   // ── เปลี่ยนสถานะออเดอร์ (เดินหน้า / ยกเลิก / ปฏิเสธการชำระเงิน — ใช้ endpoint เดียวกันหมด) ──────────
@@ -360,7 +387,7 @@ export const ordersRoutes = new Elysia()
     } else {
       // ถ้าออเดอร์อยู่ในสถานะเป้าหมายอยู่แล้ว ให้ถือว่าสำเร็จเลย (Idempotent) ช่วยป้องกันบั๊กจากการกดปุ่มเบิ้ล
       if (row.order.status === nextStatus) {
-        return { order: serializeOrder(row.order, row.customer) };
+        return { order: await withSignedFileUrls(serializeOrder(row.order, row.customer)) };
       }
 
       const allowed = getAllowedNextStatus(row.order);
@@ -395,5 +422,5 @@ export const ordersRoutes = new Elysia()
       }).catch((err) => console.error("ส่งอีเมลแจ้งเตือนลูกค้าไม่สำเร็จ:", err));
     }
 
-    return { order: serializeOrder(updated, row.customer) };
+    return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
   });
