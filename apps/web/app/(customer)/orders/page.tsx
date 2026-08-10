@@ -68,25 +68,25 @@ export default function CustomerOrdersPage() {
       key: "accepted",
       label: "รับงานแล้ว",
       countClass:
-        "bg-blue-50 text-blue-600 border-blue-200",
-      activeClass:
-        "border-blue-500 bg-blue-500 text-white",
-    },
-    {
-      key: "printing",
-      label: "กำลังพิมพ์",
-      countClass:
         "bg-violet-50 text-violet-600 border-violet-200",
       activeClass:
         "border-violet-500 bg-violet-500 text-white",
     },
     {
-      key: "ready",
-      label: "พร้อมรับ",
+      key: "in_progress",
+      label: "กำลังดำเนินการ",
       countClass:
-        "bg-emerald-50 text-emerald-600 border-emerald-200",
+        "bg-blue-50 text-blue-700 border-blue-200",
       activeClass:
-        "border-emerald-500 bg-emerald-500 text-white",
+        "border-blue-500 bg-blue-500 text-white",
+    },
+    {
+      key: "shipping",
+      label: "กำลังจัดส่ง",
+      countClass:
+        "bg-cyan-50 text-cyan-700 border-cyan-200",
+      activeClass:
+        "border-cyan-500 bg-cyan-500 text-white",
     },
     {
       key: "completed",
