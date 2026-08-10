@@ -63,6 +63,7 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
     if (!shop) return;
     try {
       await approveShop(shop.id);
+      setShop((prev) => (prev ? { ...prev, status: "อนุมัติแล้ว", approvalStatus: "approved" } : null));
       setToast({ type: "approve", shopName: shop.name });
       setModalType(null);
       await fetchShop();
@@ -76,6 +77,7 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
       if (!shop) return;
       try {
         await rejectShop(shop.id, { reason });
+        setShop((prev) => (prev ? { ...prev, status: "ไม่อนุมัติ", approvalStatus: "rejected", rejectedReason: reason } : null));
         setToast({ type: "reject", shopName: shop.name });
         setModalType(null);
         await fetchShop();

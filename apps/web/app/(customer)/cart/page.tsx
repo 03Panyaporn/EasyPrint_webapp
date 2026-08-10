@@ -103,6 +103,7 @@ export default function CartPage() {
           valueId: s.valueId,
           textValue: s.textValue,
         })),
+        colorTierId: item.colorTierId,
         widthCm: item.unitBreakdown?.mode === "per_sqm" ? item.unitBreakdown.widthCm : undefined,
         heightCm: item.unitBreakdown?.mode === "per_sqm" ? item.unitBreakdown.heightCm : undefined,
         addOnIds: item.addOns.map((a) => a.addOnServiceId),
@@ -268,15 +269,21 @@ export default function CartPage() {
                               <h3 className=" text-slate-800 text-sm truncate">
                                 {item.mainServiceName}
                               </h3>
-                              <h2 className="text-sm flex items-center gap-2 mt-1">
-                                <FileText size={15} className="text-orange-500" />
-                                {item.fileUrl}
-                              </h2>
+                              {item.fileUrl && (
+                                <h2 className="text-sm flex items-center gap-2 mt-1 min-w-0">
+                                  <FileText size={15} className="text-orange-500 shrink-0" />
+                                  <span className="truncate">{item.fileUrl.split("/").pop()}</span>
+                                </h2>
+                              )}
                               {!item.isServiceActive && (
                                 <p className="text-[11px] text-red-500 mt-0.5">
                                   บริการนี้ปิดให้บริการไปแล้ว
                                 </p>
                               )}
+
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                สี: {item.colorTierLabel ?? "ขาวดำ"}
+                              </p>
 
                               {item.unitBreakdown?.mode === "per_page" && (
                                 <p className="text-xs text-slate-500 mt-0.5">

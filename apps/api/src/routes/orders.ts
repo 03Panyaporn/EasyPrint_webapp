@@ -84,12 +84,12 @@ export function serializeOrder(
           serviceName: item.serviceNameSnapshot,
           pricingType: item.pricingTypeSnapshot,
           baseRate: Number(item.basePriceSnapshot),
-          colorTierLabel: null,
-          colorTierPrice: null,
+          colorTierLabel: item.colorTierLabelSnapshot,
+          colorTierPrice: item.colorTierPriceSnapshot != null ? Number(item.colorTierPriceSnapshot) : null,
           quantity: item.quantity,
           pageCount: item.pageCount,
-          widthCm: null,
-          heightCm: null,
+          widthCm: item.widthCmSnapshot != null ? Number(item.widthCmSnapshot) : null,
+          heightCm: item.heightCmSnapshot != null ? Number(item.heightCmSnapshot) : null,
           optionsSnapshot: (item.optionsSnapshotJson as Array<{
             optionName: string;
             valueName?: string | null;
@@ -104,7 +104,7 @@ export function serializeOrder(
           }>) ?? [],
           itemSubtotal: Number(item.itemTotalPrice),
           fileUrl: item.fileUrl,
-          note: null,
+          note: item.noteSnapshot,
         }))
       : undefined,
     totalPrice: order.totalPrice,

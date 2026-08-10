@@ -11,7 +11,7 @@ interface RejectModalProps {
 
 export default function RejectModal({ shopName, onConfirm, onClose }: RejectModalProps) {
   const [reason, setReason] = useState("");
-  const canSubmit = reason.trim().length > 0;
+  const canSubmit = reason.trim().length >= 5;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -45,9 +45,14 @@ export default function RejectModal({ shopName, onConfirm, onClose }: RejectModa
 
         {/* Reason textarea */}
         <div className="w-full mb-5 text-left">
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">
-            เหตุผล <span className="text-red-500">*</span>
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-bold text-gray-700">
+              เหตุผล <span className="text-red-500">*</span>
+            </label>
+            <span className="text-[11px] text-gray-400">
+              {reason.trim().length}/5 ตัวอักษรขึ้นไป
+            </span>
+          </div>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -55,6 +60,11 @@ export default function RejectModal({ shopName, onConfirm, onClose }: RejectModa
             rows={3}
             className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 transition-colors placeholder:text-gray-400"
           />
+          {reason.length > 0 && !canSubmit && (
+            <p className="text-[11px] text-red-500 mt-1 font-semibold">
+              กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร
+            </p>
+          )}
         </div>
 
         {/* Buttons */}

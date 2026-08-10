@@ -616,8 +616,13 @@ export const cartRoutes = new Elysia()
       serviceNameSnapshot: string;
       pricingTypeSnapshot: string;
       basePriceSnapshot: string;
+      colorTierLabelSnapshot: string | null;
+      colorTierPriceSnapshot: string | null;
       quantity: number;
       pageCount: number | null;
+      widthCmSnapshot: string | null;
+      heightCmSnapshot: string | null;
+      noteSnapshot: string | null;
       optionsSnapshotJson: object[];
       additionalServicesSnapshotJson: object[];
       itemTotalPrice: string;
@@ -714,8 +719,13 @@ export const cartRoutes = new Elysia()
         serviceNameSnapshot: mainService.name,
         pricingTypeSnapshot: mainService.pricingModel,
         basePriceSnapshot: calc.baseUnitRate.toFixed(2),
+        colorTierLabelSnapshot: colorTier?.label ?? null,
+        colorTierPriceSnapshot: colorTier?.pricePerUnit != null ? colorTier.pricePerUnit.toFixed(2) : null,
         quantity: row.quantity,
         pageCount: row.pageCount ?? null,
+        widthCmSnapshot: row.widthCm ?? null,
+        heightCmSnapshot: row.heightCm ?? null,
+        noteSnapshot: row.note ?? null,
         optionsSnapshotJson: optionsSnapshot,
         additionalServicesSnapshotJson: addOnsSnapshot,
         itemTotalPrice: calc.lineTotal.toFixed(2),

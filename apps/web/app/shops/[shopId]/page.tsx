@@ -26,7 +26,7 @@ import { getMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import type { MainService } from "@/components/shop/services/types";
 import { SERVICE_CATEGORIES } from "@/components/customer/ServiceCategoryGrid";
-import ShopDetailHeader from "@/components/customer/ShopDetailHeader";
+import CustomerHeader from "@/components/customer/CustomerHeader";
 
 const PRICING_MODEL_SUFFIX: Record<MainService["pricingModel"], string> = {
   per_page: "/หน้า",
@@ -75,6 +75,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   const router = useRouter();
   const [shop, setShop] = useState<PublicShopDetail | null>(null);
   const [mainServices, setMainServices] = useState<MainService[]>([]);
+  const [user, setUser] = useState<{ id: string; firstname: string; lastname: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [cartCount, setCartCount] = useState(0);
@@ -98,11 +99,12 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
 
   const seekCategoryScrollFromClientX = (clientX: number) => {
     const track = categoryTrackRef.current;
-    const row = categoryScrollRef.current;
-    if (!track || !row) return;
+    if (!track) return;
     const rect = track.getBoundingClientRect();
-    const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
-    row.scrollLeft = ratio * (row.scrollWidth - row.clientWidth);
+    const clickRatio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const row = categoryScrollRef.current;
+    if (!row) return;
+    row.scrollLeft = clickRatio * (row.scrollWidth - row.clientWidth);
   };
 
   const handleCategoryTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -138,8 +140,9 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
     setLoadError("");
 
     getMe()
-      .then(() => {
+      .then((meRes) => {
         if (cancelled) return;
+        if (meRes?.user) setUser(meRes.user);
         return Promise.all([getShop(params.shopId), getMainServices(params.shopId)]).then(([shopRes, servicesRes]) => {
           if (cancelled) return;
           setShop(shopRes.shop);
@@ -178,11 +181,9 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <ShopDetailHeader
+      <CustomerHeader
+        variant="auth"
         cartCount={cartCount}
-        openNow={openNow}
-        isFavorite={isFavorite}
-        onToggleFavorite={toggleFavorite}
       />
 
       {loading ? (

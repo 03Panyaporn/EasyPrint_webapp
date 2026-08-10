@@ -158,6 +158,13 @@ function ServicesContent() {
     loadData();
   }, [loadData]);
 
+  // Custom Delete Modal State
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{
+    type: "main" | "addon" | "delivery";
+    id: string;
+    name: string;
+  } | null>(null);
+
   // ── 2. CRUD Handlers: Main Services ────────────
   const handleSaveMainService = async (service: MainService) => {
     if (!shop) return;
@@ -196,12 +203,36 @@ function ServicesContent() {
   const handleDeleteMainService = async (id: string) => {
     if (!shop) return;
     const target = mainServices.find((s) => s.id === id);
+    if (!target) return;
+    setDeleteConfirmTarget({ type: "main", id, name: target.name });
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!shop || !deleteConfirmTarget) return;
+    const { type, id, name } = deleteConfirmTarget;
+    setDeleteConfirmTarget(null);
     try {
-      await deleteMainService(shop.id, id);
-      setMainServices((prev) => prev.filter((s) => s.id !== id));
-      if (target) showToast(`ลบบริการหลัก "${target.name}" เรียบร้อยแล้ว`);
+      if (type === "main") {
+        await deleteMainService(shop.id, id);
+        setMainServices((prev) => prev.filter((s) => s.id !== id));
+        showToast(`ลบบริการหลัก "${name}" เรียบร้อยแล้ว`);
+      } else if (type === "addon") {
+        await deleteAddOnService(shop.id, id);
+        setAddOnServices((prev) => prev.filter((a) => a.id !== id));
+        setMainServices((prev) =>
+          prev.map((m) => ({
+            ...m,
+            availableAddOns: m.availableAddOns.filter((b) => b.addOnId !== id),
+          }))
+        );
+        showToast(`ลบบริการเสริม "${name}" เรียบร้อยแล้ว`);
+      } else if (type === "delivery") {
+        await deleteDeliveryOption(shop.id, id);
+        setDeliveryOptions((prev) => prev.filter((d) => d.id !== id));
+        showToast(`ลบประเภทการจัดส่ง "${name}" เรียบร้อยแล้ว`);
+      }
     } catch (err) {
-      showApiError(err, "ลบบริการหลักไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      showApiError(err, "ลบรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -209,10 +240,15 @@ function ServicesContent() {
     if (!shop) return;
     const target = mainServices.find((s) => s.id === id);
     if (!target) return;
+    const nextState = !target.isActive;
+    // Optimistically update UI
+    setMainServices((prev) => prev.map((s) => (s.id === id ? { ...s, isActive: nextState } : s)));
     try {
-      const { service: saved } = await updateMainService(shop.id, id, { isActive: !target.isActive });
+      const { service: saved } = await updateMainService(shop.id, id, { isActive: nextState });
       setMainServices((prev) => prev.map((s) => (s.id === id ? saved : s)));
     } catch (err) {
+      // Rollback if error
+      setMainServices((prev) => prev.map((s) => (s.id === id ? target : s)));
       showApiError(err, "เปลี่ยนสถานะบริการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
@@ -238,30 +274,23 @@ function ServicesContent() {
   const handleDeleteAddOnService = async (id: string) => {
     if (!shop) return;
     const target = addOnServices.find((a) => a.id === id);
-    try {
-      await deleteAddOnService(shop.id, id);
-      setAddOnServices((prev) => prev.filter((a) => a.id !== id));
-      // Remove binding from main services as well (ฝั่ง backend cascade ลบ binding ให้แล้ว อันนี้แค่ sync UI local state)
-      setMainServices((prev) =>
-        prev.map((m) => ({
-          ...m,
-          availableAddOns: m.availableAddOns.filter((b) => b.addOnId !== id),
-        }))
-      );
-      if (target) showToast(`ลบบริการเสริม "${target.name}" เรียบร้อยแล้ว`);
-    } catch (err) {
-      showApiError(err, "ลบบริการเสริมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    }
+    if (!target) return;
+    setDeleteConfirmTarget({ type: "addon", id, name: target.name });
   };
 
   const handleToggleAddOnActive = async (id: string) => {
     if (!shop) return;
     const target = addOnServices.find((a) => a.id === id);
     if (!target) return;
+    const nextState = !target.isActive;
+    // Optimistically update UI
+    setAddOnServices((prev) => prev.map((a) => (a.id === id ? { ...a, isActive: nextState } : a)));
     try {
-      const { addOn: saved } = await updateAddOnService(shop.id, id, { isActive: !target.isActive });
+      const { addOn: saved } = await updateAddOnService(shop.id, id, { isActive: nextState });
       setAddOnServices((prev) => prev.map((a) => (a.id === id ? saved : a)));
     } catch (err) {
+      // Rollback if error
+      setAddOnServices((prev) => prev.map((a) => (a.id === id ? target : a)));
       showApiError(err, "เปลี่ยนสถานะบริการเสริมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
@@ -291,23 +320,23 @@ function ServicesContent() {
   const handleDeleteDelivery = async (id: string) => {
     if (!shop) return;
     const target = deliveryOptions.find((d) => d.id === id);
-    try {
-      await deleteDeliveryOption(shop.id, id);
-      setDeliveryOptions((prev) => prev.filter((d) => d.id !== id));
-      if (target) showToast(`ลบประเภทการจัดส่ง "${target.name}" เรียบร้อยแล้ว`);
-    } catch (err) {
-      showApiError(err, "ลบประเภทการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    }
+    if (!target) return;
+    setDeleteConfirmTarget({ type: "delivery", id, name: target.name });
   };
 
   const handleToggleDeliveryActive = async (id: string) => {
     if (!shop) return;
     const target = deliveryOptions.find((d) => d.id === id);
     if (!target) return;
+    const nextState = !target.isActive;
+    // Optimistically update UI
+    setDeliveryOptions((prev) => prev.map((d) => (d.id === id ? { ...d, isActive: nextState } : d)));
     try {
-      const { deliveryOption: saved } = await updateDeliveryOption(shop.id, id, { isActive: !target.isActive });
+      const { deliveryOption: saved } = await updateDeliveryOption(shop.id, id, { isActive: nextState });
       setDeliveryOptions((prev) => prev.map((d) => (d.id === id ? saved : d)));
     } catch (err) {
+      // Rollback if error
+      setDeliveryOptions((prev) => prev.map((d) => (d.id === id ? target : d)));
       showApiError(err, "เปลี่ยนสถานะการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
@@ -452,6 +481,59 @@ function ServicesContent() {
         allDeliveryOptions={deliveryOptions}
         editingDelivery={editingDelivery}
       />
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteConfirmTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setDeleteConfirmTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                <Wrench className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">ยืนยันการลบรายการ</h3>
+                <p className="text-xs text-slate-500 font-medium">การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <p className="text-xs font-bold text-slate-800 truncate">
+                {deleteConfirmTarget.name}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {deleteConfirmTarget.type === "main"
+                  ? "บริการหลัก"
+                  : deleteConfirmTarget.type === "addon"
+                  ? "บริการเสริม"
+                  : "ประเภทการจัดส่ง"}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTarget(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteAction}
+                className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-extrabold shadow-sm transition active:scale-95"
+              >
+                ยืนยันการลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

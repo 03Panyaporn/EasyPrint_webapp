@@ -405,8 +405,13 @@ export const orderItems = pgTable("order_items", {
   serviceNameSnapshot: text("service_name_snapshot").notNull(), // ชื่อบริการ ณ ตอนสั่ง
   pricingTypeSnapshot: text("pricing_type_snapshot").notNull(), // per_page/per_piece/per_sqm/fixed
   basePriceSnapshot: numeric("base_price_snapshot", { precision: 10, scale: 2 }).notNull(), // ราคาต่อหน่วย
+  colorTierLabelSnapshot: text("color_tier_label_snapshot"), // ชื่อระดับสีที่เลือก ณ ตอนสั่ง (null = ขาวดำ/ไม่มีตัวเลือกสี)
+  colorTierPriceSnapshot: numeric("color_tier_price_snapshot", { precision: 10, scale: 2 }), // ราคาต่อหน่วยของระดับสีนั้น ณ ตอนสั่ง
   quantity: integer("quantity").notNull(),
   pageCount: integer("page_count"), // per_page: จำนวนหน้าที่ server นับได้จริง
+  widthCmSnapshot: numeric("width_cm_snapshot", { precision: 10, scale: 2 }), // per_sqm: ความกว้างที่สั่ง ณ ตอนสั่ง
+  heightCmSnapshot: numeric("height_cm_snapshot", { precision: 10, scale: 2 }), // per_sqm: ความสูงที่สั่ง ณ ตอนสั่ง
+  noteSnapshot: text("note_snapshot"), // โน้ตของลูกค้าต่อรายการนี้ ณ ตอนสั่ง
   // options_snapshot_json: [{optionName, valueName|textValue, extraPrice, priceScope}] ณ เวลา checkout
   optionsSnapshotJson: jsonb("options_snapshot_json").notNull().default([]),
   // additional_services_snapshot_json: [{name, extraPrice, scope}] ณ เวลา checkout

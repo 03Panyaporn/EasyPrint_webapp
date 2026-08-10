@@ -79,6 +79,7 @@ export default function ShopLocationMap({ address, shopName, className }: ShopLo
           return;
         }
 
+        // @ts-ignore
         const leafletModule: any = await import("leaflet");
         const L = leafletModule.default ?? leafletModule;
         if (cancelled || !containerRef.current) return;

@@ -87,7 +87,7 @@ export default function ShopDetailHeader({ cartCount = 0, openNow = false, isFav
             >
               <ShoppingCart className="w-6 h-6 drop-shadow-[0_3px_4px_rgba(249,115,22,0.4)]" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-orange-500/40">
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-extrabold inline-flex items-center justify-center shrink-0 aspect-square leading-none pointer-events-none shadow-sm shadow-orange-500/40">
                   {cartCount}
                 </span>
               )}
@@ -135,7 +135,7 @@ export default function ShopDetailHeader({ cartCount = 0, openNow = false, isFav
             >
               <ShoppingCart className="w-5 h-5 drop-shadow-[0_2px_3px_rgba(249,115,22,0.4)]" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm shadow-orange-500/40">
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-extrabold inline-flex items-center justify-center shrink-0 aspect-square leading-none pointer-events-none shadow-sm shadow-orange-500/40">
                   {cartCount}
                 </span>
               )}

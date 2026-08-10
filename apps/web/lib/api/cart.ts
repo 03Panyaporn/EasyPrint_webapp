@@ -29,6 +29,8 @@ export type CartItem = {
   imageUrl?: string;
   isServiceActive: boolean;
   pricingModel: "per_page" | "per_piece" | "per_sqm" | "fixed";
+  colorTierId?: string;
+  colorTierLabel?: string;
   unitBreakdown: CartItemUnitBreakdown;
   optionSelections: CartItemOptionSelection[];
   addOns: CartItemAddOn[];

@@ -39,9 +39,17 @@ export default function DocumentViewer({ shop, onClose }: DocumentViewerProps) {
 
         {/* Document list */}
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
-          {shop.documents.map((doc) => (
-            <DocRow key={doc.id} doc={doc} />
-          ))}
+          {shop.documents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-gray-400 text-center gap-2">
+              <FileText size={32} className="text-gray-300" />
+              <p className="text-sm font-semibold text-gray-500">ยังไม่มีเอกสารแนบ</p>
+              <p className="text-xs text-gray-400">ร้านค้านี้ยังไม่ได้อัปโหลดเอกสารประกอบการลงทะเบียน</p>
+            </div>
+          ) : (
+            shop.documents.map((doc) => (
+              <DocRow key={doc.id} doc={doc} />
+            ))
+          )}
         </div>
 
         {/* Footer */}
