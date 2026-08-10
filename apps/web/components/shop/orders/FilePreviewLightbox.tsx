@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Check, CheckCircle2 } from "lucide-react";
+import { X, Check, CheckCircle2, User } from "lucide-react";
 import { Order } from "./types";
-import { MOCK_WIDTH, renderFileMock } from "./FilePreviewContent";
+import { renderFileMock } from "./FilePreviewContent";
 import { statusConfig } from "./statusConfig";
-
-const SLIP_THUMB_PX = 96;
 
 interface FilePreviewLightboxProps {
   order: Order | null;
@@ -23,12 +20,6 @@ export default function FilePreviewLightbox({
   onConfirmPayment,
   onRejectPayment,
 }: FilePreviewLightboxProps) {
-  const [slipExpanded, setSlipExpanded] = useState(true);
-
-  // เปิดสลิปใหม่ทุกครั้งให้เริ่มที่สถานะซูมขยายเสมอ ไม่ค้างสถานะย่อจากออเดอร์ก่อนหน้า
-  useEffect(() => {
-    if (order && kind === "slip") setSlipExpanded(true);
-  }, [order?.id, kind]);
 
   if (!order || !kind) return null;
 
@@ -67,83 +58,31 @@ export default function FilePreviewLightbox({
             </div>
 
             {/* ลูกค้า + สลิป + ยอดที่ต้องชำระ */}
-            <div className="flex items-start gap-4 mb-5">
-              <button
-                type="button"
-                onClick={() => setSlipExpanded((v) => !v)}
-                className="shrink-0 flex flex-col items-center gap-1.5 group"
-              >
-                <div
-                  className="overflow-hidden rounded-xl ring-1 ring-gray-100 group-hover:ring-orange-300 transition-all"
-                  style={
-                    slipExpanded
-                      ? undefined
-                      : { width: SLIP_THUMB_PX, height: SLIP_THUMB_PX }
-                  }
-                >
-                  <div
-                    style={
-                      slipExpanded
-                        ? undefined
-                        : {
-                            width: MOCK_WIDTH,
-                            transform: `scale(${SLIP_THUMB_PX / MOCK_WIDTH})`,
-                            transformOrigin: "top left",
-                          }
-                    }
-                  >
+            <div className="flex flex-col gap-6 w-full">
+              <div className="shrink-0 flex flex-col items-center self-center">
+                <div className="overflow-hidden rounded-xl ring-1 ring-gray-200 shadow-sm">
+                  <div>
                     {renderFileMock(order, "slip")}
                   </div>
                 </div>
-                <span className="text-[10px] text-orange-500 font-medium">
-                  {slipExpanded ? "ย่อรูป" : "แตะเพื่อดูขยาย"}
-                </span>
-              </button>
+              </div>
 
-              <div className="min-w-0 pt-0.5">
-                <p className="text-xs text-gray-400">ลูกค้า</p>
-                <p className="text-sm font-semibold text-gray-800 mb-2.5">{order.customerName}</p>
-                <p className="text-xs text-gray-400">ยอดที่ต้องชำระ</p>
-                <p className="text-xl font-bold text-gray-800">
-                  ฿{order.price.toLocaleString()}.00
-                </p>
-              </div>
-            </div>
-
-            {/* แถบยืนยันยอด — โทนสีส้มตามสถานะรอตรวจสอบ */}
-            <div className="flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 px-3.5 py-2.5 mb-4">
-              <CheckCircle2 size={16} className="text-orange-600 shrink-0" />
-              <p className="text-xs font-semibold text-orange-700">
-                ยอดเงินในสลิปตรงกับออเดอร์
-              </p>
-            </div>
-
-            {/* รายละเอียดสลิป */}
-            <div className="space-y-2.5 text-sm mb-6">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">ยอดในสลิป</span>
-                <span className="font-semibold text-gray-800">
-                  ฿{order.price.toLocaleString()}.00
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">วันเวลาโอน</span>
-                <span className="text-gray-700">{order.createdAtLabel} น.</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">ธนาคารต้นทาง</span>
-                <span className="text-gray-700">ธนาคารตัวอย่าง</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">เลขที่อ้างอิง</span>
-                <span className="text-gray-700 truncate max-w-[160px]" title={order.ref}>
-                  {order.ref}
-                </span>
+              <div className="w-full text-left bg-slate-50 p-4 rounded-2xl">
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <p className="text-[11px] font-medium text-slate-500 leading-none mb-1">ลูกค้า</p>
+                  <p className="text-sm font-bold text-slate-800 mb-2 truncate">{order.customerName}</p>
+                  <div className="flex items-end justify-between mt-auto">
+                    <p className="text-[11px] font-medium text-slate-500 leading-none">ยอดที่ต้องชำระ</p>
+                    <p className="text-[22px] font-bold text-blue-600 leading-none tracking-tight">
+                      ฿{order.price.toLocaleString()}.00
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* ปฏิเสธ / อนุมัติ */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mt-6">
               <button
                 onClick={() => onRejectPayment(order)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
@@ -163,7 +102,7 @@ export default function FilePreviewLightbox({
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-6">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">
                   {kind === "slip" ? "สลิปโอนเงิน" : "ไฟล์งาน"}

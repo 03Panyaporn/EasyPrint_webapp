@@ -43,6 +43,7 @@ export function toOrder(api: ApiOrder): Order {
     customerName: api.customerName ?? "-",
     customerPhone: api.customerPhone ?? "-",
     category,
+    colorMode: api.colorMode,
     paperSize,
     copies,
     totalPages,

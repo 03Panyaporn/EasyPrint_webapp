@@ -134,22 +134,20 @@ export default function UpdateStatusModal({
               const isReached = isPast || isCurrent; // ถึงสถานะนี้แล้วหรือเสร็จแล้ว — ให้มีสี
 
               return (
-                <div key={step} className="flex items-center flex-1 last:flex-none">
+                <div key={step} className="flex items-start flex-1 last:flex-none">
                   <div className="flex flex-col items-center gap-1.5">
                     {/* กล่องขนาดคงที่ครอบวงกลมทุกขั้น กันเงา/วงแหวนของขั้นปัจจุบันล้นไปทับข้อความด้านล่าง โดยไม่กระทบความสูงรวมของขั้นอื่น */}
                     <div className="w-10 h-10 flex items-center justify-center shrink-0">
                       <div
                         className={
-                          isCurrent
-                            ? "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-orange-500 text-white shadow-lg shadow-orange-300 ring-4 ring-orange-100 scale-110"
-                            : isPast
-                            ? "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-orange-200 text-orange-600"
+                          isReached
+                            ? "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-orange-500 text-white shadow-[0_4px_12px_rgba(249,115,22,0.4)]"
                             : isTarget
-                            ? "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-white text-orange-600 border-2 border-orange-500"
-                            : "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all bg-gray-100 text-gray-400"
+                            ? "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all bg-white text-orange-500 border-[1.5px] border-orange-500"
+                            : "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all bg-white text-gray-400 border-[1.5px] border-gray-200"
                         }
                       >
-                        {isCurrent ? <Check size={13} /> : isPast ? <Check size={13} /> : idx + 1}
+                        {isReached ? <Check size={16} strokeWidth={2.5} /> : idx + 1}
                       </div>
                     </div>
                     {/* บรรทัดกำกับความสูงคงที่ทุกสถานะ กันไม่ให้ขั้นที่มีคำอธิบายเพิ่ม (ปัจจุบัน)/(ถัดไป) ถูกจัดกึ่งกลางแล้วดูยกสูงกว่าขั้นอื่น */}
@@ -166,8 +164,8 @@ export default function UpdateStatusModal({
                   </div>
                   {idx < steps.length - 1 && (
                     <div
-                      className={`flex-1 h-0.5 mx-1 ${
-                        idx < currentIndex ? "bg-gray-300" : "bg-gray-100"
+                      className={`flex-1 h-0.5 mx-2 mt-[19px] ${
+                        idx < targetIndex ? "bg-orange-500" : "bg-gray-200"
                       }`}
                     />
                   )}

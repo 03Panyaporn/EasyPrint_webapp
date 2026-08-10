@@ -76,8 +76,8 @@ export default function OrdersPage() {
   // ── Update status flow ─────────────────────────
   const handleAdvanceStatus = async (order: Order, nextStatus: OrderStatus) => {
     try {
-      const { order: updated } = await updateOrderStatus(order.id, { status: nextStatus });
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? toOrder(updated) : o)));
+      await updateOrderStatus(order.id, { status: nextStatus });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o)));
       setStatusModalOrder(null);
       showToast(`อัปเดตสถานะออเดอร์ ${order.code} เรียบร้อยแล้ว`);
     } catch (err) {
@@ -108,12 +108,12 @@ export default function OrdersPage() {
   const handleConfirmCancel = async (order: Order, reason: string, note: string) => {
     const mode = cancelModal?.mode;
     try {
-      const { order: updated } = await updateOrderStatus(order.id, {
+      await updateOrderStatus(order.id, {
         status: "cancelled",
         cancelReason: reason as CancelReason,
         cancelNote: note || undefined,
       });
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? toOrder(updated) : o)));
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: "cancelled" } : o)));
       setCancelModal(null);
       showToast(
         mode === "reject_payment"
@@ -162,15 +162,6 @@ export default function OrdersPage() {
             รายการคำสั่งซื้อ
           </h1>
         </div>
-
-        <button
-          onClick={() => loadOrders(true)}
-          disabled={isRefreshing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition shadow-xs disabled:opacity-50"
-        >
-          <RefreshCw size={13} className={isRefreshing ? "animate-spin text-orange-500" : ""} />
-          <span>{isRefreshing ? "กำลังอัปเดต..." : "รีเฟรชออเดอร์"}</span>
-        </button>
       </div>
 
       {/* Status Summary Cards */}

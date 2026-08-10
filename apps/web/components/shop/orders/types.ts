@@ -56,6 +56,7 @@ export interface OrderItemSnapshot {
   itemSubtotal: number;
   fileUrl: string | null;
   note: string | null;
+  delivery?: OrderDelivery; // Optional item-level delivery
 }
 
 export interface Order {
@@ -65,6 +66,7 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   category: string; // ประเภทงาน เช่น "ถ่ายเอกสารขาว-ดำ"
+  colorMode?: string | null; // e.g. "bw" | "color"
   paperSize: string; // เช่น "A4", "A3"
   copies: number; // จำนวนชุด
   totalPages: number; // จำนวนหน้ารวม

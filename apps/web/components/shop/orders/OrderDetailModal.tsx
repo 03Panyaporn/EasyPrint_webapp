@@ -1,6 +1,6 @@
 "use client";
 
-import { X, MapPin, Store, MessageSquareText } from "lucide-react";
+import { X, MapPin, Store, MessageSquareText, Calendar } from "lucide-react";
 import { Order } from "./types";
 import { statusConfig, cancelReasonLabels } from "./statusConfig";
 import FileThumbnail from "./FileThumbnail";
@@ -21,6 +21,25 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
+const renderAddress = (addressStr?: string) => {
+  if (!addressStr) return "";
+  try {
+    const parsed = JSON.parse(addressStr);
+    if (typeof parsed === "object" && parsed !== null) {
+      const parts = [];
+      if (parsed.address) parts.push(parsed.address);
+      if (parsed.subdistrict) parts.push(parsed.subdistrict.startsWith('ตำบล') || parsed.subdistrict.startsWith('แขวง') ? parsed.subdistrict : `ตำบล${parsed.subdistrict}`);
+      if (parsed.district) parts.push(parsed.district.startsWith('อำเภอ') || parsed.district.startsWith('เขต') ? parsed.district : `อำเภอ${parsed.district}`);
+      if (parsed.province) parts.push(parsed.province.startsWith('จังหวัด') || parsed.province === 'กรุงเทพมหานคร' ? parsed.province : `จังหวัด${parsed.province}`);
+      if (parsed.postalCode) parts.push(parsed.postalCode);
+      if (parts.length > 0) return parts.join(" ");
+    }
+  } catch (e) {
+    // If it's not JSON, return as is
+  }
+  return addressStr;
+};
+
 export default function OrderDetailModal({
   order,
   isOpen,
@@ -37,132 +56,144 @@ export default function OrderDetailModal({
 
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
         {/* Header */}
-        <div className="flex items-start justify-between mb-1">
+        <div className="flex items-start justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold text-gray-800">รายละเอียดออเดอร์ {order.code}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{order.ref}</p>
+            <div className="flex items-center gap-3">
+               <h2 className="text-xl font-bold text-gray-800">รายละเอียดออเดอร์ {order.code}</h2>
+               <span className={`px-2.5 py-0.5 rounded-full text-[12px] font-semibold border ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}>
+                 {meta.label}
+               </span>
+            </div>
+            <p className="flex items-center gap-1.5 text-[13.5px] text-gray-500 mt-2 font-medium">
+               <Calendar size={14} />
+               สั่งซื้อเมื่อ {order.createdAtLabel}
+            </p>
           </div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        <span
-          className={`inline-block mt-3 mb-5 px-3 py-1 rounded-full text-xs font-semibold border ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
-        >
-          {meta.label}
-        </span>
+        {/* Customer Details */}
+        <div className="mb-5">
+          <p className="text-[12.5px] font-bold text-gray-400 mb-1">ชื่อลูกค้า</p>
+          <p className="text-[14.5px] font-medium text-gray-800">{order.customerName}</p>
+        </div>
 
         {/* Snapshot Items / Service Details */}
         {order.items && order.items.length > 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 mb-5 space-y-3">
-            <p className="text-xs font-bold text-slate-700">รายการสินค้าและตัวเลือก (Snapshot)</p>
-            <div className="divide-y divide-slate-200">
-              {order.items.map((item, idx) => (
-                <div key={item.id || idx} className="py-2.5 space-y-1 text-xs">
-                  <div className="flex justify-between font-bold text-slate-800 text-sm">
-                    <span>{item.serviceName}</span>
-                    <span className="text-orange-600">฿{item.itemSubtotal.toLocaleString()}</span>
-                  </div>
-                  <p className="text-slate-500">
-                    อัตราพื้นฐาน: ฿{item.baseRate} {item.colorTierLabel ? `(${item.colorTierLabel} ฿${item.colorTierPrice})` : ""} · จำนวน {item.quantity} ชุด
-                    {item.pageCount ? ` · ${item.pageCount} หน้า` : ""}
-                    {item.widthCm && item.heightCm ? ` · ${item.widthCm}×${item.heightCm} ซม.` : ""}
-                  </p>
-                  {item.optionsSnapshot && item.optionsSnapshot.length > 0 && (
-                    <div className="text-slate-600 pl-2 border-l-2 border-slate-200 space-y-0.5 mt-1">
-                      {item.optionsSnapshot.map((opt, oIdx) => (
-                        <p key={oIdx}>
-                          {opt.optionName}: <span className="font-semibold">{opt.valueName || opt.textValue}</span>
-                          {opt.extraPrice > 0 ? ` (+฿${opt.extraPrice})` : ""}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {item.addOnsSnapshot && item.addOnsSnapshot.length > 0 && (
-                    <p className="text-orange-600 pl-2 border-l-2 border-orange-200 mt-1">
-                      บริการเสริม: {item.addOnsSnapshot.map((a) => `${a.name} (+฿${a.extraPrice})`).join(", ")}
-                    </p>
-                  )}
-                  {item.note && <p className="text-amber-700 bg-amber-50 p-1.5 rounded mt-1">โน้ต: {item.note}</p>}
+           <div className="space-y-4 mb-5">
+             {order.items.map((item, idx) => (
+                <div key={item.id || idx} className="rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+                   <h3 className="font-bold text-slate-800 text-[16px] mb-4">{item.serviceName}</h3>
+                   <ul className="space-y-1.5 list-disc pl-5 text-gray-600 marker:text-gray-400 text-[13.5px] mb-4">
+                      {item.colorTierLabel && (
+                        <li><span className="font-bold text-gray-700">สี:</span> {item.colorTierLabel}</li>
+                      )}
+                      {item.optionsSnapshot?.map((opt, oIdx) => {
+                         let displayName = opt.optionName;
+                         if (displayName === "ขนาดกระดาษ") displayName = "ขนาด";
+                         if (displayName === "ประเภทกระดาษ") displayName = "ประเภท";
+                         if (displayName === "รูปแบบการพิมพ์") displayName = "รูปแบบ";
+                         return (
+                           <li key={oIdx}><span className="font-bold text-gray-700">{displayName}:</span> {opt.valueName || opt.textValue}</li>
+                         )
+                      })}
+                      <li><span className="font-bold text-gray-700">จำนวน:</span> {item.quantity} ชุด {item.pageCount ? `(${item.pageCount} หน้า)` : ""}</li>
+                   </ul>
+                   
+                   <div className="pt-3.5 border-t border-slate-100 space-y-2.5 text-[13.5px]">
+                      <div className="flex gap-3">
+                         <span className="font-bold text-slate-700 min-w-[75px]">บริการเสริม</span>
+                         {item.addOnsSnapshot && item.addOnsSnapshot.length > 0 ? (
+                           <span className="text-orange-600 font-bold">{item.addOnsSnapshot.map(a => a.name).join(", ")}</span>
+                         ) : (
+                           <span className="text-orange-600 font-bold">ไม่มี</span>
+                         )}
+                      </div>
+                      <div className="flex gap-3">
+                         <span className="font-bold text-slate-700 min-w-[75px]">หมายเหตุ</span>
+                         <span className="text-slate-500 font-medium">{item.note || "-"}</span>
+                      </div>
+                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+             ))}
+           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 mb-5">
-            <DetailRow label="ชื่อลูกค้า">{order.customerName}</DetailRow>
-            <DetailRow label="เบอร์โทรติดต่อ">{order.customerPhone}</DetailRow>
-            <DetailRow label="วันที่สั่งซื้อ">{order.createdAtLabel}</DetailRow>
-            <DetailRow label="ประเภทงาน">{order.category}</DetailRow>
-            <DetailRow label="ขนาดกระดาษ">{order.paperSize}</DetailRow>
-            <DetailRow label="จำนวนชุด">
-              {order.copies} ชุด ({order.totalPages} หน้า)
-            </DetailRow>
-            <DetailRow label="บริการเพิ่มเติม">
-              {order.addOns.length > 0 ? order.addOns.join(", ") : "-"}
-            </DetailRow>
-          </div>
+           <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-5 mb-5">
+              <h3 className="font-bold text-slate-800 text-[16px] mb-4">{order.category}</h3>
+              <ul className="space-y-1.5 list-disc pl-5 text-gray-600 marker:text-gray-400 text-[13.5px] mb-4">
+                 <li><span className="font-bold text-gray-700">ขนาด:</span> {order.paperSize || "-"}</li>
+                 <li><span className="font-bold text-gray-700">จำนวน:</span> {order.copies} ชุด {order.totalPages ? `(${order.totalPages} หน้า)` : ""}</li>
+              </ul>
+              
+              <div className="pt-3.5 border-t border-slate-100 space-y-2.5 text-[13.5px]">
+                 <div className="flex gap-3">
+                    <span className="font-bold text-slate-700 min-w-[75px]">บริการเสริม</span>
+                    {order.addOns && order.addOns.length > 0 ? (
+                      <span className="text-orange-600 font-bold">{order.addOns.join(", ")}</span>
+                    ) : (
+                      <span className="text-orange-600 font-bold">ไม่มี</span>
+                    )}
+                 </div>
+                 <div className="flex gap-3">
+                    <span className="font-bold text-slate-700 min-w-[75px]">หมายเหตุ</span>
+                    <span className="text-slate-500 font-medium">{order.note || "-"}</span>
+                 </div>
+              </div>
+           </div>
         )}
-
-        {/* Files */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="flex flex-col items-center rounded-xl border border-gray-100 p-3">
-            <p className="text-xs text-gray-400 mb-2 self-start">ไฟล์งาน</p>
-            <FileThumbnail
-              order={order}
-              kind="file"
-              size="md"
-              onClick={() => onPreviewFile(order, "file")}
-            />
-          </div>
-
-          <div className="flex flex-col items-center rounded-xl border border-gray-100 p-3">
-            <p className="text-xs text-gray-400 mb-2 self-start">สลิปโอนเงิน</p>
-            <FileThumbnail
-              order={order}
-              kind="slip"
-              size="md"
-              onClick={() => onPreviewFile(order, "slip")}
-            />
-          </div>
-        </div>
 
         {/* Delivery */}
-        <div className="rounded-xl border border-gray-100 p-3.5 mb-5">
-          <p className="text-xs text-gray-400 mb-1.5">การจัดส่ง</p>
-          {order.delivery.method === "self_pickup" ? (
-            <p className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
-              <Store size={15} className="text-gray-400" />
-              มารับที่ร้าน
-            </p>
-          ) : (
-            <p className="flex items-start gap-1.5 text-sm font-medium text-gray-800">
-              <MapPin size={15} className="text-gray-400 mt-0.5 shrink-0" />
-              {order.delivery.address}
-            </p>
-          )}
+        <div className="flex items-center gap-3 mb-6 px-1">
+           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-500 shrink-0">
+             {order.delivery.method === "self_pickup" ? (
+               <Store size={15} className="stroke-[2.5px]" />
+             ) : (
+               <MapPin size={15} className="stroke-[2.5px]" />
+             )}
+           </div>
+           <p className="text-[14.5px] text-gray-600">
+             <span className="font-bold text-slate-800 mr-2">การจัดส่ง:</span>
+             {order.delivery.method === "self_pickup" ? "มารับที่ร้าน" : renderAddress(order.delivery.address)}
+           </p>
         </div>
 
-        {/* Customer note */}
-        {order.note && (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 p-3.5 mb-5">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 mb-1">
-              <MessageSquareText size={13} />
-              หมายเหตุจากลูกค้า
-            </p>
-            <p className="text-sm text-amber-800 leading-relaxed">{order.note}</p>
+        {/* Files */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="flex flex-col rounded-xl border border-gray-100 p-4">
+            <p className="text-[13.5px] font-bold text-slate-400 mb-4">ไฟล์งาน</p>
+            <div className="flex justify-center">
+              <FileThumbnail
+                order={order}
+                kind="file"
+                size="md"
+                onClick={() => onPreviewFile(order, "file")}
+              />
+            </div>
           </div>
-        )}
+
+          <div className="flex flex-col rounded-xl border border-gray-100 p-4">
+            <p className="text-[13.5px] font-bold text-slate-400 mb-4">สลิปโอนเงิน</p>
+            <div className="flex justify-center">
+              <FileThumbnail
+                order={order}
+                kind="slip"
+                size="md"
+                onClick={() => onPreviewFile(order, "slip")}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Cancel / reject info */}
         {order.status === "cancelled" && order.cancelReason && (
-          <div className="rounded-xl border border-red-100 bg-red-50 p-3.5 mb-5">
+          <div className="rounded-xl border border-red-100 bg-red-50 p-4 mb-5">
             <p className="text-xs text-red-500 mb-1">เหตุผลที่ยกเลิก</p>
-            <p className="text-sm font-medium text-red-700">
+            <p className="text-sm font-bold text-red-700">
               {cancelReasonLabels[order.cancelReason] ?? order.cancelReason}
             </p>
             {order.cancelNote && (
@@ -172,9 +203,9 @@ export default function OrderDetailModal({
         )}
 
         {/* Price */}
-        <div className="flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4">
-          <span className="text-sm font-medium text-orange-700">ราคารวม</span>
-          <span className="text-xl font-bold text-orange-600">
+        <div className="flex items-center justify-between rounded-xl bg-orange-50/80 p-5 mt-2">
+          <span className="text-[15.5px] font-bold text-orange-700">ราคารวมทั้งหมด</span>
+          <span className="text-[22px] font-bold text-orange-600">
             {order.price.toLocaleString()} บาท
           </span>
         </div>

@@ -9,10 +9,68 @@ import {
   Inbox,
   Store,
   X,
+  Truck,
+  Copy,
+  FileText,
+  Palette,
+  BookOpen,
+  ScanLine,
+  CreditCard,
+  Newspaper,
+  Image as ImageIcon,
+  Tag,
+  LayoutTemplate,
 } from "lucide-react";
 import { Order } from "./types";
 import { statusConfig } from "./statusConfig";
 import FileThumbnail from "./FileThumbnail";
+
+const formatCategoryName = (rawName: string) => {
+  if (rawName.includes("ถ่าย")) return "ถ่ายเอกสาร";
+  if (rawName.includes("สติ๊กเกอร์")) return "สติ๊กเกอร์";
+  if (rawName.includes("นามบัตร")) return "นามบัตร";
+  if (rawName.includes("โบรชัวร์")) return "โบรชัวร์";
+  if (rawName.includes("โปสเตอร์")) return "โปสเตอร์";
+  if (rawName.includes("ไวนิล") || rawName.includes("ป้ายไวนิล")) return "ป้ายไวนิล";
+  if (rawName.includes("สแกน")) return "สแกนเอกสาร";
+  if (rawName.includes("เข้าเล่ม")) return "เข้าเล่ม";
+  if (rawName.includes("พิมพ์") || rawName.includes("ปริ้น")) {
+    return "พิมพ์เอกสาร";
+  }
+  return rawName.replace(" A4 / A3 (ขาวดำ & สี)", "");
+};
+
+const getFileAttachment = (url: string | null, fallbackName: string) => {
+  if (!url) return { name: fallbackName, sizeLabel: "-", type: "image" as const };
+  const lastSegment = url.split("/").pop();
+  const name = lastSegment && lastSegment.length > 0 ? lastSegment : fallbackName;
+  const isPdf = url.toLowerCase().endsWith(".pdf");
+  return { name, sizeLabel: "-", type: (isPdf ? "pdf" : "image") as "pdf" | "image" };
+};
+
+const extractColorFromCategory = (rawName: string, colorMode?: string | null) => {
+  if (rawName.includes("ขาว-ดำ") || rawName.includes("ขาวดำ")) return "ขาว-ดำ";
+  if (rawName.includes("สี") && !rawName.includes("ขาวดำ & สี")) return "สี";
+  if (colorMode === "bw") return "ขาว-ดำ";
+  if (colorMode === "color") return "สี";
+  return null;
+};
+
+const getCategoryIcon = (categoryName: string) => {
+  const name = formatCategoryName(categoryName);
+  switch (name) {
+    case "ถ่ายเอกสาร": return { icon: Copy, bg: "bg-slate-100", text: "text-slate-600" };
+    case "พิมพ์เอกสาร": return { icon: FileText, bg: "bg-blue-50", text: "text-blue-500" };
+    case "เข้าเล่ม": return { icon: BookOpen, bg: "bg-orange-50", text: "text-orange-500" };
+    case "สแกนเอกสาร": return { icon: ScanLine, bg: "bg-teal-50", text: "text-teal-500" };
+    case "นามบัตร": return { icon: CreditCard, bg: "bg-pink-50", text: "text-pink-500" };
+    case "โบรชัวร์": return { icon: Newspaper, bg: "bg-[#f4ebe1]", text: "text-[#8a5a2b]" };
+    case "โปสเตอร์": return { icon: ImageIcon, bg: "bg-red-50", text: "text-red-500" };
+    case "สติ๊กเกอร์": return { icon: Tag, bg: "bg-emerald-50", text: "text-emerald-500" };
+    case "ป้ายไวนิล": return { icon: LayoutTemplate, bg: "bg-violet-50", text: "text-violet-500" };
+    default: return { icon: FileText, bg: "bg-gray-50", text: "text-gray-500" };
+  }
+};
 
 interface OrdersTableProps {
   orders: Order[];
@@ -32,11 +90,7 @@ export default function OrdersTable({
     top: number;
     left: number;
   } | null>(null);
-  const [notePopover, setNotePopover] = useState<{
-    id: string;
-    top: number;
-    left: number;
-  } | null>(null);
+
 
   useEffect(() => {
     if (!addressPopover) return;
@@ -56,23 +110,7 @@ export default function OrdersTable({
     };
   }, [addressPopover]);
 
-  useEffect(() => {
-    if (!notePopover) return;
-    const closeHandler = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest("[data-note-popover]")) {
-        setNotePopover(null);
-      }
-    };
-    const dismiss = () => setNotePopover(null);
-    document.addEventListener("mousedown", closeHandler);
-    window.addEventListener("scroll", dismiss, true);
-    window.addEventListener("resize", dismiss);
-    return () => {
-      document.removeEventListener("mousedown", closeHandler);
-      window.removeEventListener("scroll", dismiss, true);
-      window.removeEventListener("resize", dismiss);
-    };
-  }, [notePopover]);
+
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_32px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.8)] overflow-hidden -mx-2 md:-mx-3 lg:-mx-4">
@@ -83,239 +121,313 @@ export default function OrdersTable({
 
       {/* Table */}
       <div className="overflow-x-auto shadow-[inset_0_1px_3px_rgba(0,0,0,0.03)]">
-        <table className="w-full text-center border-collapse text-sm">
+        <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="bg-gray-50 text-gray-600 font-semibold border-b-2 border-gray-200">
               <th className="py-3.5 px-4 sm:px-6 whitespace-nowrap">รหัส</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">ชื่อ</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">ประเภท</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">ขนาด</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">ลูกค้า</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">บริการและรายละเอียด</th>
               <th className="py-3.5 px-4 whitespace-nowrap">จำนวน</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">บริการเพิ่มเติม</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">หมายเหตุ</th>
               <th className="py-3.5 px-4 whitespace-nowrap">การจัดส่ง</th>
               <th className="py-3.5 px-4 whitespace-nowrap">ยอดรวม</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">ดูรายละเอียด</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">ไฟล์งาน</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">สลิปโอนเงิน</th>
-              <th className="py-3.5 px-4 whitespace-nowrap">
+              <th className="py-3.5 px-4 whitespace-nowrap text-center">ไฟล์</th>
+              <th className="py-3.5 pl-16 pr-4 whitespace-nowrap text-center">สลิป</th>
+              <th className="py-3.5 px-4 whitespace-nowrap text-center">รายละเอียด</th>
+              <th className="py-3.5 px-4 whitespace-nowrap text-center">
                 สถานะงาน
                 <br />
                 <span className="font-normal text-gray-400">(อัปเดตสถานะ)</span>
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 [&>tr:nth-child(even)]:bg-gray-50/50">
-            {orders.length === 0 ? (
+          {orders.length === 0 ? (
+            <tbody className="divide-y divide-gray-200">
               <tr>
-                <td colSpan={13} className="py-12 text-center text-gray-400">
+                <td colSpan={10} className="py-12 text-center text-gray-400">
                   <Inbox size={32} className="mx-auto mb-2 opacity-50" />
                   <p className="text-sm font-medium">ไม่พบรายการคำสั่งซื้อ</p>
                 </td>
               </tr>
-            ) : (
-              orders.map((order) => {
-                const meta = statusConfig[order.status];
+            </tbody>
+          ) : (
+            orders.map((order, orderIdx) => {
+              const meta = statusConfig[order.status];
+              const items = (order.items && order.items.length > 0) ? order.items : [null];
+              const isEven = orderIdx % 2 === 1;
 
-                return (
-                  <tr key={order.id} className="hover:!bg-orange-50/40 transition-colors">
-                    {/* รหัส */}
-                    <td className="py-4 px-4 sm:px-6">
-                      <span className="font-semibold text-gray-800">{order.code}</span>
-                      <div className="text-xs text-gray-400 mt-0.5">{order.createdAtLabel}</div>
-                    </td>
+              return (
+                <tbody key={order.id} className={`divide-y divide-gray-200 border-b-2 border-gray-200 group hover:bg-orange-50/40 transition-colors ${isEven ? 'bg-gray-50/50' : 'bg-white'}`}>
+                  {items.map((item, itemIdx) => {
+                    const rowSpan = items.length;
+                    const isFirst = itemIdx === 0;
 
-                    {/* ชื่อ */}
-                    <td className="py-4 px-4 text-gray-700">{order.customerName}</td>
+                    return (
+                      <tr key={item?.id || itemIdx} className="h-[110px] hover:bg-orange-50/40 transition-colors">
+                        {isFirst && (
+                          <>
+                            {/* รหัส */}
+                            <td rowSpan={rowSpan} className="py-4 px-4 sm:px-6 align-middle">
+                              <span className="font-semibold text-gray-800">{order.code}</span>
+                              <div className="text-xs text-gray-400 mt-0.5">{order.createdAtLabel}</div>
+                            </td>
 
-                    {/* ประเภทงาน */}
-                    <td className="py-4 px-4 text-gray-700">{order.category}</td>
-
-                    {/* ขนาดกระดาษ */}
-                    <td className="py-4 px-4 text-gray-700">{order.paperSize}</td>
-
-                    {/* จำนวนชุด */}
-                    <td className="py-4 px-4 text-gray-700">
-                      {order.copies} ชุด
-                      <div className="text-xs text-gray-400">({order.totalPages} หน้า)</div>
-                    </td>
-
-                    {/* บริการเพิ่มเติม */}
-                    <td className="py-4 px-4 text-gray-600">
-                      {order.addOns.length > 0 ? order.addOns.join(", ") : "-"}
-                    </td>
-
-                    {/* หมายเหตุ */}
-                    <td className="py-4 px-4 text-gray-600 max-w-[100px]">
-                      {order.note ? (
-                        <div className="relative" data-note-popover>
-                          <p className="truncate text-center tracking-tight">{order.note}</p>
-                          {order.note.length > 20 && (
-                            <button
-                              onClick={(e) => {
-                                if (notePopover?.id === order.id) {
-                                  setNotePopover(null);
-                                  return;
-                                }
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const left = Math.min(
-                                  Math.max(rect.left + rect.width / 2, 140),
-                                  window.innerWidth - 140,
-                                );
-                                setNotePopover({ id: order.id, top: rect.bottom + 8, left });
-                              }}
-                              className="text-orange-500 hover:text-orange-600 text-xs font-medium mt-0.5"
-                            >
-                              ดูเพิ่มเติม
-                            </button>
-                          )}
-                          {notePopover?.id === order.id && (
-                            <div
-                              className="fixed z-50 w-64 max-w-[90vw] -translate-x-1/2 bg-white rounded-xl shadow-lg border border-gray-100 p-3"
-                              style={{ top: notePopover.top, left: notePopover.left }}
-                            >
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <p className="text-xs font-semibold text-gray-800">
-                                  หมายเหตุจากลูกค้า
-                                </p>
-                                <button
-                                  onClick={() => setNotePopover(null)}
-                                  className="p-0.5 -m-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                                >
-                                  <X size={14} />
-                                </button>
+                            {/* 2. ลูกค้า */}
+                            <td rowSpan={rowSpan} className="py-4 px-4 text-gray-700 max-w-[130px] whitespace-normal break-words leading-snug align-middle">
+                              <div className="line-clamp-2" title={order.customerName}>
+                                {order.customerName}
                               </div>
-                              <p className="text-sm text-gray-600 leading-relaxed whitespace-normal text-left">
-                                {order.note}
-                              </p>
+                            </td>
+                          </>
+                        )}
+                        
+                        {/* 3 & 4. บริการและรายละเอียด */}
+                        <td className={`py-4 px-4 text-left text-gray-600 text-[12.5px] min-w-[160px] max-w-[180px] whitespace-normal align-middle break-words ${!isFirst ? "border-t border-gray-200" : ""}`}>
+                           {item ? (
+                             <>
+                               <div className="flex items-center gap-2 mb-2.5">
+                                 {(() => {
+                                   const catInfo = getCategoryIcon(item.serviceName);
+                                   const Icon = catInfo.icon;
+                                   return (
+                                     <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${catInfo.bg} ${catInfo.text} shrink-0`}>
+                                       <Icon size={14} className="stroke-[2.5px]" />
+                                     </div>
+                                   );
+                                 })()}
+                                 <span className="font-bold text-gray-800 text-[14px]">
+                                   {formatCategoryName(item.serviceName)}
+                                 </span>
+                               </div>
+                               <ul className="space-y-1 list-disc pl-5 text-gray-600 marker:text-gray-500">
+                                 {(() => {
+                                   const colorLabel = item.colorTierLabel || extractColorFromCategory(order.category, order.colorMode);
+                                   return colorLabel ? (
+                                     <li><span className="font-medium text-gray-700">สี:</span> {colorLabel}</li>
+                                   ) : null;
+                                 })()}
+                                 {item.optionsSnapshot?.map((opt, i) => {
+                                   let displayName = opt.optionName;
+                                   if (displayName === "ขนาดกระดาษ") displayName = "ขนาด";
+                                   if (displayName === "ประเภทกระดาษ") displayName = "ประเภท";
+                                   if (displayName === "รูปแบบการพิมพ์") displayName = "รูปแบบ";
+                                   return (
+                                     <li key={i}><span className="font-medium text-gray-700">{displayName}:</span> {opt.valueName || opt.textValue}</li>
+                                   );
+                                 })}
+                               </ul>
+                               {item.addOnsSnapshot && item.addOnsSnapshot.length > 0 && (
+                                 <div className="text-orange-600 mt-2 leading-relaxed">
+                                   <span className="font-medium text-gray-800">บริการเสริม:</span> {item.addOnsSnapshot.map(a => a.name).join(", ")}
+                                 </div>
+                               )}
+                               {isFirst && (!item.addOnsSnapshot || item.addOnsSnapshot.length === 0) && order.addOns && order.addOns.length > 0 && (
+                                 <div className="text-orange-600 mt-2 leading-relaxed pt-2 border-t border-gray-100">
+                                   <span className="font-medium text-gray-800">บริการเสริม (รวม):</span> {order.addOns.join(", ")}
+                                 </div>
+                               )}
+                             </>
+                           ) : (
+                             <>
+                               <div className="flex items-center gap-2 mb-2.5">
+                                 {(() => {
+                                   const catInfo = getCategoryIcon(order.category);
+                                   const Icon = catInfo.icon;
+                                   return (
+                                     <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${catInfo.bg} ${catInfo.text} shrink-0`}>
+                                       <Icon size={14} className="stroke-[2.5px]" />
+                                     </div>
+                                   );
+                                 })()}
+                                 <span className="font-bold text-gray-800 text-[14px]">
+                                   {formatCategoryName(order.category)}
+                                 </span>
+                               </div>
+                               <ul className="space-y-1 list-disc pl-5 text-gray-600 marker:text-gray-500">
+                                 {(() => {
+                                   const colorLabel = extractColorFromCategory(order.category, order.colorMode);
+                                   return colorLabel ? (
+                                     <li><span className="font-medium text-gray-700">สี:</span> {colorLabel}</li>
+                                   ) : null;
+                                 })()}
+                                 <li><span className="font-medium text-gray-700">ขนาด:</span> {order.paperSize}</li>
+                               </ul>
+                               {order.addOns.length > 0 && (
+                                 <div className="text-orange-600 mt-2 leading-relaxed"><span className="font-medium text-gray-800">บริการเสริม:</span> {order.addOns.join(", ")}</div>
+                               )}
+                             </>
+                           )}
+                        </td>
+
+                        {/* 5. จำนวน */}
+                        <td className={`py-4 px-4 text-gray-700 align-middle ${!isFirst ? "border-t border-gray-200" : ""}`}>
+                          {item ? (
+                            <>
+                              {item.quantity} ชุด
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                {item.pageCount ? `(${item.pageCount} หน้า)` : ""}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {order.copies} ชุด
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                {order.totalPages ? `(${order.totalPages} หน้า)` : ""}
+                              </div>
+                            </>
+                          )}
+                        </td>
+
+                        {/* การจัดส่ง */}
+                        <td className={`py-4 px-4 text-gray-700 whitespace-nowrap align-middle ${!isFirst ? "border-t border-gray-200" : ""}`}>
+                          {order.delivery?.method === "self_pickup" ? (
+                            <div className="flex items-center gap-1.5 text-orange-600 font-medium">
+                              <Store size={14} />
+                              รับที่ร้าน
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+                                <Truck size={14} />
+                                ที่อยู่
+                              </div>
+                              {order.delivery?.address && (
+                                <div className="relative inline-block" data-address-popover>
+                                  {(() => {
+                                    let fullAddress = order.delivery.address;
+                                    try {
+                                      const parsed = JSON.parse(order.delivery.address);
+                                      if (typeof parsed === "object" && parsed !== null) {
+                                        const parts = [];
+                                        if (parsed.address) parts.push(parsed.address);
+                                        if (parsed.subdistrict) parts.push(parsed.subdistrict.startsWith('ตำบล') || parsed.subdistrict.startsWith('แขวง') ? parsed.subdistrict : `ตำบล${parsed.subdistrict}`);
+                                        if (parsed.district) parts.push(parsed.district.startsWith('อำเภอ') || parsed.district.startsWith('เขต') ? parsed.district : `อำเภอ${parsed.district}`);
+                                        if (parsed.province) parts.push(parsed.province.startsWith('จังหวัด') || parsed.province === 'กรุงเทพมหานคร' ? parsed.province : `จังหวัด${parsed.province}`);
+                                        if (parsed.postalCode) parts.push(parsed.postalCode);
+                                        if (parts.length > 0) fullAddress = parts.join(" ");
+                                      }
+                                    } catch (e) {}
+                                    
+                                    return (
+                                      <>
+                                        <div
+                                          className="text-[11px] text-gray-500 max-w-[100px] truncate cursor-pointer hover:text-blue-600 mt-0.5"
+                                          onClick={(e) => {
+                                            const rect = (e.target as HTMLElement).getBoundingClientRect();
+                                            setAddressPopover(addressPopover?.id === order.id ? null : { id: order.id, top: rect.bottom, left: Math.max(10, rect.left - 50) });
+                                          }}
+                                        >
+                                          {fullAddress}
+                                        </div>
+                                        {addressPopover?.id === order.id && (
+                                          <div
+                                            className="fixed z-50 mt-2 w-64 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-xl shadow-gray-900/20 border border-gray-700 animate-in fade-in zoom-in-95 duration-200 whitespace-normal leading-relaxed"
+                                            style={{ top: addressPopover.top, left: addressPopover.left }}
+                                          >
+                                            <p className="font-semibold text-gray-300 mb-1 border-b border-gray-700 pb-1">
+                                              ที่อยู่จัดส่งเต็ม
+                                            </p>
+                                            {fullAddress}
+                                            <button
+                                              onClick={() => setAddressPopover(null)}
+                                              className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                                            >
+                                              <X size={12} />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+                        </td>
 
-                    {/* การจัดส่ง */}
-                    <td className="py-4 px-4 text-gray-700 max-w-[100px]">
-                      {order.delivery.method === "self_pickup" ? (
-                        <span className="flex items-center justify-center gap-1.5">
-                          <Store size={14} className="text-gray-400 shrink-0" />
-                          มารับที่ร้าน
-                        </span>
-                      ) : (
-                        <div className="relative" data-address-popover>
-                          <p className="truncate text-center tracking-tight">{order.delivery.address}</p>
-                          <button
-                            onClick={(e) => {
-                              if (addressPopover?.id === order.id) {
-                                setAddressPopover(null);
-                                return;
-                              }
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const left = Math.min(
-                                Math.max(rect.left + rect.width / 2, 140),
-                                window.innerWidth - 140,
-                              );
-                              setAddressPopover({ id: order.id, top: rect.bottom + 8, left });
-                            }}
-                            className="flex items-center gap-1 mx-auto text-orange-500 hover:text-orange-600 text-xs font-medium mt-0.5"
-                          >
-                            {addressPopover?.id === order.id ? (
-                              <ChevronUp size={11} />
-                            ) : (
-                              <MapPin size={11} />
-                            )}
-                            {addressPopover?.id === order.id ? "ซ่อนที่อยู่" : "ดูที่อยู่"}
-                          </button>
-                          {addressPopover?.id === order.id && (
-                            <div
-                              className="fixed z-50 w-64 max-w-[90vw] -translate-x-1/2 bg-white rounded-xl shadow-lg border border-gray-100 p-3"
-                              style={{ top: addressPopover.top, left: addressPopover.left }}
-                            >
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <p className="text-xs font-semibold text-gray-800">
-                                  ที่อยู่จัดส่ง
-                                </p>
-                                <button
-                                  onClick={() => setAddressPopover(null)}
-                                  className="p-0.5 -m-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                        {/* 6. ยอดรวม */}
+                        {isFirst && (
+                          <td rowSpan={rowSpan} className="py-4 px-4 font-bold text-gray-800 whitespace-nowrap align-middle">
+                            {order.price.toLocaleString()} บาท
+                          </td>
+                        )}
+
+                        {/* 7. ไฟล์งาน */}
+                        <td className={`py-3 px-4 text-center align-middle ${!isFirst ? "border-t border-gray-200" : ""}`}>
+                          {(() => {
+                            const fileObj = item 
+                              ? getFileAttachment(item.fileUrl || order.rawFileUrl || "", `${order.code}-ไฟล์งาน`)
+                              : order.file;
+                            const mockFileOrder = { ...order, file: fileObj };
+                            return (
+                              <FileThumbnail
+                                order={mockFileOrder}
+                                kind="file"
+                                align="center"
+                                onClick={() => onPreviewFile(mockFileOrder, "file")}
+                              />
+                            );
+                          })()}
+                        </td>
+
+                        {isFirst && (
+                          <>
+                            {/* 8. สลิปโอนเงิน */}
+                            <td rowSpan={rowSpan} className="py-3 pl-16 pr-4 text-center align-middle">
+                              <FileThumbnail
+                                order={order}
+                                kind="slip"
+                                align="center"
+                                onClick={() => onPreviewFile(order, "slip")}
+                              />
+                            </td>
+
+                            {/* 9. รายละเอียด */}
+                            <td rowSpan={rowSpan} className="py-4 px-4 text-center align-middle">
+                              <button
+                                onClick={() => onOpenDetail(order)}
+                                className="relative inline-flex items-center justify-center p-1.5 mx-auto rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                                title={order.note ? "ดูรายละเอียด (มีหมายเหตุจากลูกค้า)" : "ดูรายละเอียด"}
+                              >
+                                <Eye size={16} />
+                                {order.note && (
+                                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-[1.5px] border-white" />
+                                )}
+                              </button>
+                            </td>
+
+                            {/* สถานะงาน */}
+                            <td rowSpan={rowSpan} className="py-4 px-4 text-center align-middle">
+                              {order.status === "completed" || order.status === "cancelled" ? (
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_0_rgba(255,255,255,0.7)] ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
                                 >
-                                  <X size={14} />
+                                  {meta.label}
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() =>
+                                    order.status === "pending_review"
+                                      ? onPreviewFile(order, "slip")
+                                      : onOpenStatusModal(order)
+                                  }
+                                  className={`group inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap transition-all duration-200 ease-out shadow-[0_2px_0_rgba(0,0,0,0.12),0_3px_6px_-2px_rgba(0,0,0,0.18),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:shadow-[0_3px_0_rgba(0,0,0,0.12),0_6px_14px_-4px_rgba(0,0,0,0.22),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97] active:shadow-[0_1px_1px_rgba(0,0,0,0.15)] ${meta.badgeBg} ${meta.badgeText} ${meta.targetBorder}`}
+                                >
+                                  {meta.label}
+                                  <span className="flex items-center justify-center w-4 h-4 rounded-md bg-white/70 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
+                                    <ChevronRight size={11} strokeWidth={2.5} />
+                                  </span>
                                 </button>
-                              </div>
-                              <p className="text-sm text-gray-600 leading-relaxed whitespace-normal text-left">
-                                {order.delivery.address}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* ยอดรวม */}
-                    <td className="py-4 px-4 font-bold text-gray-800 whitespace-nowrap">
-                      {order.price.toLocaleString()} บาท
-                    </td>
-
-                    {/* ดูรายละเอียด */}
-                    <td className="py-4 px-4">
-                      <button
-                        onClick={() => onOpenDetail(order)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
-                        title="ดูรายละเอียด"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </td>
-
-                    {/* ไฟล์งาน */}
-                    <td className="py-3 px-4">
-                      <FileThumbnail
-                        order={order}
-                        kind="file"
-                        onClick={() => onPreviewFile(order, "file")}
-                      />
-                    </td>
-
-                    {/* สลิปโอนเงิน */}
-                    <td className="py-3 px-4">
-                      <FileThumbnail
-                        order={order}
-                        kind="slip"
-                        onClick={() => onPreviewFile(order, "slip")}
-                      />
-                    </td>
-
-                    {/* สถานะงาน */}
-                    <td className="py-4 px-4">
-                      {order.status === "completed" || order.status === "cancelled" ? (
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_0_rgba(255,255,255,0.7)] ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
-                        >
-                          {meta.label}
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            order.status === "pending_review"
-                              ? onPreviewFile(order, "slip")
-                              : onOpenStatusModal(order)
-                          }
-                          className={`group inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap transition-all duration-200 ease-out shadow-[0_2px_0_rgba(0,0,0,0.12),0_3px_6px_-2px_rgba(0,0,0,0.18),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:shadow-[0_3px_0_rgba(0,0,0,0.12),0_6px_14px_-4px_rgba(0,0,0,0.22),inset_0_1px_0_0_rgba(255,255,255,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97] active:shadow-[0_1px_1px_rgba(0,0,0,0.15)] ${meta.badgeBg} ${meta.badgeText} ${meta.targetBorder}`}
-                        >
-                          {meta.label}
-                          <span className="flex items-center justify-center w-4 h-4 rounded-md bg-white/70 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
-                            <ChevronRight size={11} strokeWidth={2.5} />
-                          </span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
+                              )}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              );
+            })
+          )}
         </table>
       </div>
     </div>
