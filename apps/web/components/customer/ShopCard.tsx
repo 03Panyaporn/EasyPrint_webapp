@@ -94,16 +94,10 @@ export default function ShopCard({ shop }: ShopCardProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-2">
+        <div className="pt-2">
           <Link
             href={`/shops/${shop.id}`}
-            className="flex-1 text-center px-3 py-2 text-xs sm:text-sm font-bold text-orange-600 border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 rounded-full transition"
-          >
-            ดูร้าน
-          </Link>
-          <Link
-            href={`/shops/${shop.id}`}
-            className="flex-1 text-center px-3 py-2 text-xs sm:text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-full shadow-xs transition"
+            className="w-full block text-center px-4 py-2.5 text-xs sm:text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-full shadow-xs transition"
           >
             เลือกบริการ
           </Link>

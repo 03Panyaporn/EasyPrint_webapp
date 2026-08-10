@@ -10,6 +10,7 @@ import {
   HardDrive,
   Settings,
   PhoneCall,
+  Bell,
   ChevronLeft,
   ChevronRight,
   X,

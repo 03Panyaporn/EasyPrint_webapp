@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
     ArrowRight,
@@ -22,8 +22,15 @@ import {
     type Address
 } from "@/lib/api/addresses";
 
-
 export default function CheckoutPage() {
+    return (
+        <Suspense fallback={<div className="p-10 text-center">กำลังโหลด...</div>}>
+            <CheckoutContent />
+        </Suspense>
+    );
+}
+
+function CheckoutContent() {
     const [shop, setShop] = useState<PublicShopDetail | null>(null);
     const [profile, setProfile] = useState<any>(null);
     const searchParams = useSearchParams();

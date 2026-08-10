@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Printer, ShoppingCart, User, Menu, X } from "lucide-react";
+import {
+  Printer,
+  ShoppingCart,
+  User,
+  Menu,
+  X,
+  PackageSearch,
+  KeyRound,
+  LogOut,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 import { logout as logoutApi } from "@/lib/api/auth";
 
 // nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท/ติดต่อเรา) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
@@ -25,9 +36,22 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
+  const profileRef = useRef<HTMLDivElement>(null);
+
   const homeHref = variant === "auth" ? "/Dashboard" : "/";
   const isHome = pathname === "/" || pathname === "/Dashboard";
   const ordersHref = variant === "auth" ? "/orders" : "/login?redirect=%2Forders";
+
+  // Outside click listener for profile dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -86,7 +110,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
         <div className="hidden sm:flex items-center gap-3 shrink-0">
           <Link
             href="/cart"
-            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition"
+            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition active:scale-95"
             title="ตะกร้า"
           >
             <ShoppingCart className="w-5 h-5" />
@@ -98,36 +122,104 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
           </Link>
 
           {variant === "auth" ? (
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setProfileMenuOpen((v) => !v)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition"
+                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${
+                  profileMenuOpen
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-200 scale-105"
+                    : "bg-orange-50 text-orange-500 hover:bg-orange-100 active:scale-95"
+                }`}
                 title="บัญชีของฉัน"
               >
                 <User className="w-5 h-5" />
               </button>
+
+              {/* Account Dropdown UI */}
               {profileMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50">
+                <div className="absolute right-0 mt-2.5 w-64 sm:w-72 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-100 p-3 z-50 origin-top-right transition-all duration-200 animate-in fade-in zoom-in-95">
+                  {/* User Profile Header Banner */}
+                  <div className="p-3 bg-gradient-to-r from-orange-50/80 to-amber-50/80 rounded-2xl border border-orange-100/60 flex items-center gap-3 mb-2">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black text-base flex items-center justify-center shadow-md shadow-orange-200 shrink-0">
+                      ส
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-xs font-black text-slate-900 truncate">คุณสมชาย ใจดี</h4>
+                        <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-orange-500 text-white rounded-full shrink-0">
+                          สมาชิก
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">
+                        somchai@gmail.com
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="space-y-0.5 py-1">
                     <Link
                       href="/profile"
                       onClick={() => setProfileMenuOpen(false)}
-                      className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition"
+                      className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition group"
                     >
-                      โปรไฟล์ของฉัน
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center group-hover:scale-110 transition">
+                          <User size={15} />
+                        </div>
+                        <span>โปรไฟล์ของฉัน</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
                     </Link>
+
+                    <Link
+                      href="/orders"
+                      onClick={() => setProfileMenuOpen(false)}
+                      className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition">
+                          <PackageSearch size={15} />
+                        </div>
+                        <span>ประวัติการสั่งซื้อ</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
+                    </Link>
+
+                    <Link
+                      href="/change-password"
+                      onClick={() => setProfileMenuOpen(false)}
+                      className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition">
+                          <KeyRound size={15} />
+                        </div>
+                        <span>เปลี่ยนรหัสผ่าน</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
+                    </Link>
+                  </div>
+
+                  {/* Divider & Logout Button */}
+                  <div className="pt-1 mt-1 border-t border-slate-100">
                     <button
                       onClick={() => {
                         setProfileMenuOpen(false);
                         setLogoutConfirmOpen(true);
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition"
+                      className="w-full px-3 py-2.5 rounded-2xl bg-red-50 hover:bg-red-100 text-red-500 font-extrabold text-xs flex items-center justify-between transition-all duration-150 active:scale-98 group"
                     >
-                      ออกจากระบบ
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-xl bg-white text-red-500 flex items-center justify-center shadow-2xs group-hover:scale-110 transition">
+                          <LogOut size={15} />
+                        </div>
+                        <span>ออกจากระบบ</span>
+                      </div>
+                      <ChevronRight size={14} className="text-red-300 group-hover:translate-x-0.5 transition" />
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           ) : (
