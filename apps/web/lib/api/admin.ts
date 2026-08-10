@@ -39,6 +39,25 @@ export function getAdminShop(id: string) {
   return apiFetch<{ shop: AdminShopDetail }>(`/admin/shops/${id}`);
 }
 
+export function deleteShop(id: string) {
+  return apiFetch<{ message: string }>(`/admin/shops/${id}`, { method: "DELETE" });
+}
+
+export type UpdateShopInput = {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  serviceTypes?: string[];
+};
+
+export function updateAdminShop(id: string, input: UpdateShopInput) {
+  return apiFetch<{ shop: unknown }>(`/admin/shops/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export function approveShop(id: string) {
   return apiFetch<{ shop: unknown }>(`/admin/shops/${id}/approve`, { method: "PATCH" });
 }
