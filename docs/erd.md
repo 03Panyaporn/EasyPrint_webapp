@@ -98,7 +98,8 @@
 | height_cm | numeric(10,2) | ใช้เมื่อ `pricing_model` = `per_sqm` เท่านั้น |
 | page_count | integer | ใช้เมื่อ `pricing_model` = `per_page` เท่านั้น — **server นับเองจากไฟล์ PDF จริงด้วย pdf-lib เสมอ ไม่เคยรับค่าจาก client** |
 | quantity | integer | default 1 — คูณกับราคาต่อหน่วยเสมอไม่ว่า pricing_model ไหน |
-| file_url | text | nullable — storage path จาก bucket private `order-files` |
+| file_url | text | nullable — storage path จาก bucket private `order-files` (ชื่อไฟล์เป็น UUID สุ่ม ไม่ใช่ชื่อไฟล์จริง) |
+| file_name | text | nullable — ชื่อไฟล์ต้นฉบับที่ลูกค้าอัปโหลด ใช้แสดงผลใน UI เท่านั้น (แยกจาก file_url เพราะ path ใน storage ถูกสุ่มเป็น UUID) |
 | note | text | nullable |
 | created_at | timestamp | |
 

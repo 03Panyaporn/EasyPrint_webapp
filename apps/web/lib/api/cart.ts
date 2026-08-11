@@ -38,6 +38,7 @@ export type CartItem = {
   unitPrice: number;
   lineTotal: number;
   fileUrl?: string;
+  fileName?: string; // ชื่อไฟล์ต้นฉบับที่ลูกค้าอัปโหลด (ไม่ใช่ path ใน storage)
   note?: string;
 };
 

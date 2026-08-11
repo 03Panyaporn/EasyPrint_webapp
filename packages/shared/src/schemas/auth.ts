@@ -3,12 +3,19 @@ import { z } from "zod";
 // สคีมานี้ใช้ทั้งฝั่ง apps/web (ตอน validate ฟอร์ม) และ apps/api (ตอน validate ก่อนบันทึก DB)
 // แก้ที่นี่ที่เดียว ทั้งสองฝั่งจะตรวจสอบข้อมูลตรงกันเสมอ
 
+// ตัด "-" กับช่องว่างออกก่อนเช็คความยาว เพราะฟอร์ม (placeholder "0XX-XXX-XXXX") ยอมให้ผู้ใช้พิมพ์เบอร์แบบมีขีดได้
+// ถ้าไม่ตัดก่อน ค่าที่มีขีดจะยาวเกิน 10 ตัวอักษรและไม่ผ่าน validation ทั้งที่เป็นเบอร์ที่ถูกต้อง
+const phoneSchema = z
+  .string()
+  .transform((val) => val.replace(/[\s-]/g, ""))
+  .pipe(z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"));
+
 export const registerSchema = z.object({
   email: z.string().email("อีเมลไม่ถูกต้อง"),
   password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
   firstname: z.string().min(1, "กรุณากรอกชื่อ"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุล"),
-  phone: z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"),
+  phone: phoneSchema,
   address: z.string().max(500).optional(),
 });
 
@@ -34,6 +41,14 @@ export const resetPasswordSchema = z.object({
 });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+// ใช้ตอนผู้ใช้ล็อกอินอยู่แล้วขอเปลี่ยนรหัสผ่านเอง (ต่างจาก reset-password ที่ใช้ token จากอีเมลตอนลืมรหัสผ่าน)
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
+  newPassword: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
+});
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 // ตรงกับตัวเลือก "บริการของร้าน" ใน apps/web/app/(auth)/register/shop-register/page.tsx — แก้ที่นี่ที่เดียว หน้าเว็บ import ไปใช้
 // เลือกได้หลายรายการ (checkbox) แทนที่ dropdown "ประเภทร้านค้า" แบบเดิมที่เลือกได้ทีละ 1
@@ -61,8 +76,6 @@ export const SHOP_SERVICE_TYPES = shopServiceTypeSchema.options;
 export const shopDeliveryMethodSchema = z.enum(["รับที่หน้าร้าน", "จัดส่งโดยร้าน"]);
 export const SHOP_DELIVERY_METHODS = shopDeliveryMethodSchema.options;
 
-const phoneSchema = z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง");
-
 export const registerShopSchema = z.object({
   email: z.string().email("อีเมลไม่ถูกต้อง"),
   password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
@@ -85,7 +98,7 @@ export const registerShopSchema = z.object({
   // idCardUrl = storage path จาก bucket "id-cards" (bucket private ไม่มี public URL ตรงๆ ไม่ใช่ URL จริง แค่ path)
   idCardUrl: z.string().min(1, "กรุณาอัปโหลดรูปบัตรประชาชน"),
   shopPhotoUrl: z.string().url("กรุณาอัปโหลดรูปภาพร้านค้า"),
-  socialMedia: z.string().min(1, "กรุณากรอกช่องทาง Social Media"),
+  socialMedia: z.string().optional(),
   openingHours: z.any().optional(),
 });
 

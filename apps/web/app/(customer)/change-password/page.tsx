@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { changePassword } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const passwordsMatch = !newPassword || !confirmNewPassword || newPassword === confirmNewPassword;
   const isSameAsCurrent = currentPassword.length > 0 && newPassword.length > 0 && currentPassword === newPassword;
@@ -18,16 +22,23 @@ export default function ChangePasswordPage() {
     newPassword === confirmNewPassword &&
     !isSameAsCurrent;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || isSubmitting) return;
 
-    // TODO: ต่อ API ตรวจสอบรหัสผ่านปัจจุบันและบันทึกรหัสผ่านใหม่ (Argon2 hash ฝั่ง backend)
-    console.log("EasyPrint Change Password Form Submitted");
-    setSuccess(true);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmNewPassword("");
+    setFormError("");
+    setIsSubmitting(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -43,6 +54,12 @@ export default function ChangePasswordPage() {
         {success && (
           <div className="bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-xl px-4 py-3">
             เปลี่ยนรหัสผ่านสำเร็จแล้ว
+          </div>
+        )}
+
+        {formError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-xl px-4 py-3">
+            {formError}
           </div>
         )}
 
@@ -91,14 +108,14 @@ export default function ChangePasswordPage() {
           <div className="flex items-center gap-3 pt-2">
             <button
               type="submit"
-              disabled={!isFormValid}
+              disabled={!isFormValid || isSubmitting}
               className={`px-5 py-2.5 rounded-full text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
-                isFormValid
+                isFormValid && !isSubmitting
                   ? "bg-orange-500 text-white hover:bg-orange-600 cursor-pointer"
                   : "bg-slate-100 text-slate-400 cursor-not-allowed"
               }`}
             >
-              บันทึกรหัสผ่านใหม่
+              {isSubmitting ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}
             </button>
             <Link href="/orders" className="text-sm font-semibold text-slate-500 hover:text-slate-700 transition">
               ยกเลิก

@@ -40,6 +40,14 @@ const renderAddress = (addressStr?: string) => {
   return addressStr;
 };
 
+const extractColorFromCategory = (rawName: string, colorMode?: string | null) => {
+  if (rawName.includes("ขาว-ดำ") || rawName.includes("ขาวดำ")) return "ขาว-ดำ";
+  if (rawName.includes("สี") && !rawName.includes("ขาวดำ & สี")) return "สี";
+  if (colorMode === "bw") return "ขาว-ดำ";
+  if (colorMode === "color") return "สี";
+  return null;
+};
+
 export default function OrderDetailModal({
   order,
   isOpen,
@@ -90,9 +98,12 @@ export default function OrderDetailModal({
                 <div key={item.id || idx} className="rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                    <h3 className="font-bold text-slate-800 text-[16px] mb-4">{item.serviceName}</h3>
                    <ul className="space-y-1.5 list-disc pl-5 text-gray-600 marker:text-gray-400 text-[13.5px] mb-4">
-                      {item.colorTierLabel && (
-                        <li><span className="font-bold text-gray-700">สี:</span> {item.colorTierLabel}</li>
-                      )}
+                      {(() => {
+                        const colorLabel = item.colorTierLabel || extractColorFromCategory(order.category, order.colorMode);
+                        return colorLabel ? (
+                          <li><span className="font-bold text-gray-700">สี:</span> {colorLabel}</li>
+                        ) : null;
+                      })()}
                       {item.optionsSnapshot?.map((opt, oIdx) => {
                          let displayName = opt.optionName;
                          if (displayName === "ขนาดกระดาษ") displayName = "ขนาด";

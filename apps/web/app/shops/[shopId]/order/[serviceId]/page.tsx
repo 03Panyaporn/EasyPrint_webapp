@@ -531,6 +531,7 @@ function OrderBuilderForm({
         addOnIds: selectedAddOnIds,
         quantity: Number(quantity),
         fileUrl,
+        fileName: file?.name,
         note: note.trim() || undefined,
       });
       setAddedToast(true);
