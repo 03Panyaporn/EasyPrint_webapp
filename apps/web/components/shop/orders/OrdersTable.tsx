@@ -79,6 +79,8 @@ interface OrdersTableProps {
   onOpenStatusModal: (order: Order) => void;
   onOpenDetail: (order: Order) => void;
   onPreviewFile: (order: Order, kind: "file" | "slip") => void;
+  title?: string;
+  headerAction?: React.ReactNode;
 }
 
 export default function OrdersTable({
@@ -86,6 +88,8 @@ export default function OrdersTable({
   onOpenStatusModal,
   onOpenDetail,
   onPreviewFile,
+  title,
+  headerAction,
 }: OrdersTableProps) {
   const [addressPopover, setAddressPopover] = useState<{
     id: string;
@@ -117,8 +121,9 @@ export default function OrdersTable({
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_32px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.8)] overflow-hidden -mx-2 md:-mx-3 lg:-mx-4">
       {/* Header bar */}
-      <div className="p-4 sm:p-6 border-b border-gray-100">
-        <h2 className="text-lg font-bold text-gray-800">รายการคำสั่งซื้อทั้งหมด</h2>
+      <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-800">{title || "รายการคำสั่งซื้อทั้งหมด"}</h2>
+        {headerAction}
       </div>
 
       {/* Table */}
