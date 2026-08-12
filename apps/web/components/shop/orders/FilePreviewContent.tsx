@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { ArrowDown, Landmark, QrCode, Image as ImageIcon, FileText } from "lucide-react";
 import { Order, OrderFileAttachment } from "./types";
 
@@ -55,6 +58,63 @@ export function PdfFileCard({ name }: { name: string }) {
     </div>
   );
 }
+
+/** ไฟล์งานที่เป็น PDF — ดึงหน้าแรกมาเรนเดอร์เป็นรูปภาพ ถ้าไม่ได้จะ fallback เป็นไอคอน */
+export function PdfLiveThumbnail({ url, name }: { url: string; name: string }) {
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const generate = async () => {
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        
+        const loadingTask = pdfjsLib.getDocument({ url });
+        const pdfDoc = await loadingTask.promise;
+        const page = await pdfDoc.getPage(1);
+        
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const scale = MOCK_WIDTH / unscaledViewport.width;
+        // เรนเดอร์ให้ชัดขึ้นหน่อยเวลา scale ขึ้น
+        const viewport = page.getViewport({ scale: Math.max(scale * 1.5, 1.0) }); 
+        
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("canvas not supported");
+        
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        if (!active) return;
+        setThumbnailUrl(canvas.toDataURL("image/jpeg", 0.8));
+      } catch (err) {
+        console.error("Failed to generate PDF thumbnail:", err);
+        if (active) setError(true);
+      }
+    };
+    generate();
+    return () => { active = false; };
+  }, [url]);
+
+  if (error || !thumbnailUrl) {
+    return <PdfFileCard name={name} />;
+  }
+
+  return (
+    <div
+      style={{ width: MOCK_WIDTH, aspectRatio: "3 / 4" }}
+      className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden select-none flex flex-col items-center justify-center relative"
+    >
+      <img src={thumbnailUrl} alt={name} className="w-full h-full object-cover" />
+      <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-bold border border-red-100 shadow-sm backdrop-blur-sm">
+        PDF
+      </span>
+    </div>
+  );
+}
+
 
 /** ตัวอย่างสลิปโอนเงิน (fallback เมื่อไม่มี signed URL จริง เช่น ข้อมูลทดสอบ/ออเดอร์เก่าที่ไม่มีไฟล์) — จำลองสไตล์แอปธนาคารด้วยข้อมูลสมมติ ไม่ใช่แบรนด์หรือข้อมูลจริง */
 export function SlipMock({ order }: { order: Order }) {
@@ -198,7 +258,11 @@ export function renderFileMock(order: Order, kind: "file" | "slip") {
     );
   }
   if (order.file.type === "pdf") {
-    return <PdfFileCard name={order.file.name} />;
+    return order.rawFileUrl ? (
+      <PdfLiveThumbnail url={order.rawFileUrl} name={order.file.name} />
+    ) : (
+      <PdfFileCard name={order.file.name} />
+    );
   }
   return order.rawFileUrl ? (
     <PhotoImage url={order.rawFileUrl} name={order.file.name} />

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Printer, MapPin, Clock, Star, Heart } from "lucide-react";
 import type { PublicShopListItem } from "@/lib/api/shops";
-import { isShopOpenNow, formatTodayHours } from "@/lib/shopHours";
+import { isShopOpenNow, formatTodayHours, isShopTempClosed } from "@/lib/shopHours";
 
 interface ShopCardProps {
   shop: PublicShopListItem;
@@ -12,7 +12,7 @@ interface ShopCardProps {
 
 // การ์ดร้านค้า — ใช้ร่วมกันทั้งหน้าแรก (guest) และ Dashboard (login แล้ว) ปรับสเกลขนาดบน mobile ให้กระทัดรัด
 export default function ShopCard({ shop }: ShopCardProps) {
-  const openNow = isShopOpenNow(shop.openingHours);
+  const openNow = !isShopTempClosed(shop.tempCloseStart, shop.tempCloseEnd) && isShopOpenNow(shop.openingHours);
   // ยังไม่มีระบบรีวิว/ถูกใจจริงในระบบหลังบ้าน — ปุ่มถูกใจเป็นแค่ UI toggle ในเครื่อง
   const [liked, setLiked] = useState(false);
 
