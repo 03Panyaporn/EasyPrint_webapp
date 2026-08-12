@@ -691,8 +691,24 @@ export const cartRoutes = new Elysia()
           valueName: colorTier.label,
           textValue: null,
           extraPrice: colorTier.pricePerUnit,
-          priceScope: mainService.pageCountingMode === "none" ? "per_piece" : "per_page",
+          priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
         });
+      } else if (!row.colorTierId) {
+        // ถ้าบริการนี้มี color tiers แต่ลูกค้าไม่ได้เลือก tier ใด = เลือก "ขาวดำ" (ราคาพื้นฐาน)
+        const [hasColorTier] = await db
+          .select({ id: serviceColorTiers.id })
+          .from(serviceColorTiers)
+          .where(eq(serviceColorTiers.mainServiceId, row.mainServiceId))
+          .limit(1);
+        if (hasColorTier) {
+          optionsSnapshot.unshift({
+            optionName: "สี",
+            valueName: "ขาวดำ",
+            textValue: null,
+            extraPrice: 0,
+            priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
+          });
+        }
       }
 
       // ดึง add-on services
@@ -786,7 +802,7 @@ export const cartRoutes = new Elysia()
           serviceType: snapshots[0]?.serviceNameSnapshot ?? "สั่งพิมพ์งาน",
           pages: snapshots[0]?.pageCount ?? 1,
           copies: snapshots[0]?.quantity ?? 1,
-          colorMode: "มาตรฐาน",
+          colorMode: snapshots[0]?.colorTierLabelSnapshot ? "color" : "bw",
           paperSize: "-",
           binding: false,
           lamination: false,

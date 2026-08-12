@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { getShops, type PublicShopListItem } from "@/lib/api/shops";
-import { isShopOpenNow } from "@/lib/shopHours";
+import { isShopOpenNow, isShopTempClosed } from "@/lib/shopHours";
 import ShopSearchHero from "@/components/customer/ShopSearchHero";
 import ServiceCategoryGrid from "@/components/customer/ServiceCategoryGrid";
 import ShopCard from "@/components/customer/ShopCard";
@@ -42,7 +42,7 @@ export default function DashboardPage() {
     if (selectedService !== "all" && !(shop.serviceTypes ?? []).includes(selectedService)) {
       return false;
     }
-    const openNow = isShopOpenNow(shop.openingHours);
+    const openNow = !isShopTempClosed(shop.tempCloseStart, shop.tempCloseEnd) && isShopOpenNow(shop.openingHours);
     if (selectedHours === "open" && !openNow) {
       return false;
     }
@@ -54,8 +54,8 @@ export default function DashboardPage() {
 
   // ร้านที่เปิดอยู่ตอนนี้ขึ้นก่อนเสมอ — ใช้ stable sort กันลำดับเดิม (createdAt desc จาก API) ภายในกลุ่มเปิด/ปิดสลับกันเอง
   const sortedShops = [...filteredShops].sort((a, b) => {
-    const aOpen = isShopOpenNow(a.openingHours);
-    const bOpen = isShopOpenNow(b.openingHours);
+    const aOpen = !isShopTempClosed(a.tempCloseStart, a.tempCloseEnd) && isShopOpenNow(a.openingHours);
+    const bOpen = !isShopTempClosed(b.tempCloseStart, b.tempCloseEnd) && isShopOpenNow(b.openingHours);
     return aOpen === bOpen ? 0 : aOpen ? -1 : 1;
   });
 

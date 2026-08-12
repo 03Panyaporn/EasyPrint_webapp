@@ -201,13 +201,29 @@ export default function OrdersTable({
                                  </span>
                                </div>
                                <ul className="space-y-1 list-disc pl-5 text-gray-600 marker:text-gray-500">
-                                 {(() => {
-                                   const colorLabel = item.colorTierLabel || extractColorFromCategory(order.category, order.colorMode);
-                                   return colorLabel ? (
-                                     <li><span className="font-medium text-gray-700">สี:</span> {colorLabel}</li>
-                                   ) : null;
-                                 })()}
-                                 {item.optionsSnapshot?.map((opt, i) => {
+                                  {(() => {
+                                    // ดูจาก colorTierLabel ก่อน (item ใหม่จะมีนี้)
+                                    // ถ้าไม่มี ลองดูจาก optionsSnapshot ว่ามีตัวเลือกสีหรือไม่
+                                    // ถ้ายังไม่มีแต่ pageCount > 0 (per_page service) → fallback "ขาวดำ" สำหรับ order เก่า
+                                    let colorLabel: string | null = item.colorTierLabel ?? null;
+                                    if (!colorLabel) {
+                                      const colorOpt = item.optionsSnapshot?.find(o => o.optionName === "สี");
+                                      if (colorOpt) {
+                                        colorLabel = colorOpt.valueName ?? colorOpt.textValue ?? null;
+                                      }
+                                    }
+                                    if (!colorLabel) {
+                                      colorLabel = extractColorFromCategory(order.category, order.colorMode);
+                                    }
+                                    // fallback สุดท้าย: order เก่าที่ colorMode="มาตรฐาน" แต่มี pageCount = per_page service (มักมีตัวเลือกสี)
+                                    if (!colorLabel && item.pageCount && item.pageCount > 0) {
+                                      colorLabel = "ขาวดำ";
+                                    }
+                                    return colorLabel ? (
+                                      <li><span className="font-medium text-gray-700">สี:</span> {colorLabel}</li>
+                                    ) : null;
+                                  })()}
+                                 {item.optionsSnapshot?.filter(opt => opt.optionName !== "สี").map((opt, i) => {
                                    let displayName = opt.optionName;
                                    if (displayName === "ขนาดกระดาษ") displayName = "ขนาด";
                                    if (displayName === "ประเภทกระดาษ") displayName = "ประเภท";
@@ -281,9 +297,9 @@ export default function OrdersTable({
 
                         {/* การจัดส่ง */}
                         <td className={`py-4 px-4 text-gray-700 whitespace-nowrap align-middle ${!isFirst ? "border-t border-gray-200" : ""}`}>
-                          {order.delivery?.method === "self_pickup" ? (
-                            <div className="flex items-center gap-1.5 text-orange-600 font-medium">
-                              <Store size={14} />
+                          {(!order.delivery || order.delivery.method === "self_pickup" || (order.delivery.method === "shop_delivery" && !order.delivery.address)) ? (
+                            <div className="inline-flex items-center gap-1.5 text-orange-600 font-semibold text-[13.5px]">
+                              <Store size={16} className="stroke-[2.5px]" />
                               รับที่ร้าน
                             </div>
                           ) : (

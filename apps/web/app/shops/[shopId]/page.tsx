@@ -19,7 +19,7 @@ import {
   Ruler,
 } from "lucide-react";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
-import { isShopOpenNow, formatTodayHours } from "@/lib/shopHours";
+import { isShopOpenNow, formatTodayHours, isShopTempClosed } from "@/lib/shopHours";
 import { getMainServices } from "@/lib/api/services";
 import { getShopCart } from "@/lib/api/cart";
 import { getMe } from "@/lib/api/auth";
@@ -168,7 +168,8 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   }, [params.shopId, router]);
 
   const activeServices = mainServices.filter((s) => s.isActive);
-  const openNow = shop ? isShopOpenNow(shop.openingHours) : false;
+  const isTempClosed = shop ? isShopTempClosed(shop.tempCloseStart, shop.tempCloseEnd) : false;
+  const openNow = shop && !isTempClosed ? isShopOpenNow(shop.openingHours) : false;
   const shopClosed = shop ? !openNow : false;
   const todayHours = shop ? formatTodayHours(shop.openingHours) : "";
   const categories = shop?.serviceTypes ?? [];
@@ -292,14 +293,20 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                     {shop.name}
                   </h1>
 
+                  {shop.description && (
+                    <p className="text-sm text-slate-600 mt-1.5 sm:mt-2 leading-relaxed break-words line-clamp-2">
+                      {shop.description}
+                    </p>
+                  )}
+
                   <a
                     href={shop.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.address || shop.name)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 font-medium hover:text-orange-600 transition-colors group cursor-pointer w-fit"
+                    className="flex items-start gap-1.5 text-xs sm:text-sm text-slate-500 font-medium hover:text-orange-600 transition-colors group cursor-pointer w-full sm:w-fit max-w-full"
                   >
-                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0 group-hover:scale-110 transition-transform" />
-                    <span className="truncate group-hover:underline">{shop.address ?? "-"}</span>
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                    <span className="line-clamp-2 sm:line-clamp-none break-words group-hover:underline">{shop.address ?? "-"}</span>
                   </a>
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 font-medium">
                     <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
@@ -391,10 +398,15 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
             {shopClosed && (
               <div className="max-w-6xl mx-auto mt-6 px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800">
-                  <AlertTriangle size={18} className="text-amber-500 shrink-0" />
-                  <p className="text-xs sm:text-sm font-medium">
-                    ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายการบริการและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด
-                  </p>
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 self-start" />
+                  <div className="text-xs sm:text-sm font-medium">
+                    <p>ร้านนี้ปิดทำการอยู่ขณะนี้ — ดูรายการบริการและราคาได้ตามปกติ แต่ยังสั่งพิมพ์ไม่ได้จนกว่าร้านจะเปิด</p>
+                    {isTempClosed && shop?.tempCloseReason && (
+                      <p className="mt-1.5 text-amber-700">
+                        <span className="font-bold">เหตุผล: </span>{shop.tempCloseReason}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

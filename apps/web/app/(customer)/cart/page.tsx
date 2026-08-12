@@ -60,12 +60,6 @@ export default function CartPage() {
       return;
     }
 
-    // ต้องเลือกวิธีจัดส่งก่อน
-    if (!selectedShop.deliveryOption?.id) {
-      alert("กรุณาเลือกวิธีจัดส่งก่อนชำระเงิน");
-      return;
-    }
-
     // ตรวจสอบว่าสินค้าที่เลือกยังเปิดให้บริการอยู่
     const hasInactiveService = selectedShop.items.some(
       (item) =>
@@ -835,8 +829,7 @@ export default function CartPage() {
                 </div>
 
                 {/* ================= DELIVERY ================= */}
-                {(deliveryOptionsByShop[cart.shopId]?.length ?? 0) > 0 && (
-                  <div className="mx-auto my-2 w-11/12 p-2 rounded-xl border border-orange-200 bg-orange-50/50">
+                <div className="mx-auto my-2 w-11/12 p-2 rounded-xl border border-orange-200 bg-orange-50/50">
 
                     {/* หัวข้อ */}
                     <div className="flex items-center gap-2 mb-2">
@@ -869,10 +862,10 @@ export default function CartPage() {
                       className="w-full h-10 px-3 rounded-lg border border-orange-200 bg-white text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                     >
                       <option value="">
-                        เลือกวิธีจัดส่ง
+                        รับเองที่ร้าน (ไม่มีค่าจัดส่ง)
                       </option>
 
-                      {deliveryOptionsByShop[cart.shopId].map((opt) => (
+                      {(deliveryOptionsByShop[cart.shopId] ?? []).map((opt) => (
                         <option key={opt.id} value={opt.id}>
                           {opt.name} — ฿{opt.baseFee}
                           {opt.freeShippingThreshold
@@ -899,7 +892,6 @@ export default function CartPage() {
                     )}
 
                   </div>
-                )}
 
                 {/* ================= SHOP TOTAL ================= */}
                 <div className="mx-4 sm:mx-5 my-4 rounded-2xl bg-slate-50 border border-slate-100 p-4">
