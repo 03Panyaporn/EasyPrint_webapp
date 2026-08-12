@@ -78,8 +78,14 @@ export const shops = pgTable("shops", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerId: uuid("owner_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
+  description: text("description"),
   phone: text("phone"),
   address: text("address"),
+  email: text("email"),
+  facebook: text("facebook"),
+  lineId: text("line_id"),
+  latitude: numeric("latitude", { precision: 10, scale: 6 }),
+  longitude: numeric("longitude", { precision: 10, scale: 6 }),
   // "บริการของร้าน" เลือกได้หลายรายการตอนสมัคร (เดิมเป็น dropdown ประเภทร้านค้าเลือกได้ทีละ 1 — เลิกใช้แล้ว)
   // ดูค่าที่รองรับที่ shopServiceTypeSchema ใน packages/shared
   serviceTypes: text("service_types").array(),
@@ -94,6 +100,9 @@ export const shops = pgTable("shops", {
   approvalStatus: shopApprovalStatusEnum("approval_status").notNull().default("pending"),
   rejectedReason: text("rejected_reason"), // ใส่ตอนแอดมินกด "ไม่อนุมัติ" — null ถ้ายังไม่เคยถูกปฏิเสธ
   deliveryEnabled: boolean("delivery_enabled").notNull().default(true),
+  tempCloseStart: text("temp_close_start"),
+  tempCloseEnd: text("temp_close_end"),
+  tempCloseReason: text("temp_close_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

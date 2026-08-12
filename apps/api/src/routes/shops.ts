@@ -4,6 +4,8 @@ import { db } from "../db";
 import { shops } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 
+import { updateShopProfileSchema } from "@easyprint/shared";
+
 export const shopsRoutes = new Elysia()
   // endpoint สาธารณะ ไม่ต้อง login — ฝั่งลูกค้าใช้ดึงรายชื่อร้านค้าหน้าแรก
   // คืนเฉพาะร้านที่ approvalStatus === "approved" เท่านั้น ร้านที่ยัง pending/rejected ต้องไม่หลุดออกมา
@@ -17,6 +19,8 @@ export const shopsRoutes = new Elysia()
         deliveryMethods: shops.deliveryMethods,
         openingHours: shops.openingHours,
         shopPhotoUrl: shops.shopPhotoUrl,
+        tempCloseStart: shops.tempCloseStart,
+        tempCloseEnd: shops.tempCloseEnd,
       })
       .from(shops)
       .where(eq(shops.approvalStatus, "approved"))
@@ -45,6 +49,20 @@ export const shopsRoutes = new Elysia()
         approvalStatus: shops.approvalStatus,
         rejectedReason: shops.rejectedReason,
         deliveryEnabled: shops.deliveryEnabled,
+        phone: shops.phone,
+        email: shops.email,
+        facebook: shops.facebook,
+        lineId: shops.lineId,
+        latitude: shops.latitude,
+        longitude: shops.longitude,
+        address: shops.address,
+        openingHours: shops.openingHours,
+        shopPhotoUrl: shops.shopPhotoUrl,
+        googleMapLink: shops.googleMapLink,
+        tempCloseStart: shops.tempCloseStart,
+        tempCloseEnd: shops.tempCloseEnd,
+        tempCloseReason: shops.tempCloseReason,
+        description: shops.description,
       })
       .from(shops)
       .where(eq(shops.ownerId, payload.userId));
@@ -66,7 +84,11 @@ export const shopsRoutes = new Elysia()
       .select({
         id: shops.id,
         name: shops.name,
+        description: shops.description,
         phone: shops.phone,
+        email: shops.email,
+        facebook: shops.facebook,
+        lineId: shops.lineId,
         address: shops.address,
         serviceTypes: shops.serviceTypes,
         deliveryMethods: shops.deliveryMethods,
@@ -75,6 +97,9 @@ export const shopsRoutes = new Elysia()
         openingHours: shops.openingHours,
         shopPhotoUrl: shops.shopPhotoUrl,
         approvalStatus: shops.approvalStatus,
+        tempCloseStart: shops.tempCloseStart,
+        tempCloseEnd: shops.tempCloseEnd,
+        tempCloseReason: shops.tempCloseReason,
       })
       .from(shops)
       .where(eq(shops.id, params.shopId));
@@ -86,4 +111,50 @@ export const shopsRoutes = new Elysia()
 
     const { approvalStatus: _approvalStatus, ...shop } = row;
     return { shop };
+  })
+  
+  // อัปเดตข้อมูลร้านค้า
+  .put("/shops/me", async ({ cookie, body, set }) => {
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || payload.role !== "shop_owner") {
+      set.status = 401;
+      return { error: "ไม่มีสิทธิ์ใช้งาน" };
+    }
+
+    const parsed = updateShopProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: parsed.error.errors[0].message };
+    }
+    const data = parsed.data;
+
+    const [updated] = await db
+      .update(shops)
+      .set({
+        name: data.name,
+        description: data.description || null,
+        phone: data.phone,
+        email: data.email || null,
+        facebook: data.facebook || null,
+        lineId: data.lineId || null,
+        shopPhotoUrl: data.shopPhotoUrl || null,
+        address: data.address || null,
+        latitude: data.latitude != null ? String(data.latitude) : null,
+        longitude: data.longitude != null ? String(data.longitude) : null,
+        openingHours: data.openingHours || null,
+        googleMapLink: data.googleMapLink || null,
+        tempCloseStart: data.tempCloseStart || null,
+        tempCloseEnd: data.tempCloseEnd || null,
+        tempCloseReason: data.tempCloseReason || null,
+      })
+      .where(eq(shops.ownerId, payload.userId))
+      .returning({ id: shops.id });
+
+    if (!updated) {
+      set.status = 404;
+      return { error: "ไม่พบร้านค้า" };
+    }
+
+    return { success: true };
   });

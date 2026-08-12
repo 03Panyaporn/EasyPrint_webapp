@@ -15,12 +15,44 @@ export type PublicShopListItem = {
   deliveryMethods: string[] | null;
   openingHours: ShopOpeningHours[] | null;
   shopPhotoUrl: string | null;
+  tempCloseStart: string | null;
+  tempCloseEnd: string | null;
 };
 
 export type PublicShopDetail = PublicShopListItem & {
+  description: string | null;
   phone: string | null;
+  email: string | null;
+  facebook: string | null;
+  lineId: string | null;
+  shopPhotoUrl: string | null;
   googleMapLink: string | null;
   socialMedia: string | null;
+  tempCloseStart: string | null;
+  tempCloseEnd: string | null;
+  tempCloseReason: string | null;
+};
+
+export type MyShopProfile = {
+  id: string;
+  name: string;
+  description: string | null;
+  approvalStatus: string;
+  rejectedReason: string | null;
+  deliveryEnabled: boolean;
+  phone: string | null;
+  email: string | null;
+  facebook: string | null;
+  lineId: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  address: string | null;
+  openingHours: ShopOpeningHours[] | null;
+  shopPhotoUrl: string | null;
+  googleMapLink: string | null;
+  tempCloseStart: string | null;
+  tempCloseEnd: string | null;
+  tempCloseReason: string | null;
 };
 
 // endpoint สาธารณะ ไม่ต้องส่ง cookie — คืนเฉพาะร้านที่แอดมินอนุมัติแล้วเท่านั้น
@@ -32,3 +64,17 @@ export function getShops() {
 export function getShop(id: string) {
   return apiFetch<{ shop: PublicShopDetail }>(`/shops/${id}`);
 }
+
+export function getMyShopProfile() {
+  return apiFetch<{ shop: MyShopProfile }>("/shops/me");
+}
+
+import type { UpdateShopProfileInput } from "@easyprint/shared";
+
+export function updateShopProfile(data: UpdateShopProfileInput) {
+  return apiFetch<{ success: boolean }>("/shops/me", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+

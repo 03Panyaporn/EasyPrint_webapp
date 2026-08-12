@@ -99,12 +99,22 @@ export default function OrderDetailModal({
                    <h3 className="font-bold text-slate-800 text-[16px] mb-4">{item.serviceName}</h3>
                    <ul className="space-y-1.5 list-disc pl-5 text-gray-600 marker:text-gray-400 text-[13.5px] mb-4">
                       {(() => {
-                        const colorLabel = item.colorTierLabel || extractColorFromCategory(order.category, order.colorMode);
-                        return colorLabel ? (
-                          <li><span className="font-bold text-gray-700">สี:</span> {colorLabel}</li>
-                        ) : null;
+                         let colorLabel: string | null = item.colorTierLabel ?? null;
+                         if (!colorLabel) {
+                           const colorOpt = item.optionsSnapshot?.find(o => o.optionName === "สี");
+                           if (colorOpt) colorLabel = colorOpt.valueName ?? colorOpt.textValue ?? null;
+                         }
+                         if (!colorLabel) {
+                           colorLabel = extractColorFromCategory(order.category, order.colorMode);
+                         }
+                         if (!colorLabel && item.pageCount && item.pageCount > 0) {
+                           colorLabel = "ขาวดำ";
+                         }
+                         return colorLabel ? (
+                           <li><span className="font-bold text-gray-700">สี:</span> {colorLabel}</li>
+                         ) : null;
                       })()}
-                      {item.optionsSnapshot?.map((opt, oIdx) => {
+                      {item.optionsSnapshot?.filter(opt => opt.optionName !== "สี").map((opt, oIdx) => {
                          let displayName = opt.optionName;
                          if (displayName === "ขนาดกระดาษ") displayName = "ขนาด";
                          if (displayName === "ประเภทกระดาษ") displayName = "ประเภท";
@@ -137,6 +147,12 @@ export default function OrderDetailModal({
            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-5 mb-5">
               <h3 className="font-bold text-slate-800 text-[16px] mb-4">{order.category}</h3>
               <ul className="space-y-1.5 list-disc pl-5 text-gray-600 marker:text-gray-400 text-[13.5px] mb-4">
+                 {(() => {
+                    const colorLabel = extractColorFromCategory(order.category, order.colorMode);
+                    return colorLabel ? (
+                      <li><span className="font-bold text-gray-700">สี:</span> {colorLabel}</li>
+                    ) : null;
+                  })()}
                  <li><span className="font-bold text-gray-700">ขนาด:</span> {order.paperSize || "-"}</li>
                  <li><span className="font-bold text-gray-700">จำนวน:</span> {order.copies} ชุด {order.totalPages ? `(${order.totalPages} หน้า)` : ""}</li>
               </ul>
@@ -160,8 +176,8 @@ export default function OrderDetailModal({
 
         {/* Delivery */}
         <div className="flex items-center gap-3 mb-6 px-1">
-           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-500 shrink-0">
-             {order.delivery.method === "self_pickup" ? (
+           <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${(!order.delivery || order.delivery.method === "self_pickup" || (order.delivery.method === "shop_delivery" && !order.delivery.address)) ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}>
+             {(!order.delivery || order.delivery.method === "self_pickup" || (order.delivery.method === "shop_delivery" && !order.delivery.address)) ? (
                <Store size={15} className="stroke-[2.5px]" />
              ) : (
                <MapPin size={15} className="stroke-[2.5px]" />
@@ -169,7 +185,7 @@ export default function OrderDetailModal({
            </div>
            <p className="text-[14.5px] text-gray-600">
              <span className="font-bold text-slate-800 mr-2">การจัดส่ง:</span>
-             {order.delivery.method === "self_pickup" ? "มารับที่ร้าน" : renderAddress(order.delivery.address)}
+             {(!order.delivery || order.delivery.method === "self_pickup" || (order.delivery.method === "shop_delivery" && !order.delivery.address)) ? "มารับที่ร้าน" : renderAddress(order.delivery?.address)}
            </p>
         </div>
 
