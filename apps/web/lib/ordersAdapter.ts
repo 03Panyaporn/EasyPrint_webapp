@@ -61,6 +61,7 @@ export function toOrder(api: ApiOrder): Order {
     rawFileUrl: firstItem?.fileSignedUrl || api.fileSignedUrl || null,
     rawSlipUrl: api.slipSignedUrl || null,
     status: api.status,
+    createdAt: api.createdAt,
     createdAtLabel: formatCreatedAtLabel(api.createdAt),
     note: api.note,
     cancelReason: api.cancelReason,

@@ -84,6 +84,7 @@ export interface Order {
   rawFileUrl?: string | null; // signed URL ที่เปิดดู/โหลดไฟล์งานจริงได้ (มาจาก fileSignedUrl ฝั่ง API)
   rawSlipUrl?: string | null; // signed URL ที่เปิดดู/โหลดสลิปจริงได้ (มาจาก slipSignedUrl ฝั่ง API)
   status: OrderStatus;
+  createdAt: string; // ISO string for easy date manipulation
   createdAtLabel: string; // เช่น "16 พ.ค. 10:30"
   note?: string; // หมายเหตุจากลูกค้าตอนสั่งซื้อ
   cancelReason?: CancelReason;

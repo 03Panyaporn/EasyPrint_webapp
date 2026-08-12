@@ -20,6 +20,7 @@ export const initialOrders: Order[] = [
     },
     price: 120,
     status: "pending_review",
+    createdAt: "2024-05-16T03:30:00Z",
     createdAtLabel: "16 พ.ค. 10:30",
     note: "ช่วยเข้าเล่มให้แน่นหน่อยนะคะ จะใช้ส่งอาจารย์",
   },
@@ -39,6 +40,7 @@ export const initialOrders: Order[] = [
     delivery: { method: "self_pickup" },
     price: 35,
     status: "pending_review",
+    createdAt: "2024-05-16T03:30:00Z",
     createdAtLabel: "16 พ.ค. 09:45",
   },
   {
@@ -60,6 +62,7 @@ export const initialOrders: Order[] = [
     },
     price: 15,
     status: "pending_review",
+    createdAt: "2024-05-16T03:30:00Z",
     createdAtLabel: "16 พ.ค. 09:30",
     note: "รบกวนพิมพ์หน้า-หลังด้วยค่ะ ไม่งั้นกระดาษไม่พอ",
   },
@@ -79,6 +82,7 @@ export const initialOrders: Order[] = [
     delivery: { method: "self_pickup" },
     price: 40,
     status: "pending_review",
+    createdAt: "2024-05-16T03:30:00Z",
     createdAtLabel: "16 พ.ค. 09:20",
   },
   {
@@ -100,6 +104,7 @@ export const initialOrders: Order[] = [
     },
     price: 250,
     status: "pending_review",
+    createdAt: "2024-05-16T03:30:00Z",
     createdAtLabel: "16 พ.ค. 08:50",
   },
   {
@@ -121,6 +126,7 @@ export const initialOrders: Order[] = [
     },
     price: 90,
     status: "pending_review",
+    createdAt: "2024-05-16T03:30:00Z",
     createdAtLabel: "14 พ.ค. 15:40",
   },
 ];

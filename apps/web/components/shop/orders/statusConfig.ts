@@ -1,7 +1,7 @@
 import {
   Clock,
   UserCheck,
-  Wrench,
+  UserCog,
   Truck,
   CheckCircle2,
   XCircle,
@@ -50,7 +50,7 @@ export const statusConfig: Record<OrderStatus, StatusMeta> = {
   },
   in_progress: {
     label: "กำลังดำเนินการ",
-    icon: Wrench,
+    icon: UserCog,
     iconBg: "bg-blue-50",
     iconColor: "text-blue-700",
     badgeBg: "bg-blue-50",

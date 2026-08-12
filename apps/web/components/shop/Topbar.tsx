@@ -13,6 +13,8 @@ import {
   User,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import ShopNotificationDropdown from "./ShopNotificationDropdown";
+
 interface TopbarProps {
   onMobileMenuOpen: () => void;
 }
@@ -79,17 +81,8 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
 
       {/* Right side actions */}
       <div className="flex items-center gap-1.5">
-        {/* Notification */}
-        <button
-          id="topbar-notifications"
-          className="relative flex items-center justify-center w-9 h-9 rounded-xl text-gray-500 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-          aria-label="การแจ้งเตือน"
-        >
-          <Bell size={20} />
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-red-500 text-white rounded-full leading-none select-none">
-            3
-          </span>
-        </button>
+        {/* Notification Dropdown */}
+        <ShopNotificationDropdown />
 
         {/* Divider */}
         <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
