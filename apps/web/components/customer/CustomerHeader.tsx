@@ -21,8 +21,8 @@ import { getMe, logout as logoutApi, type PublicUser } from "@/lib/api/auth";
 
 // nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท/ติดต่อเรา) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
 const NAV_LINKS: { label: string; href: string; match?: (pathname: string) => boolean }[] = [
-  { label: "แชท", href: "#" },
-  { label: "ติดต่อเรา", href: "#" },
+  { label: "แชท", href: "/chat" },
+  { label: "ติดต่อเรา", href: "/contact" },
 ];
 
 interface CustomerHeaderProps {
@@ -83,8 +83,8 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
   const avatarInitial = user?.firstname?.[0]
     ? user.firstname[0].toUpperCase()
     : user?.email?.[0]
-    ? user.email[0].toUpperCase()
-    : "พ";
+      ? user.email[0].toUpperCase()
+      : "พ";
 
   return (
     <>
@@ -106,17 +106,15 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
         <nav className="hidden lg:flex items-center justify-center gap-7 w-full mx-auto">
           <Link
             href={homeHref}
-            className={`font-bold pb-0.5 text-sm xl:text-base transition ${
-              isHome ? "text-orange-500 border-b-2 border-orange-500" : "text-gray-700 hover:text-orange-500"
-            }`}
+            className={`font-bold pb-0.5 text-sm xl:text-base transition ${isHome ? "text-orange-500 border-b-2 border-orange-500" : "text-gray-700 hover:text-orange-500"
+              }`}
           >
             หน้าหลัก
           </Link>
           <Link
             href={ordersHref}
-            className={`font-bold pb-0.5 text-sm xl:text-base transition ${
-              pathname.startsWith("/orders") ? "text-orange-500 border-b-2 border-orange-500" : "text-gray-700 hover:text-orange-500"
-            }`}
+            className={`font-bold pb-0.5 text-sm xl:text-base transition ${pathname.startsWith("/orders") ? "text-orange-500 border-b-2 border-orange-500" : "text-gray-700 hover:text-orange-500"
+              }`}
           >
             ติดตามคำสั่งซื้อ
           </Link>
@@ -154,11 +152,10 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileMenuOpen((v) => !v)}
-                  className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${
-                    profileMenuOpen
-                      ? "bg-orange-500 text-white shadow-md shadow-orange-200 scale-105"
-                      : "bg-orange-50 text-orange-500 hover:bg-orange-100 active:scale-95"
-                  }`}
+                  className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${profileMenuOpen
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-200 scale-105"
+                    : "bg-orange-50 text-orange-500 hover:bg-orange-100 active:scale-95"
+                    }`}
                   title="บัญชีของฉัน"
                 >
                   <User className="w-5 h-5" />
@@ -357,7 +354,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   </Link>
 
                   <Link
-                    href="#"
+                    href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
                   >
@@ -366,7 +363,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   </Link>
 
                   <Link
-                    href="#"
+                    href="/contact"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
                   >
@@ -421,7 +418,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   </Link>
 
                   <Link
-                    href="#"
+                    href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
                   >
@@ -430,7 +427,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   </Link>
 
                   <Link
-                    href="#"
+                    href="/contact"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
                   >
