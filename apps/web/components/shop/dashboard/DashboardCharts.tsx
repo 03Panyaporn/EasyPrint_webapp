@@ -34,7 +34,7 @@ export default function DashboardCharts() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
       
       {/* Donut Chart - รายได้วันนี้ (แยกตามประเภทสินค้า) */}
-      <div className="lg:col-span-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col h-[350px]">
+      <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col h-[350px]">
         <h2 className="text-base font-bold text-slate-800 mb-4">รายได้วันนี้ (แยกตามประเภทสินค้า)</h2>
         <div className="flex-1 flex items-center relative">
           
@@ -74,14 +74,10 @@ export default function DashboardCharts() {
 
           <div className="flex-1 pl-4 flex flex-col gap-3 justify-center">
             {donutData.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between">
+              <div key={idx} className="flex items-center justify-start">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
                   <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-sm font-bold text-slate-800">{item.value.toLocaleString()}</span>
-                  <span className="text-xs text-slate-400 w-10 text-right">({((item.value / totalRevenue) * 100).toFixed(1)}%)</span>
                 </div>
               </div>
             ))}
@@ -91,7 +87,7 @@ export default function DashboardCharts() {
       </div>
 
       {/* Area Chart - รายได้ตลอดวัน */}
-      <div className="lg:col-span-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col h-[350px]">
+      <div className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col h-[350px]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-slate-800">รายได้ตลอดวัน (บาท)</h2>
           <button className="text-xs font-semibold text-purple-600 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors">
