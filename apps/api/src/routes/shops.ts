@@ -63,6 +63,11 @@ export const shopsRoutes = new Elysia()
         tempCloseEnd: shops.tempCloseEnd,
         tempCloseReason: shops.tempCloseReason,
         description: shops.description,
+        bankAccountName: shops.bankAccountName,
+        bankName: shops.bankName,
+        bankAccountNumber: shops.bankAccountNumber,
+        promptpayQrUrl: shops.promptpayQrUrl,
+        notificationSettings: shops.notificationSettings,
       })
       .from(shops)
       .where(eq(shops.ownerId, payload.userId));
@@ -147,6 +152,12 @@ export const shopsRoutes = new Elysia()
         tempCloseStart: data.tempCloseStart || null,
         tempCloseEnd: data.tempCloseEnd || null,
         tempCloseReason: data.tempCloseReason || null,
+        bankAccountName: data.bankAccountName || null,
+        bankName: data.bankName || null,
+        bankAccountNumber: data.bankAccountNumber || null,
+        promptpayNumber: data.promptpayNumber || null,
+        promptpayQrUrl: data.promptpayQrUrl || null,
+        notificationSettings: data.notificationSettings || null,
       })
       .where(eq(shops.ownerId, payload.userId))
       .returning({ id: shops.id });

@@ -103,6 +103,17 @@ export const shops = pgTable("shops", {
   tempCloseStart: text("temp_close_start"),
   tempCloseEnd: text("temp_close_end"),
   tempCloseReason: text("temp_close_reason"),
+  
+  // Payment Settings
+  bankAccountName: text("bank_account_name"),
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  promptpayNumber: text("promptpay_number"),
+  promptpayQrUrl: text("promptpay_qr_url"),
+  
+  // Notification Settings
+  notificationSettings: jsonb("notification_settings"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

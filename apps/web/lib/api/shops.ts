@@ -53,6 +53,12 @@ export type MyShopProfile = {
   tempCloseStart: string | null;
   tempCloseEnd: string | null;
   tempCloseReason: string | null;
+  bankAccountName: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  promptpayNumber: string | null;
+  promptpayQrUrl: string | null;
+  notificationSettings: any | null;
 };
 
 // endpoint สาธารณะ ไม่ต้องส่ง cookie — คืนเฉพาะร้านที่แอดมินอนุมัติแล้วเท่านั้น

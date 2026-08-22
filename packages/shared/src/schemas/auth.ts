@@ -50,6 +50,19 @@ export const changePasswordSchema = z.object({
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+export const changeEmailSchema = z.object({
+  newEmail: z.string().email("อีเมลไม่ถูกต้อง"),
+  currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
+});
+
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;
+
+export const deleteAccountSchema = z.object({
+  currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
+});
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
+
 // ตรงกับตัวเลือก "บริการของร้าน" ใน apps/web/app/(auth)/register/shop-register/page.tsx — แก้ที่นี่ที่เดียว หน้าเว็บ import ไปใช้
 // เลือกได้หลายรายการ (checkbox) แทนที่ dropdown "ประเภทร้านค้า" แบบเดิมที่เลือกได้ทีละ 1
 export const shopServiceTypeSchema = z.enum([
