@@ -1,9 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Lock, CheckCircle2, Clock, AlertTriangle, BellOff, Info } from "lucide-react";
+import { ChevronRight, BellOff, Info, FileText, XCircle, MessageCircle, CheckCircle2, Megaphone, AlertTriangle, Clock, CreditCard, Calendar, Key, Truck, Settings, Store, Unlock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getNotifications } from "@/lib/api/notifications";
+
+const NOTIFICATION_TYPES = {
+  1: { icon: FileText, color: "text-blue-500", bg: "bg-blue-50" }, // ออเดอร์ใหม่
+  2: { icon: XCircle, color: "text-red-500", bg: "bg-red-50" }, // ลูกค้ายกเลิกออเดอร์
+  3: { icon: MessageCircle, color: "text-green-500", bg: "bg-green-50" }, // แชทลูกค้าทักมา
+  4: { icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" }, // แอดมินอนุมัติเรื่อง
+  5: { icon: Megaphone, color: "text-purple-500", bg: "bg-purple-50" }, // นโยบาย/ประกาศใหม่
+  6: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" }, // บัญชีถูกระงับ/เตือน
+  7: { icon: Clock, color: "text-orange-500", bg: "bg-orange-50" }, // แจ้งเตือนเวลาทำการ (เตือนก่อนปิด)
+  8: { icon: CreditCard, color: "text-rose-500", bg: "bg-rose-50" }, // เตือนตั้งค่าการชำระเงิน
+  9: { icon: Calendar, color: "text-rose-500", bg: "bg-rose-50" }, // เตือนตั้งค่าเวลาทำการ
+  10: { icon: Key, color: "text-slate-500", bg: "bg-slate-100" }, // เปลี่ยนรหัสผ่าน
+  11: { icon: Truck, color: "text-rose-500", bg: "bg-rose-50" }, // เตือนตั้งค่าการจัดส่ง
+  12: { icon: Settings, color: "text-rose-500", bg: "bg-rose-50" }, // เตือนตั้งค่าบริการ/ราคา
+  13: { icon: Store, color: "text-slate-500", bg: "bg-slate-100" }, // ร้านปิดอัตโนมัติ
+  14: { icon: Store, color: "text-green-500", bg: "bg-green-50" }, // ร้านเปิดอัตโนมัติ
+  15: { icon: Unlock, color: "text-blue-500", bg: "bg-blue-50" }, // พ้นช่วงปิดชั่วคราว
+};
 
 export default function DashboardNotifications() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -13,32 +31,16 @@ export default function DashboardNotifications() {
       try {
         const res = await getNotifications();
         const mapped = res.notifications.map((n) => {
-          let Icon = Info;
-          let bg = "bg-blue-100";
-          let color = "text-blue-500";
-          
-          if (n.category === "order" || n.title.includes("ออเดอร์")) {
-             Icon = Clock;
-             bg = "bg-orange-100";
-             color = "text-orange-500";
-          } else if (n.category === "payment" || n.title.includes("เงิน")) {
-             Icon = CheckCircle2;
-             bg = "bg-emerald-100";
-             color = "text-emerald-500";
-          } else if (n.category === "system" || n.title.includes("ระบบ") || n.category === "alert") {
-             Icon = AlertTriangle;
-             bg = "bg-red-100";
-             color = "text-red-500";
-          }
+          const typeData = NOTIFICATION_TYPES[n.typeId as keyof typeof NOTIFICATION_TYPES] || { icon: Info, color: "text-blue-500", bg: "bg-blue-50" };
 
           return {
             id: n.id,
             title: n.title,
             desc: n.message,
             time: new Date(n.createdAt).toLocaleString('th-TH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-            icon: Icon,
-            bg,
-            color
+            icon: typeData.icon,
+            bg: typeData.bg,
+            color: typeData.color
           };
         });
         setNotifications(mapped.slice(0, 5)); // Show latest 5
@@ -47,6 +49,15 @@ export default function DashboardNotifications() {
       }
     }
     loadData();
+
+    const handleNewNotification = () => {
+      loadData();
+    };
+    window.addEventListener("new-notification", handleNewNotification);
+    
+    return () => {
+      window.removeEventListener("new-notification", handleNewNotification);
+    };
   }, []);
 
   return (
