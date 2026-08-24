@@ -275,7 +275,7 @@ export const ordersRoutes = new Elysia()
             typeId: 1, // 1 = ออเดอร์ใหม่
             title: `ออเดอร์ใหม่ ${order.code}`,
             message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
-            category: "order",
+            category: "general",
             link: `/shop/orders`,
           });
         }
@@ -473,7 +473,7 @@ export const ordersRoutes = new Elysia()
       await createNotification({
         userId: row.shop.ownerId,
         typeId: 2,
-        category: "order", // 2 = ลูกค้ายกเลิกออเดอร์
+        category: "general", // 2 = ลูกค้ายกเลิกออเดอร์
         title: `ลูกค้ายกเลิกออเดอร์ ${updated.code}`,
         message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
       });
@@ -522,7 +522,7 @@ export const ordersRoutes = new Elysia()
       await createNotification({
         userId: row.shop.ownerId,
         typeId: 2,
-        category: "order", // 2 = ลูกค้ายกเลิกออเดอร์
+        category: "general", // 2 = ลูกค้ายกเลิกออเดอร์
         title: `ลูกค้ายกเลิกออเดอร์ ${updated.code}`,
         message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
       });
