@@ -26,10 +26,12 @@ export const cancelReasonEnum = pgEnum("cancel_reason", [
 ]);
 export const deliveryMethodEnum = pgEnum("delivery_method", ["shop_delivery", "self_pickup"]);
 // ร้านที่สมัครใหม่เริ่มที่ pending เสมอ — รอแอดมินอนุมัติก่อนถึงจะเปิดขายจริงได้ (ตาม flow "อนุมัติร้านค้า")
+// suspended = ร้านที่เคย approved แล้วโดนแอดมินระงับทีหลัง — แยกจาก rejected (ร้านสมัครใหม่ที่ไม่ผ่านตรวจสอบ) เพื่อไม่ให้ปนกัน
 export const shopApprovalStatusEnum = pgEnum("shop_approval_status", [
   "pending",
   "approved",
   "rejected",
+  "suspended",
 ]);
 // วิธีคิด "ราคาพื้นฐาน" ของบริการหลัก (base_price คูณกับหน่วยตามโหมดนี้):
 //   per_page  = base_price x จำนวนหน้า PDF ที่นับได้จริง (server นับเองเสมอ)
@@ -113,6 +115,9 @@ export const shops = pgTable("shops", {
   
   // Notification Settings
   notificationSettings: jsonb("notification_settings"),
+
+  // โควต้าพื้นที่จัดเก็บของร้านนี้ (MB) — null = ใช้ค่า default กลางจาก system_settings.defaultShopStorageQuotaMb
+  storageQuotaMb: integer("storage_quota_mb"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -410,6 +415,8 @@ export const orders = pgTable("orders", {
   slipUploadedAt: timestamp("slip_uploaded_at"),
   cancelReason: cancelReasonEnum("cancel_reason"), // ใส่ตอนสถานะเป็น cancelled เท่านั้น (รวมถึงกรณีปฏิเสธการชำระเงิน)
   cancelNote: text("cancel_note"),
+  // ตั้งค่าอัตโนมัติตอนสถานะเปลี่ยนเป็น completed หรือ cancelled (ดู PATCH /orders/:id/status) — ใช้เป็นจุดเริ่มนับ 1 วันก่อนลบไฟล์งานพิมพ์อัตโนมัติ (bucket order-files)
+  finishedAt: timestamp("finished_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // code ไม่ซ้ำแค่ภายในร้านเดียวกัน (คนละร้านมี #0001 ซ้ำกันได้ตามปกติ)
@@ -548,4 +555,46 @@ export const contactAdminMessages = pgTable("contact_admin_messages", {
 
 export const contactAdminMessagesRelations = relations(contactAdminMessages, ({ one }) => ({
   shop: one(shops, { fields: [contactAdminMessages.shopId], references: [shops.id] }),
+}));
+
+// ── system_settings: ตั้งค่าระบบฝั่งแอดมิน (ข้อมูลระบบ/การแจ้งเตือน/ความปลอดภัย) — ตารางนี้มีแถวเดียวเสมอ (singleton) ──
+// อ่าน/เขียนผ่าน GET /admin/settings, PATCH /admin/settings เท่านั้น — ถ้ายังไม่มีแถว ให้ backend สร้างแถว default ให้อัตโนมัติตอนอ่านครั้งแรก
+export const systemSettings = pgTable("system_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  systemName: text("system_name").notNull().default("EasyPrint"),
+  logoUrl: text("logo_url"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  website: text("website"),
+  // { newShop, storageWarning90, shopPendingReview, newMessage, storageWarning80, systemError } — ค่า toggle การแจ้งเตือน (ยังไม่ผูกกับการส่งอีเมลจริง เก็บไว้เป็น preference ก่อน)
+  notificationSettings: jsonb("notification_settings"),
+  // บังคับใช้จริงตอนสมัคร/เปลี่ยนรหัสผ่าน (ดู apps/api/src/auth/routes.ts) — ฟิลด์ security อื่นด้านล่างเก็บไว้แสดงผลเฉยๆ ยังไม่บังคับใช้จริง
+  minPasswordLength: integer("min_password_length").notNull().default(8),
+  requireSpecialChar: boolean("require_special_char").notNull().default(true),
+  enable2fa: boolean("enable_2fa").notNull().default(false),
+  autoLogoutMinutes: integer("auto_logout_minutes").notNull().default(30),
+  // ค่า default โควต้าพื้นที่ต่อร้าน (MB) เมื่อร้านนั้นไม่ได้ตั้ง shops.storageQuotaMb ของตัวเองไว้
+  defaultShopStorageQuotaMb: integer("default_shop_storage_quota_mb").notNull().default(1024),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── reviews: รีวิวร้านค้าจากลูกค้า — รีวิวได้เฉพาะออเดอร์ที่ completed เท่านั้น และ 1 ออเดอร์รีวิวได้ 1 ครั้ง (unique orderId) ──
+// ช่วงคะแนน 1-5 บังคับที่ Zod ชั้น API เท่านั้น (ไม่ใส่ DB check constraint เพราะ drizzle-kit 0.31.10 พังตอน introspect CHECK บน Postgres 17 ของ Supabase — bug ของ drizzle-kit เอง ไม่ใช่ของ schema นี้)
+export const reviews = pgTable("reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  shopId: uuid("shop_id").references(() => shops.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull().unique(),
+  customerId: uuid("customer_id").references(() => users.id).notNull(),
+  rating: integer("rating").notNull(), // 1-5 — บังคับช่วงที่ Zod เท่านั้น (ดูหมายเหตุด้านบน)
+  comment: text("comment"), // nullable — อนุญาตรีวิวแค่ให้คะแนนโดยไม่ต้องเขียนข้อความ
+  shopReply: text("shop_reply"), // nullable — คำตอบกลับจากร้าน (ใส่ได้ครั้งเดียว แก้ทับได้)
+  shopRepliedAt: timestamp("shop_replied_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  shop: one(shops, { fields: [reviews.shopId], references: [shops.id] }),
+  order: one(orders, { fields: [reviews.orderId], references: [orders.id] }),
+  customer: one(users, { fields: [reviews.customerId], references: [users.id] }),
 }));

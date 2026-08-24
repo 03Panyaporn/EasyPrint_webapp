@@ -18,6 +18,8 @@ export type PublicShopListItem = {
   shopPhotoUrl: string | null;
   tempCloseStart: string | null;
   tempCloseEnd: string | null;
+  avgRating: number | null;
+  reviewCount: number;
 };
 
 export type PublicShopDetail = PublicShopListItem & {

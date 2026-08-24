@@ -8,6 +8,7 @@ const STATUS_MAP: Record<AdminShop["approvalStatus"], ShopStatus> = {
   pending: "รอตรวจสอบ",
   approved: "อนุมัติแล้ว",
   rejected: "ไม่อนุมัติ",
+  suspended: "ระงับการใช้งาน",
 };
 
 export function summarizeOpeningHours(hours: AdminOpeningHoursDay[] | null) {

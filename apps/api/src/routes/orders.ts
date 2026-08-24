@@ -428,6 +428,8 @@ export const ordersRoutes = new Elysia()
         status: nextStatus,
         cancelReason: nextStatus === "cancelled" ? effectiveCancelReason : null,
         cancelNote: nextStatus === "cancelled" ? cancelNote : null,
+        // จุดเริ่มนับ 1 วันก่อนลบไฟล์งานพิมพ์อัตโนมัติ (bucket order-files) — ดู POST /internal/cleanup/expired-order-files
+        finishedAt: nextStatus === "completed" || nextStatus === "cancelled" ? new Date() : null,
       })
       .where(eq(orders.id, params.id))
       .returning();

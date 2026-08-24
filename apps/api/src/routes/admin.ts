@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { and, count, desc, eq, lt } from "drizzle-orm";
-import { rejectShopSchema, adminUpdateShopSchema, type AdminDashboardResponse } from "@easyprint/shared";
+import { rejectShopSchema, suspendShopSchema, adminUpdateShopSchema, type AdminDashboardResponse } from "@easyprint/shared";
 import { db } from "../db";
 import { shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
@@ -8,7 +8,8 @@ import { supabaseAdmin } from "../storage";
 import { createNotification } from "../utils/notification";
 
 // เช็คว่า request มี JWT ที่ login เป็น admin จริง — คืน { error } (ตั้ง set.status ให้แล้ว) ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
-async function requireAdmin(cookie: Record<string, { value?: unknown } | undefined>, set: { status?: unknown }) {
+// export ไว้ให้ route อื่น (เช่น adminSettings.ts, uploads.ts) เรียกใช้ร่วมด้วย กันเขียนลอจิกตรวจสิทธิ์ซ้ำ
+export async function requireAdmin(cookie: Record<string, { value?: unknown } | undefined>, set: { status?: unknown }) {
   const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
   const payload = token ? verifyAuthToken(token) : null;
   if (!payload) {
@@ -191,6 +192,8 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     }
   })
 
+  // อนุมัติร้าน — ใช้ทั้ง 2 กรณี: ร้านสมัครใหม่ (pending → approved) และ "คืนสถานะ" ร้านที่เคยถูกระงับ (suspended → approved)
+  // ทั้งสองกรณีทำสิ่งเดียวกันเป๊ะ (ตั้ง approved + ล้างเหตุผลเดิม) เลยไม่แยก endpoint /reinstate ต่างหาก
   .patch("/shops/:id/approve", async ({ params, cookie, set }) => {
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
@@ -242,6 +245,40 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       userId: shop.ownerId,
       typeId: 6,
       category: "general", // 6 = บัญชีถูกระงับ/เตือน
+      title: "บัญชีร้านค้าถูกปฏิเสธ/ระงับการใช้งาน",
+      message: `เหตุผล: ${parsed.data.reason}`,
+    });
+
+    return { shop };
+  })
+
+  // ระงับร้านที่เคยอนุมัติแล้ว — ต่างจาก reject ตรงที่ reject ใช้กับร้านสมัครใหม่ที่ยังไม่เคยอนุมัติ ส่วน suspend ใช้กับร้านที่เปิดขายอยู่จริงแล้วโดนระงับทีหลัง
+  // requireShopOwner()/canViewShopPublicly() ใน services.ts เช็คแบบ `!== "approved"`/`=== "approved"` อยู่แล้ว เลยกันร้าน suspended ออกจากทั้งฝั่งเจ้าของร้านจัดการเองและฝั่งลูกค้าเห็นสาธารณะได้ทันทีโดยไม่ต้องแก้โค้ดจุดนั้นเพิ่ม
+  .patch("/shops/:id/suspend", async ({ params, body, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const parsed = suspendShopSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const [shop] = await db
+      .update(shops)
+      .set({ approvalStatus: "suspended", rejectedReason: parsed.data.reason })
+      .where(eq(shops.id, params.id))
+      .returning();
+
+    if (!shop) {
+      set.status = 404;
+      return { error: "ไม่พบร้านค้านี้" };
+    }
+
+    await createNotification({
+      userId: shop.ownerId,
+      typeId: 6,
+      category: "general", // 6 = บัญชีถูกระงับ/เตือน (ใช้ typeId เดียวกับ reject ด้านบน เพราะเป็นเหตุการณ์ประเภทเดียวกัน)
       title: "บัญชีร้านค้าถูกปฏิเสธ/ระงับการใช้งาน",
       message: `เหตุผล: ${parsed.data.reason}`,
     });

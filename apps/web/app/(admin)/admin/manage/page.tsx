@@ -24,7 +24,7 @@ import {
   Layers
 } from "lucide-react";
 
-import { listAdminShops, approveShop, rejectShop, deleteShop, updateAdminShop, type AdminShop } from "@/lib/api/admin";
+import { listAdminShops, approveShop, suspendShop, reinstateShop, deleteShop, updateAdminShop, type AdminShop } from "@/lib/api/admin";
 import { toMockShop } from "@/lib/adminShopAdapter";
 import type { MockShop } from "@/lib/mock/adminShops";
 import { ApiError } from "@/lib/api/client";
@@ -71,7 +71,7 @@ export default function AdminManageShopsPage() {
   // Action Modal State (approve / suspend)
   const [actionModal, setActionModal] = useState<{
     shop: MockShop;
-    action: "approve" | "suspend";
+    action: "approve" | "suspend" | "reinstate";
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
@@ -142,8 +142,8 @@ export default function AdminManageShopsPage() {
     const approved = shops.filter((s) => s.status === "อนุมัติแล้ว").length;
     const pending = shops.filter((s) => s.status === "รอตรวจสอบ").length;
     const rejected = shops.filter((s) => s.status === "ไม่อนุมัติ").length;
-    const deleted = shops.filter((s) => s.status === "ลบบัญชีแล้ว").length;
-    return { total, approved, pending, rejected, deleted };
+    const suspended = shops.filter((s) => s.status === "ระงับการใช้งาน").length;
+    return { total, approved, pending, rejected, suspended };
   }, [shops]);
 
   // Filtered Shops List
@@ -154,7 +154,7 @@ export default function AdminManageShopsPage() {
         if (selectedStatus === "approved" && shop.status !== "อนุมัติแล้ว") return false;
         if (selectedStatus === "pending" && shop.status !== "รอตรวจสอบ") return false;
         if (selectedStatus === "rejected" && shop.status !== "ไม่อนุมัติ") return false;
-        if (selectedStatus === "deleted" && shop.status !== "ลบบัญชีแล้ว") return false;
+        if (selectedStatus === "suspended" && shop.status !== "ระงับการใช้งาน") return false;
       }
 
       // Service Filter
@@ -201,9 +201,12 @@ export default function AdminManageShopsPage() {
       if (action === "approve") {
         await approveShop(shop.id);
         setToast({ type: "approve", shopName: shop.name });
+      } else if (action === "reinstate") {
+        await reinstateShop(shop.id);
+        setToast({ type: "reinstate", shopName: shop.name });
       } else {
-        await rejectShop(shop.id, { reason: suspendReason.trim() });
-        setToast({ type: "reject", shopName: shop.name });
+        await suspendShop(shop.id, { reason: suspendReason.trim() });
+        setToast({ type: "suspend", shopName: shop.name });
       }
       await fetchShops();
       setActionModal(null);
@@ -361,28 +364,28 @@ export default function AdminManageShopsPage() {
           <p className="text-[11px] text-slate-400">รอดำเนินการอนุมัติ</p>
         </div>
 
-        {/* Rejected/Suspended */}
+        {/* Rejected */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">ระงับ / ไม่อนุมัติ</span>
+            <span className="text-xs text-slate-400">ไม่อนุมัติ</span>
             <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
               <CirclePause size={16} />
             </div>
           </div>
           <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-          <p className="text-[11px] text-slate-400">ถูกระงับการใช้งาน</p>
+          <p className="text-[11px] text-slate-400">สมัครใหม่ที่ไม่ผ่านตรวจสอบ</p>
         </div>
 
-        {/* Deleted */}
+        {/* Suspended */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">ลบบัญชีแล้ว</span>
+            <span className="text-xs text-slate-400">ระงับการใช้งาน</span>
             <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
               <UserX size={16} />
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-500">{stats.deleted}</p>
-          <p className="text-[11px] text-slate-400">ร้านลบออกจากระบบ</p>
+          <p className="text-2xl font-bold text-slate-500">{stats.suspended}</p>
+          <p className="text-[11px] text-slate-400">ร้านที่เคยเปิดขายแล้วถูกระงับ</p>
         </div>
       </div>
 
@@ -424,8 +427,8 @@ export default function AdminManageShopsPage() {
             <option value="all">สถานะทั้งหมด</option>
             <option value="approved">อนุมัติแล้ว (เปิดใช้งาน)</option>
             <option value="pending">รอการตรวจสอบ</option>
-            <option value="rejected">ระงับ / ไม่อนุมัติ</option>
-            <option value="deleted">ลบบัญชีแล้ว</option>
+            <option value="rejected">ไม่อนุมัติ</option>
+            <option value="suspended">ระงับการใช้งาน</option>
           </select>
 
           {/* Service Dropdown */}
@@ -569,8 +572,8 @@ export default function AdminManageShopsPage() {
                                 ดูรายละเอียดร้านค้า
                               </button>
 
-                              {/* แก้ไขข้อมูล (แสดงเฉพาะร้านค้าที่ยังไม่ถูกไม่อนุมัติหรือลบ) */}
-                              {shop.status !== "ไม่อนุมัติ" && shop.status !== "ลบบัญชีแล้ว" && (
+                              {/* แก้ไขข้อมูล (แสดงเฉพาะร้านค้าที่ยังไม่ถูกไม่อนุมัติ) */}
+                              {shop.status !== "ไม่อนุมัติ" && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -584,35 +587,48 @@ export default function AdminManageShopsPage() {
                                 </button>
                               )}
 
-                              {/* ระงับ / อนุมัติ (แสดงเฉพาะร้านค้าที่ยังไม่ถูกไม่อนุมัติหรือลบ) */}
-                              {shop.status !== "ไม่อนุมัติ" && shop.status !== "ลบบัญชีแล้ว" && (
-                                shop.status !== "อนุมัติแล้ว" ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionModal({ shop, action: "approve" });
-                                      setOpenDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition text-left cursor-pointer"
-                                  >
-                                    <CheckCircle2 size={14} className="text-emerald-500" />
-                                    อนุมัติร้านค้า
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionModal({ shop, action: "suspend" });
-                                      setOpenDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-amber-700 hover:bg-amber-50 transition text-left cursor-pointer"
-                                  >
-                                    <CirclePause size={14} className="text-amber-500" />
-                                    ระงับการใช้งานร้านค้า
-                                  </button>
-                                )
+                              {/* อนุมัติ / ระงับ / คืนสถานะ — ปุ่มขึ้นอยู่กับสถานะปัจจุบัน (ไม่แสดงเลยถ้าเป็น "ไม่อนุมัติ") */}
+                              {shop.status === "รอตรวจสอบ" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionModal({ shop, action: "approve" });
+                                    setOpenDropdown(null);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition text-left cursor-pointer"
+                                >
+                                  <CheckCircle2 size={14} className="text-emerald-500" />
+                                  อนุมัติร้านค้า
+                                </button>
+                              )}
+                              {shop.status === "อนุมัติแล้ว" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionModal({ shop, action: "suspend" });
+                                    setOpenDropdown(null);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-amber-700 hover:bg-amber-50 transition text-left cursor-pointer"
+                                >
+                                  <CirclePause size={14} className="text-amber-500" />
+                                  ระงับการใช้งานร้านค้า
+                                </button>
+                              )}
+                              {shop.status === "ระงับการใช้งาน" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionModal({ shop, action: "reinstate" });
+                                    setOpenDropdown(null);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition text-left cursor-pointer"
+                                >
+                                  <CheckCircle2 size={14} className="text-emerald-500" />
+                                  คืนสถานะ (เปิดใช้งานอีกครั้ง)
+                                </button>
                               )}
 
                               <div className="border-t border-slate-100 my-1" />
@@ -804,7 +820,7 @@ export default function AdminManageShopsPage() {
             document.body
           )}
 
-          {/* MODAL 2: Action Modal (Approve / Suspend) */}
+          {/* MODAL 2: Action Modal (Approve / Suspend / Reinstate) */}
           {actionModal && createPortal(
             <div
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-fadeIn"
@@ -814,17 +830,23 @@ export default function AdminManageShopsPage() {
                 className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4 text-center"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center ${actionModal.action === "approve" ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center ${actionModal.action === "suspend" ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
                   }`}>
-                  {actionModal.action === "approve" ? <CheckCircle2 size={32} /> : <CirclePause size={32} />}
+                  {actionModal.action === "suspend" ? <CirclePause size={32} /> : <CheckCircle2 size={32} />}
                 </div>
 
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-slate-800">
-                    {actionModal.action === "approve" ? "ยืนยันการอนุมัติร้านค้า" : "ยืนยันการระงับร้านค้า"}
+                    {actionModal.action === "approve" && "ยืนยันการอนุมัติร้านค้า"}
+                    {actionModal.action === "suspend" && "ยืนยันการระงับร้านค้า"}
+                    {actionModal.action === "reinstate" && "ยืนยันการคืนสถานะร้านค้า"}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    คุณต้องการ{actionModal.action === "approve" ? "อนุมัติเปิดใช้งาน" : "ระงับการใช้งาน"} ร้านค้า{" "}
+                    คุณต้องการ
+                    {actionModal.action === "approve" && "อนุมัติเปิดใช้งาน"}
+                    {actionModal.action === "suspend" && "ระงับการใช้งาน"}
+                    {actionModal.action === "reinstate" && "คืนสถานะเปิดใช้งานอีกครั้งให้"}
+                    {" "}ร้านค้า{" "}
                     <span className="font-semibold text-slate-800">"{actionModal.shop.name}"</span> ใช่หรือไม่?
                   </p>
                 </div>
@@ -865,9 +887,9 @@ export default function AdminManageShopsPage() {
                     type="button"
                     disabled={actionLoading}
                     onClick={handleConfirmAction}
-                    className={`px-5 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition disabled:opacity-50 ${actionModal.action === "approve"
-                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
-                      : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
+                    className={`px-5 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition disabled:opacity-50 ${actionModal.action === "suspend"
+                      ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
+                      : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
                       }`}
                   >
                     {actionLoading ? "กำลังดำเนินการ..." : "ยืนยันทำรายการ"}
