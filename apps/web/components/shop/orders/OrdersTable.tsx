@@ -161,6 +161,7 @@ export default function OrdersTable({
               const meta = statusConfig[order.status];
               const items = (order.items && order.items.length > 0) ? order.items : [null];
               const isEven = orderIdx % 2 === 1;
+              const hasNote = Boolean(order.note?.trim()) || (order.items && order.items.some(i => i.note?.trim()));
 
               return (
                 <tbody key={order.id} className={`divide-y divide-gray-200 border-b-2 border-gray-200 group hover:bg-orange-50/40 transition-colors ${isEven ? 'bg-gray-50/50' : 'bg-white'}`}>
@@ -411,11 +412,11 @@ export default function OrdersTable({
                               <button
                                 onClick={() => onOpenDetail(order)}
                                 className="relative inline-flex items-center justify-center p-1.5 mx-auto rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
-                                title={order.note ? "ดูรายละเอียด (มีหมายเหตุจากลูกค้า)" : "ดูรายละเอียด"}
+                                title={hasNote ? "ดูรายละเอียด (มีหมายเหตุจากลูกค้า)" : "ดูรายละเอียด"}
                               >
                                 <Eye size={16} />
-                                {order.note && (
-                                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-[1.5px] border-white" />
+                                {hasNote && (
+                                  <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full border-[1.5px] border-white" />
                                 )}
                               </button>
                             </td>
