@@ -23,6 +23,9 @@ export type ChatMessage = {
     time?: string;
     createdAt: string;
     status?: "read" | "sent";
+    fileUrl?: string;
+    fileType?: string;
+    fileName?: string;
     file?: {
         name: string;
         url: string;
