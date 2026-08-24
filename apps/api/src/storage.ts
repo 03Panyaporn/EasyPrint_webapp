@@ -24,6 +24,7 @@ export const UPLOAD_BUCKETS = {
   "delivery-logo": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
   "payment-slip": { bucket: "payment-slips", public: false, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
   "order-file": { bucket: "order-files", public: false, allowedMime: PRINT_FILE_MIME, maxSize: 20 * 1024 * 1024 },
+  "contact-admin-attachment": { bucket: "contact-admin-attachments", public: false, allowedMime: PRINT_FILE_MIME, maxSize: 20 * 1024 * 1024 },
 } as const;
 export type UploadType = keyof typeof UPLOAD_BUCKETS;
 

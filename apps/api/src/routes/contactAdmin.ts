@@ -10,6 +10,21 @@ import { contactAdminMessages, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { createAdminNotification } from "../adminNotifications";
+import { createNotification } from "../utils/notification";
+import { supabaseAdmin } from "../storage";
+
+async function signStoragePaths(paths: string[] | null | undefined): Promise<string[]> {
+  if (!paths || paths.length === 0) return [];
+  const urls = await Promise.all(
+    paths.map(async (path) => {
+      // If it's already a full URL (e.g. public bucket or old format), return as is
+      if (path.startsWith("http")) return path;
+      const { data } = await supabaseAdmin.storage.from("contact-admin-attachments").createSignedUrl(path, 3600);
+      return data?.signedUrl ?? path;
+    })
+  );
+  return urls;
+}
 
 async function requireAdmin(cookie: Record<string, { value?: unknown } | undefined>, set: { status?: unknown }) {
   const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
@@ -25,7 +40,12 @@ async function requireAdmin(cookie: Record<string, { value?: unknown } | undefin
   return null;
 }
 
-function serialize(row: typeof contactAdminMessages.$inferSelect, shopName?: string, shopEmail?: string): ContactAdminMessageItem {
+async function serializeAsync(row: typeof contactAdminMessages.$inferSelect, shopName?: string, shopEmail?: string): Promise<ContactAdminMessageItem> {
+  const [attachments, adminReplyAttachments] = await Promise.all([
+    signStoragePaths(row.attachments),
+    signStoragePaths(row.adminReplyAttachments),
+  ]);
+
   return {
     id: row.id,
     shopId: row.shopId,
@@ -33,8 +53,10 @@ function serialize(row: typeof contactAdminMessages.$inferSelect, shopName?: str
     shopEmail,
     subject: row.subject,
     message: row.message,
+    attachments,
     status: row.status,
     adminReply: row.adminReply,
+    adminReplyAttachments,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -55,7 +77,12 @@ export const contactAdminRoutes = new Elysia()
 
     const [created] = await db
       .insert(contactAdminMessages)
-      .values({ shopId: params.shopId, subject: parsed.data.subject, message: parsed.data.message })
+      .values({ 
+        shopId: params.shopId, 
+        subject: parsed.data.subject, 
+        message: parsed.data.message,
+        attachments: parsed.data.attachments ?? []
+      })
       .returning();
 
     createAdminNotification({
@@ -65,7 +92,7 @@ export const contactAdminRoutes = new Elysia()
       link: `/admin/contact-messages`,
     }).catch((err) => console.error("สร้างการแจ้งเตือนข้อความ contact-admin ไม่สำเร็จ:", err));
 
-    return { message: serialize(created, shop?.name) };
+    return { message: await serializeAsync(created, shop?.name) };
   })
 
   // ── ประวัติข้อความ contact-admin ของร้านตัวเอง ──────────
@@ -79,7 +106,7 @@ export const contactAdminRoutes = new Elysia()
       .where(eq(contactAdminMessages.shopId, params.shopId))
       .orderBy(desc(contactAdminMessages.createdAt));
 
-    return { messages: rows.map((r) => serialize(r)) };
+    return { messages: await Promise.all(rows.map((r) => serializeAsync(r))) };
   })
 
   // ── แอดมินดูข้อความ contact-admin ทั้งหมด ──────────
@@ -94,7 +121,7 @@ export const contactAdminRoutes = new Elysia()
       .leftJoin(users, eq(shops.ownerId, users.id))
       .orderBy(desc(contactAdminMessages.createdAt));
 
-    return { messages: rows.map((r) => serialize(r.message, r.shopName ?? undefined, r.shopEmail ?? undefined)) };
+    return { messages: await Promise.all(rows.map((r) => serializeAsync(r.message, r.shopName ?? undefined, r.shopEmail ?? undefined))) };
   })
 
   // ── แอดมินตอบกลับข้อความ ──────────
@@ -110,7 +137,11 @@ export const contactAdminRoutes = new Elysia()
 
     const [updated] = await db
       .update(contactAdminMessages)
-      .set({ adminReply: parsed.data.adminReply, status: "resolved" })
+      .set({ 
+        adminReply: parsed.data.adminReply, 
+        adminReplyAttachments: parsed.data.adminReplyAttachments ?? [],
+        status: "resolved" 
+      })
       .where(eq(contactAdminMessages.id, params.id))
       .returning();
 
@@ -119,9 +150,20 @@ export const contactAdminRoutes = new Elysia()
       return { error: "ไม่พบข้อความนี้" };
     }
 
-    const [shop] = await db.select({ name: shops.name }).from(shops).where(eq(shops.id, updated.shopId));
+    const [shop] = await db.select({ name: shops.name, ownerId: shops.ownerId }).from(shops).where(eq(shops.id, updated.shopId));
 
-    return { message: serialize(updated, shop?.name) };
+    if (shop?.ownerId) {
+      createNotification({
+        userId: shop.ownerId,
+        typeId: 4, // 4 = ประกาศแอดมิน / การติดต่อกลับ
+        title: "แอดมินตอบกลับข้อความของคุณแล้ว",
+        message: `แอดมินได้ตอบกลับคำร้องเรื่อง "${updated.subject}" ของคุณ กรุณาตรวจสอบ`,
+        category: "general",
+        link: "/shop/contact-admin"
+      }).catch(err => console.error("Error creating notification for admin reply:", err));
+    }
+
+    return { message: await serializeAsync(updated, shop?.name) };
   })
   
   // ── แอดมินลบข้อความ ──────────

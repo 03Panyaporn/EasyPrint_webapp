@@ -21,22 +21,20 @@ export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie
     "delivery-logo",
     "order-file",
     "payment-slip",
+    "contact-admin-attachment",
   ];
   if (!validTypes.includes(type as UploadType)) {
     set.status = 400;
     return { error: `type ต้องเป็นหนึ่งใน ${validTypes.join(", ")}` };
   }
 
-  if (type === "order-file" || type === "payment-slip") {
+  if (type === "order-file" || type === "payment-slip" || type === "contact-admin-attachment") {
     const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
     const payload = token ? verifyAuthToken(token) : null;
-    if (!payload || payload.role !== "customer") {
+    if (!payload || (type !== "contact-admin-attachment" && payload.role !== "customer") || (type === "contact-admin-attachment" && payload.role !== "shop_owner" && payload.role !== "admin")) {
       set.status = 401;
       return {
-        error:
-          type === "payment-slip"
-            ? "ต้องเข้าสู่ระบบเป็นลูกค้าก่อนอัปโหลดสลิปการโอนเงิน"
-            : "ต้องเข้าสู่ระบบเป็นลูกค้าก่อนอัปโหลดไฟล์งานพิมพ์",
+        error: "ต้องเข้าสู่ระบบก่อนอัปโหลดไฟล์",
       };
     }
   }
