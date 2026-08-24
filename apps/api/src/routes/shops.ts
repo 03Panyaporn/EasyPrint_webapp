@@ -76,6 +76,8 @@ export const shopsRoutes = new Elysia()
         approvalStatus: shops.approvalStatus,
         rejectedReason: shops.rejectedReason,
         deliveryEnabled: shops.deliveryEnabled,
+        serviceTypes: shops.serviceTypes,
+        deliveryMethods: shops.deliveryMethods,
         phone: shops.phone,
         email: shops.email,
         facebook: shops.facebook,

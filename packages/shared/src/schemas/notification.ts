@@ -68,6 +68,7 @@ export interface ContactAdminMessageItem {
   id: string;
   shopId: string;
   shopName?: string;
+  shopEmail?: string;
   subject: string;
   message: string;
   status: ContactAdminStatus;

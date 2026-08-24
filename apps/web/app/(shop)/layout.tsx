@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import DashboardLayout from "@/components/shop/ShopLayout";
+import { ToastProvider } from "@/contexts/ToastContext";
+import GlobalNotificationListener from "@/components/shop/GlobalNotificationListener";
 
 export const metadata: Metadata = {
   title: {
@@ -10,5 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return (
+    <ToastProvider>
+      <GlobalNotificationListener />
+      <DashboardLayout>{children}</DashboardLayout>
+    </ToastProvider>
+  );
 }
