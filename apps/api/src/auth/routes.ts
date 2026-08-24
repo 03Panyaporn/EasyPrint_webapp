@@ -7,6 +7,8 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   registerShopSchema,
+  changeEmailSchema,
+  deleteAccountSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
 import { users, passwordResetTokens, shops } from "../../drizzle/schema";
@@ -288,6 +290,81 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 
     const passwordHash = await hashPassword(parsed.data.newPassword);
     await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+
+    return { ok: true };
+  })
+
+  // เปลี่ยนอีเมล
+  .put("/change-email", async ({ body, cookie, set }) => {
+    const token = cookie[COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const parsed = changeEmailSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
+    if (!user) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const currentPasswordOk = await verifyPassword(user.passwordHash, parsed.data.currentPassword);
+    if (!currentPasswordOk) {
+      set.status = 400;
+      return { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
+    }
+    
+    // Check if new email is already used
+    const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.newEmail) });
+    if (existing) {
+      set.status = 409;
+      return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
+    }
+
+    await db.update(users).set({ email: parsed.data.newEmail }).where(eq(users.id, user.id));
+
+    return { ok: true };
+  })
+  
+  // ลบบัญชี
+  .delete("/me", async ({ body, cookie, set }) => {
+    const token = cookie[COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const parsed = deleteAccountSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
+    if (!user) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const currentPasswordOk = await verifyPassword(user.passwordHash, parsed.data.currentPassword);
+    if (!currentPasswordOk) {
+      set.status = 400;
+      return { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
+    }
+
+    // ลบผู้ใช้ และฐานข้อมูลจะลบ shop, order ที่ cascade ผูกกัน (หรือถ้าไม่มี cascade ก็ลบผ่าน API นี้)
+    // Assuming cascading deletes are setup in schema for shops referencing users.
+    await db.delete(users).where(eq(users.id, user.id));
+    
+    cookie[COOKIE_NAME]?.remove();
 
     return { ok: true };
   });

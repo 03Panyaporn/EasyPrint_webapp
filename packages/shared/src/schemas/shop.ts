@@ -28,6 +28,16 @@ export const updateShopProfileSchema = z.object({
   tempCloseStart: z.string().optional().or(z.literal("")).nullable(),
   tempCloseEnd: z.string().optional().or(z.literal("")).nullable(),
   tempCloseReason: z.string().optional().or(z.literal("")).nullable(),
+  
+  // Payment Settings
+  bankAccountName: z.string().optional().or(z.literal("")).nullable(),
+  bankName: z.string().optional().or(z.literal("")).nullable(),
+  bankAccountNumber: z.string().optional().or(z.literal("")).nullable(),
+  promptpayNumber: z.string().optional().or(z.literal("")).nullable(),
+  promptpayQrUrl: z.string().url("ลิงก์ QR Code ไม่ถูกต้อง").optional().or(z.literal("")).nullable(),
+  
+  // Notification Settings
+  notificationSettings: z.any().optional(),
 });
 
 export type UpdateShopProfileInput = z.infer<typeof updateShopProfileSchema>;
