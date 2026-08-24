@@ -189,6 +189,7 @@ export default function AdminContactMessagesPage() {
                             <CornerUpLeft size={16} />
                           </button>
                           <button 
+                            onClick={() => setViewMessage(m)}
                             className="relative p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200"
                             title="ไฟล์แนบ"
                           >
