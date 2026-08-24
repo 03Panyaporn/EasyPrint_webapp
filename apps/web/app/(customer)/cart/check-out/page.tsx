@@ -565,18 +565,39 @@ function CheckoutContent() {
                         ฿
                     </div>
 
-                    <h2 className="text-sm text-slate-800">ชำระเงินผ่าน PromptPay</h2>
+                    <h2 className="text-sm text-slate-800">ช่องทางการชำระเงิน</h2>
                 </div>
 
-                <p className="text-xs text-slate-400 mt-1">สแกน QR เพื่อชำระเงิน</p>
+                {shop?.promptpayQrUrl ? (
+                  <>
+                    <p className="text-xs text-slate-400 mt-1">สแกน QR เพื่อชำระเงินผ่าน PromptPay</p>
+                    <div className="mx-auto mt-4 w-fit rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <img src={shop.promptpayQrUrl} alt="PromptPay QR" className="w-52 h-52 object-contain" />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-2">ร้านค้ายังไม่ได้ตั้งค่า QR Code</p>
+                )}
 
+                <div className="mt-6 border-t border-slate-100 pt-6 text-left max-w-sm mx-auto space-y-3">
+                  {(shop?.bankAccountName || shop?.bankName || shop?.bankAccountNumber) && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h3 className="text-xs font-semibold text-slate-800 mb-2">บัญชีธนาคาร</h3>
+                        {shop?.bankAccountName && <p className="text-sm text-slate-600">ชื่อบัญชี: {shop.bankAccountName}</p>}
+                        {shop?.bankName && <p className="text-sm text-slate-600">ธนาคาร: {shop.bankName}</p>}
+                        {shop?.bankAccountNumber && <p className="text-sm text-slate-600">เลขที่บัญชี: {shop.bankAccountNumber}</p>}
+                    </div>
+                  )}
 
-                <div className="mx-auto mt-4 w-fit rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                    <img src="/images/promptpay-demo.png" alt="PromptPay" className="w-52 h-52 object-contain" />
+                  {shop?.promptpayNumber && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h3 className="text-xs font-semibold text-slate-800 mb-2">พร้อมเพย์</h3>
+                        <p className="text-sm text-slate-600">หมายเลข: {shop.promptpayNumber}</p>
+                    </div>
+                  )}
                 </div>
 
-
-                <p className="text-xs text-slate-400 mt-4">ยอดที่ต้องชำระ</p>
+                <p className="text-xs text-slate-400 mt-6">ยอดที่ต้องชำระ</p>
 
                 <p className="text-2xl text-orange-600 mt-1">฿{total.toLocaleString()}</p>
 

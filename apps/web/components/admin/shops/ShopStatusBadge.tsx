@@ -20,7 +20,7 @@ const CONFIG: Record<ShopStatus, { label: string; className: string }> = {
   },
   "ลบบัญชีแล้ว": {
     label: "ลบบัญชีแล้ว",
-    className: "bg-slate-100 text-slate-500 border border-slate-200",
+    className: "bg-gray-100 text-gray-600 border border-gray-200",
   },
 };
 

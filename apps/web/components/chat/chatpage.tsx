@@ -12,10 +12,26 @@ import {
     Loader2,
     Image as ImageIcon
 } from "lucide-react";
-import { ChatMessage } from "@/types/chat";
 import { uploadFile } from "@/lib/api/uploads";
 
 type Sender = "customer" | "shop";
+
+export type ChatMessage = {
+    id: string;
+    text: string;
+    sender: Sender;
+    time?: string;
+    createdAt: string;
+    status?: "read" | "sent";
+    fileUrl?: string;
+    fileType?: string;
+    fileName?: string;
+    file?: {
+        name: string;
+        url: string;
+    };
+};
+
 
 type ChatRoom = {
     id: string;

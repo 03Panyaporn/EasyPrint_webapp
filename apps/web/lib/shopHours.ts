@@ -11,10 +11,27 @@ const THAI_DAY_BY_JS_INDEX = [
   "เสาร์",
 ];
 
+// mapping จาก day id (en) → ภาษาไทย (เพื่อรองรับข้อมูลที่บันทึกด้วย id เช่น "mon", "tue")
+const DAY_ID_TO_THAI: Record<string, string> = {
+  sun: "อาทิตย์",
+  mon: "จันทร์",
+  tue: "อังคาร",
+  wed: "พุธ",
+  thu: "พฤหัสบดี",
+  fri: "ศุกร์",
+  sat: "เสาร์",
+};
+
 function findTodayEntry(openingHours: ShopOpeningHours[] | null): ShopOpeningHours | null {
   if (!openingHours || openingHours.length === 0) return null;
-  const today = THAI_DAY_BY_JS_INDEX[new Date().getDay()];
-  return openingHours.find((entry) => entry.day === today) ?? null;
+  const todayThai = THAI_DAY_BY_JS_INDEX[new Date().getDay()];
+  return (
+    openingHours.find(
+      (entry) =>
+        entry.day === todayThai ||
+        DAY_ID_TO_THAI[entry.day] === todayThai
+    ) ?? null
+  );
 }
 
 export function isShopOpenNow(openingHours: ShopOpeningHours[] | null): boolean {

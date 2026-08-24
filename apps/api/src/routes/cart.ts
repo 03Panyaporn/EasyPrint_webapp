@@ -30,6 +30,7 @@ import {
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { supabaseAdmin } from "../storage";
+import { createNotification } from "../utils/notification";
 import { generateOrderCode, generateOrderRef, serializeOrder } from "./orders";
 import { notifyOrderCreated } from "../notifications";
 
@@ -827,7 +828,7 @@ export const cartRoutes = new Elysia()
 
         // แจ้งเตือนลูกค้าทางอีเมลว่าสั่งซื้อสำเร็จแบบ best-effort
         const [customer] = await db
-          .select({ email: users.email })
+          .select({ email: users.email, firstname: users.firstname, lastname: users.lastname })
           .from(users)
           .where(eq(users.id, auth.userId));
         if (customer) {
@@ -836,6 +837,20 @@ export const cartRoutes = new Elysia()
             orderCode: order.code,
             totalPrice: Number(order.totalPrice ?? 0),
           }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
+        }
+
+        // แจ้งเตือนร้านค้า (Bell Notification)
+        const [shopInfo] = await db.select({ ownerId: shops.ownerId }).from(shops).where(eq(shops.id, params.shopId));
+        if (shopInfo) {
+          const customerName = customer ? `${customer.firstname} ${customer.lastname}`.trim() : "ลูกค้า";
+          await createNotification({
+            userId: shopInfo.ownerId,
+            typeId: 1, // 1 = ออเดอร์ใหม่
+            title: `ออเดอร์ใหม่ ${order.code}`,
+            message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
+            category: "general",
+            link: `/shop/orders/${order.id}`,
+          });
         }
 
         return { order: { id: order.id, code: order.code, ref: order.ref, totalPrice: Number(order.totalPrice) } };

@@ -6,6 +6,18 @@ const phoneSchema = z
   .transform((val) => val.replace(/[\s-]/g, ""))
   .pipe(z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"));
 
+// Schema สำหรับ notification settings — ต้องตรงกับ defaultSettings ใน ShopSettings.tsx
+export const notificationSettingsSchema = z.object({
+  newOrder: z.boolean().default(true),
+  orderUpdate: z.boolean().default(false),
+  chatAndRequests: z.boolean().default(false),
+  closingWarning: z.boolean().default(false),
+  autoShopStatus: z.boolean().default(false),
+  adminUpdates: z.boolean().default(false),
+});
+
+export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
+
 export const updateShopProfileSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อร้านค้า").max(100),
   description: z.string().max(500).optional().or(z.literal("")).nullable(),
@@ -37,7 +49,7 @@ export const updateShopProfileSchema = z.object({
   promptpayQrUrl: z.string().url("ลิงก์ QR Code ไม่ถูกต้อง").optional().or(z.literal("")).nullable(),
   
   // Notification Settings
-  notificationSettings: z.any().optional(),
+  notificationSettings: notificationSettingsSchema.optional().nullable(),
 });
 
 export type UpdateShopProfileInput = z.infer<typeof updateShopProfileSchema>;

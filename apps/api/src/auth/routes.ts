@@ -15,6 +15,7 @@ import { users, passwordResetTokens, shops } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
 import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
+import { createNotification } from "../utils/notification";
 import { createAdminNotification } from "../adminNotifications";
 
 const COOKIE_NAME = AUTH_COOKIE_NAME;
@@ -262,6 +263,14 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       .set({ usedAt: new Date() })
       .where(eq(passwordResetTokens.id, resetToken.id));
 
+    await createNotification({
+      userId: resetToken.userId,
+      typeId: 10,
+      category: "general", // 10 = เปลี่ยนรหัสผ่าน
+      title: "เปลี่ยนรหัสผ่านสำเร็จ",
+      message: "รหัสผ่านของคุณถูกเปลี่ยนเรียบร้อยแล้ว หากไม่ได้เป็นผู้เปลี่ยน กรุณาติดต่อผู้ดูแลระบบทันที",
+    });
+
     return { ok: true };
   })
 
@@ -299,6 +308,14 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 
     const passwordHash = await hashPassword(parsed.data.newPassword);
     await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+
+    await createNotification({
+      userId: user.id,
+      typeId: 10,
+      category: "general", // 10 = เปลี่ยนรหัสผ่าน
+      title: "เปลี่ยนรหัสผ่านสำเร็จ",
+      message: "รหัสผ่านของคุณถูกเปลี่ยนเรียบร้อยแล้ว หากไม่ได้เป็นผู้เปลี่ยน กรุณาติดต่อผู้ดูแลระบบทันที",
+    });
 
     return { ok: true };
   })

@@ -12,6 +12,7 @@ import { orders, orderItems, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
+import { createNotification } from "../utils/notification";
 import { createAdminNotification } from "../adminNotifications";
 import { supabaseAdmin } from "../storage";
 
@@ -451,6 +452,53 @@ export const ordersRoutes = new Elysia()
         link: `/admin/shops/${updated.shopId}`,
       }).catch((err) => console.error("สร้างการแจ้งเตือนออเดอร์ยกเลิกไม่สำเร็จ:", err));
     }
+
+    return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
+  })
+
+  // ── ลูกค้ายกเลิกออเดอร์ด้วยตัวเอง (เฉพาะตอนรอตรวจสอบ) ──────────
+  .patch("/customers/orders/:id/cancel", async ({ params, cookie, set }) => {
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || payload.role !== "customer") {
+      set.status = 401;
+      return { error: "ต้องเข้าสู่ระบบด้วยบัญชีลูกค้า" };
+    }
+
+    const [row] = await db
+      .select({ order: orders, customer: users })
+      .from(orders)
+      .leftJoin(users, eq(orders.customerId, users.id))
+      .where(and(eq(orders.id, params.id), eq(orders.customerId, payload.userId)));
+
+    if (!row) {
+      set.status = 404;
+      return { error: "ไม่พบออเดอร์นี้" };
+    }
+
+    if (row.order.status !== "pending_review") {
+      set.status = 400;
+      return { error: "สามารถยกเลิกได้เฉพาะตอนรอตรวจสอบเท่านั้น" };
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({
+        status: "cancelled",
+        cancelReason: "customer_request",
+        cancelNote: "ลูกค้ายกเลิกออเดอร์ด้วยตนเอง",
+      })
+      .where(eq(orders.id, params.id))
+      .returning();
+
+    // แจ้งเตือนร้านค้า
+    await createNotification({
+      userId: row.order.shopId,
+      typeId: 2,
+      category: "general", // 2 = ลูกค้ายกเลิกออเดอร์
+      title: `ลูกค้ายกเลิกออเดอร์ ${updated.code}`,
+      message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
+    });
 
     return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
   });

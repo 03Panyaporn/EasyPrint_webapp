@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Lock,
   Check,
+  CheckCircle,
   Eye,
   EyeOff,
   Info,
@@ -37,6 +38,12 @@ export default function ShopSettings() {
   const [activeTab, setActiveTab] = useState<TabType>("payment");
   const [shop, setShop] = useState<MyShopProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   useEffect(() => {
     loadData();
@@ -121,10 +128,22 @@ export default function ShopSettings() {
 
         {/* Content */}
         <div className="p-6 md:p-8">
-          {activeTab === "payment" && <PaymentSettingsTab shop={shop} onSaved={loadData} />}
-          {activeTab === "notifications" && <NotificationSettingsTab shop={shop} onSaved={loadData} />}
-          {activeTab === "security" && <SecuritySettingsTab shopName={shop?.name || ""} onDeleted={() => router.push("/login")} />}
+          {activeTab === "payment" && <PaymentSettingsTab shop={shop} onSaved={() => { loadData(); showToast("บันทึกข้อมูลช่องทางการชำระเงินเรียบร้อยแล้ว"); }} />}
+          {activeTab === "notifications" && <NotificationSettingsTab shop={shop} onSaved={() => { loadData(); showToast("บันทึกการตั้งค่าการแจ้งเตือนเรียบร้อยแล้ว"); }} />}
+          {activeTab === "security" && <SecuritySettingsTab shopName={shop?.name || ""} onDeleted={() => router.push("/login")} onSaved={() => showToast("บันทึกการเปลี่ยนแปลงเรียบร้อยแล้ว")} />}
         </div>
+      </div>
+
+      {/* Toast Notification */}
+      <div
+        className={`fixed top-20 right-6 z-50 flex items-center gap-2.5 px-6 py-3.5 bg-emerald-50 text-emerald-600 text-sm font-medium rounded-2xl shadow-lg border border-emerald-200 transition-all duration-300 ${
+          toastMessage
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 -translate-y-2 pointer-events-none"
+        }`}
+      >
+        <Check size={20} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
+        <span>{toastMessage}</span>
       </div>
     </div>
   );
@@ -132,16 +151,48 @@ export default function ShopSettings() {
 
 // ---------------- Payment Settings Tab ----------------
 
+const BANK_OPTIONS = [
+  "ธนาคารกรุงเทพ",
+  "ธนาคารกสิกรไทย",
+  "ธนาคารกรุงไทย",
+  "ธนาคารไทยพาณิชย์",
+  "ธนาคารกรุงศรีอยุธยา",
+  "ธนาคารทหารไทยธนชาต",
+  "ธนาคารซีไอเอ็มบี ไทย",
+  "ธนาคารยูโอบี",
+  "ธนาคารไทยเครดิต",
+  "ธนาคารไอซีบีซี (ไทย)",
+  "อื่นๆ",
+];
+
 function PaymentSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   const [bankAccountName, setBankAccountName] = useState(shop?.bankAccountName || "");
-  const [bankName, setBankName] = useState(shop?.bankName || "");
+
+  // ตรวจว่าค่าที่บันทึกไว้เป็นในรายการหรือ "อื่นๆ"
+  const savedBankName = shop?.bankName || "";
+  const isPreset = BANK_OPTIONS.slice(0, -1).includes(savedBankName); // ยกเว้น "อื่นๆ"
+  const [bankNameSelect, setBankNameSelect] = useState(isPreset ? savedBankName : savedBankName ? "อื่นๆ" : "");
+  const [bankNameOther, setBankNameOther] = useState(isPreset ? "" : savedBankName);
+  const bankName = bankNameSelect === "อื่นๆ" ? bankNameOther : bankNameSelect;
+
   const [bankAccountNumber, setBankAccountNumber] = useState(shop?.bankAccountNumber || "");
   const [promptpayNumber, setPromptpayNumber] = useState(shop?.promptpayNumber || "");
   const [promptpayQrUrl, setPromptpayQrUrl] = useState(shop?.promptpayQrUrl || "");
+
+  useEffect(() => {
+    setBankAccountName(shop?.bankAccountName || "");
+    const newSavedBankName = shop?.bankName || "";
+    const newIsPreset = BANK_OPTIONS.slice(0, -1).includes(newSavedBankName);
+    setBankNameSelect(newIsPreset ? newSavedBankName : newSavedBankName ? "อื่นๆ" : "");
+    setBankNameOther(newIsPreset ? "" : newSavedBankName);
+    setBankAccountNumber(shop?.bankAccountNumber || "");
+    setPromptpayNumber(shop?.promptpayNumber || "");
+    setPromptpayQrUrl(shop?.promptpayQrUrl || "");
+  }, [shop]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingQr, setUploadingQr] = useState(false);
@@ -243,18 +294,31 @@ function PaymentSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null; onS
               value={bankAccountName}
               onChange={(e) => setBankAccountName(e.target.value)}
               className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-              placeholder="นาย สมใจ รักดี"
+              placeholder="กรอกชื่อบัญชีธนาคาร"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">ชื่อธนาคาร</label>
-            <input
-              type="text"
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-              placeholder="กสิกรไทย"
-            />
+            <select
+              value={bankNameSelect}
+              onChange={(e) => { setBankNameSelect(e.target.value); if (e.target.value !== "อื่นๆ") setBankNameOther(""); }}
+              className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white text-slate-700 appearance-none"
+            >
+              <option value="">-- เลือกธนาคาร --</option>
+              {BANK_OPTIONS.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+            {bankNameSelect === "อื่นๆ" && (
+              <input
+                type="text"
+                value={bankNameOther}
+                onChange={(e) => setBankNameOther(e.target.value)}
+                className="w-full mt-2 px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
+                placeholder="กรอกชื่อธนาคาร"
+                autoFocus
+              />
+            )}
           </div>
         </div>
 
@@ -263,9 +327,17 @@ function PaymentSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null; onS
           <input
             type="text"
             value={bankAccountNumber}
-            onChange={(e) => setBankAccountNumber(e.target.value)}
-            className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-            placeholder="012-3-45678-9"
+            onChange={(e) => {
+              const d = e.target.value.replace(/\D/g, "");
+              let res = "";
+              for (let i = 0; i < d.length && i < 12; i++) {
+                if (i === 3 || i === 4 || i === 9) res += "-";
+                res += d[i];
+              }
+              setBankAccountNumber(res);
+            }}
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400 font-mono"
+            placeholder="กรอกเลขที่บัญชี"
           />
         </div>
 
@@ -274,9 +346,24 @@ function PaymentSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null; onS
           <input
             type="text"
             value={promptpayNumber}
-            onChange={(e) => setPromptpayNumber(e.target.value)}
-            className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-            placeholder="0XX-XXX-XXXX"
+            onChange={(e) => {
+              const d = e.target.value.replace(/\D/g, "");
+              let res = "";
+              if (d.startsWith("0") || d === "") {
+                for (let i = 0; i < d.length && i < 10; i++) {
+                  if (i === 3 || i === 6) res += "-";
+                  res += d[i];
+                }
+              } else {
+                for (let i = 0; i < d.length && i < 13; i++) {
+                  if (i === 1 || i === 5 || i === 10 || i === 12) res += "-";
+                  res += d[i];
+                }
+              }
+              setPromptpayNumber(res);
+            }}
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400 font-mono"
+            placeholder="กรอกหมายเลขพร้อมเพย์"
           />
         </div>
 
@@ -588,7 +675,7 @@ function NotificationToggle({
 
 // ---------------- Security Settings Tab ----------------
 
-function SecuritySettingsTab({ shopName, onDeleted }: { shopName: string; onDeleted: () => void }) {
+function SecuritySettingsTab({ shopName, onDeleted, onSaved }: { shopName: string; onDeleted: () => void; onSaved?: () => void }) {
   const [emailSaving, setEmailSaving] = useState(false);
   const [pwdSaving, setPwdSaving] = useState(false);
   const [error, setError] = useState("");
@@ -616,6 +703,7 @@ function SecuritySettingsTab({ shopName, onDeleted }: { shopName: string; onDele
       setSuccess("เปลี่ยนอีเมลสำเร็จ");
       setNewEmail("");
       setEmailCurrentPwd("");
+      onSaved?.();
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาดในการเปลี่ยนอีเมล");
     } finally {
@@ -638,6 +726,7 @@ function SecuritySettingsTab({ shopName, onDeleted }: { shopName: string; onDele
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      onSaved?.();
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน");
     } finally {

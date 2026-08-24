@@ -24,7 +24,7 @@ import {
   type ApiOrder,
 } from "@/lib/api/orders";
 import { statusConfig } from "@/components/shop/orders/statusConfig";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, apiFetch } from "@/lib/api/client";
 
 // ── Types ─────────────────────────────────────────────
 type ReviewData = {

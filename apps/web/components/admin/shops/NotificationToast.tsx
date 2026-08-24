@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { Bell, X, CheckCircle2, XCircle } from "lucide-react";
 
-export type ToastType = "approve" | "reject" | "edit" | "delete";
+export type ToastType = "approve" | "reject" | "delete" | "edit" | "suspend";
 
 interface NotificationToastProps {
   type: ToastType;
@@ -51,10 +51,10 @@ export default function NotificationToast({
       {/* Content */}
       <div className="flex-1 min-w-0 pt-0.5">
         <p className="text-sm font-bold text-gray-900">
-          {type === "approve" ? "อนุมัติร้านค้าแล้ว" : type === "reject" ? "ไม่อนุมัติร้านค้า" : type === "edit" ? "แก้ไขข้อมูลร้านค้าแล้ว" : "ลบร้านค้าแล้ว"}
+          {type === "approve" ? "อนุมัติร้านค้าแล้ว" : type === "reject" ? "ไม่อนุมัติร้านค้า" : type === "edit" ? "แก้ไขข้อมูลร้านค้าแล้ว" : type === "suspend" ? "ระงับการใช้งานร้านค้า" : "ลบร้านค้าแล้ว"}
         </p>
         <p className="text-xs text-gray-500 mt-0.5 truncate">
-          ร้าน &ldquo;{shopName}&rdquo; {type === "approve" ? "ได้รับการอนุมัติแล้ว" : type === "reject" ? "ถูกปฏิเสธการสมัคร" : type === "edit" ? "ได้รับการแก้ไขข้อมูลแล้ว" : "ถูกลบออกจากระบบแล้ว"}
+          ร้าน &ldquo;{shopName}&rdquo; {type === "approve" ? "ได้รับการอนุมัติแล้ว" : type === "reject" ? "ถูกปฏิเสธการสมัคร" : type === "edit" ? "ได้รับการแก้ไขข้อมูลแล้ว" : type === "suspend" ? "ถูกระงับการใช้งานชั่วคราว" : "ถูกลบออกจากระบบแล้ว"}
         </p>
       </div>
 
