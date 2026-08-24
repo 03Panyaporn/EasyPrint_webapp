@@ -1,29 +1,29 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Upload, X, Send, Image as ImageIcon, FileText, CheckCircle2, AlertCircle, Loader2, Store, Mail, Info, Pencil } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, CheckCircle2, AlertCircle, Loader2, Mail, Info, Pencil } from "lucide-react";
 import { getMyShopProfile } from "@/lib/api/shops";
+import { submitContactAdminMessage } from "@/lib/api/contactAdmin";
+import { ApiError } from "@/lib/api/client";
 
 export default function ContactAdminForm() {
+  const [shopId, setShopId] = useState<string | null>(null);
   const [shopName, setShopName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("สอบถามบริการ / การใช้งาน");
   const [message, setMessage] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const loadShopProfile = async () => {
       try {
         const { shop } = await getMyShopProfile();
         if (shop) {
+          setShopId(shop.id);
           setShopName(shop.name || "");
           setEmail(shop.email || "");
         }
@@ -33,78 +33,32 @@ export default function ContactAdminForm() {
         setIsLoading(false);
       }
     };
-    
+
     loadShopProfile();
   }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      const validFiles = newFiles.filter(file => {
-        return file.type.startsWith("image/") || file.type.includes("pdf") || file.type.includes("document");
-      });
-
-      setFiles(prev => [...prev, ...validFiles]);
-      
-      const newUrls = validFiles.map(file => {
-        if (file.type.startsWith("image/")) {
-          return URL.createObjectURL(file);
-        }
-        return "";
-      });
-      
-      setPreviewUrls(prev => [...prev, ...newUrls]);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    const newFiles = [...files];
-    newFiles.splice(index, 1);
-    setFiles(newFiles);
-    
-    const newUrls = [...previewUrls];
-    if (newUrls[index]) {
-      URL.revokeObjectURL(newUrls[index]);
-    }
-    newUrls.splice(index, 1);
-    setPreviewUrls(newUrls);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess(false);
-    
-    if (!shopName || !email || !subject || !message) {
+
+    if (!shopId || !subject || !message) {
       setError("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      await submitContactAdminMessage(shopId, { subject, message });
       setSuccess(true);
       setSubject("สอบถามบริการ / การใช้งาน");
       setMessage("");
-      setFiles([]);
-      setPreviewUrls([]);
-      
-    } catch (err: any) {
-      setError(err.message || "เกิดข้อผิดพลาดในการส่งข้อความ");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "เกิดข้อผิดพลาดในการส่งข้อความ");
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   if (isLoading) {
@@ -156,26 +110,23 @@ export default function ContactAdminForm() {
                 </label>
                 <input
                   type="text"
-                  required
+                  readOnly
                   value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm"
-                  placeholder="ชื่อร้านของคุณ"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 text-sm cursor-not-allowed"
                 />
               </div>
 
               {/* Email */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  อีเมล <span className="text-red-500">*</span>
+                  อีเมล
                 </label>
                 <input
                   type="email"
-                  required
+                  readOnly
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm"
-                  placeholder="example@email.com"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 text-sm cursor-not-allowed"
+                  placeholder="-"
                 />
               </div>
             </div>
@@ -221,62 +172,6 @@ export default function ContactAdminForm() {
                   <span className="text-xs font-medium text-slate-400">{message.length} / 1000</span>
                 </div>
               </div>
-            </div>
-
-            {/* File Uploads */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">แนบไฟล์รูปภาพหรือเอกสาร (ถ้ามี)</label>
-              
-              <div 
-                className="border-2 border-dashed border-orange-200 bg-orange-50/30 rounded-xl p-8 text-center hover:bg-orange-50/60 transition-colors cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  type="file"
-                  multiple
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept="image/jpeg,image/png,application/pdf"
-                />
-                <div className="w-10 h-10 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
-                  <Upload className="w-5 h-5" />
-                </div>
-                <p className="text-sm font-semibold text-slate-800 mb-1">คลิกเพื่ออัปโหลดไฟล์</p>
-                <p className="text-xs text-slate-500">รองรับไฟล์ JPG, PNG, PDF ขนาดไม่เกิน 5MB</p>
-              </div>
-
-              {/* Uploaded Files Preview */}
-              {files.length > 0 && (
-                <div className="mt-4 space-y-3">
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                      {previewUrls[index] ? (
-                        <div className="w-12 h-12 rounded-md overflow-hidden bg-white shrink-0 border border-slate-200">
-                          <img src={previewUrls[index]} alt="preview" className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 rounded-md bg-white border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                          {file.type.includes('pdf') ? <FileText className="w-6 h-6 text-red-400" /> : <ImageIcon className="w-6 h-6" />}
-                        </div>
-                      )}
-                      
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 truncate">{file.name}</p>
-                        <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="pt-2 flex justify-end">

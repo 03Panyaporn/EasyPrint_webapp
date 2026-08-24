@@ -77,6 +77,19 @@ function getPriceScopeLabels(pageCountingMode: PageCountingMode): Record<PriceSc
 
 const STANDARD_OPTION_NAMES = ["ขนาดกระดาษ", "ประเภทกระดาษ", "รูปแบบการพิมพ์"];
 
+const PRICE_CATEGORY_LABEL: Record<OptionPriceCategory, string> = {
+  paper: "ประเภทกระดาษ",
+  printing_side: "ด้านพิมพ์ (หน้าเดียว/สองหน้า)",
+  size: "ขนาด",
+  other: "อื่นๆ (ไม่จำกัดจำนวน)",
+};
+
+// หมวด "ขนาด" ใช้กับบริการแบบกำหนดขนาดเอง (per_sqm) ไม่ได้ — ลูกค้ากรอกกว้าง/สูงเองอิสระอยู่แล้ว ไม่ควรมีตัวเลือกขนาดสำเร็จรูปซ้อนทับ
+function availablePriceCategories(pricingModel: PricingModel): OptionPriceCategory[] {
+  const all: OptionPriceCategory[] = ["paper", "printing_side", "size", "other"];
+  return pricingModel === "per_sqm" ? all.filter((c) => c !== "size") : all;
+}
+
 // ─── Single option value row editor ──────────────────────────────────────────
 // priceScope ไม่ให้ตั้งแยกรายค่าอีกต่อไป (เดิมแต่ละแถวเลือกเองได้ ทำให้ค่าในหัวข้อเดียวกัน เช่น A4/A3 ตั้งคนละ scope กันได้ สับสน/ไม่สมเหตุผล)
 // ย้ายไปตั้งครั้งเดียวที่ระดับหัวข้อ (OptionSection) แทน แสดงแค่ label เฉยๆ ตรงนี้
@@ -185,6 +198,18 @@ function OptionSection({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {!isStandard && (
+            <select
+              value={option.priceCategory}
+              onChange={(e) => onChange({ ...option, priceCategory: e.target.value as OptionPriceCategory })}
+              title="หมวดราคา — กันสร้างตัวเลือกที่ทำหน้าที่ซ้ำกัน"
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500/25 bg-white"
+            >
+              {availablePriceCategories(pricingModel).map((c) => (
+                <option key={c} value={c}>{PRICE_CATEGORY_LABEL[c]}</option>
+              ))}
+            </select>
+          )}
           {allowedScopes.length > 1 && (
             <select
               value={groupScope}
@@ -371,6 +396,8 @@ export default function Step3Options({
       if (!opt.name.trim()) errs.push(`กรุณากรอกชื่อหัวข้อตัวเลือก (มีค่าที่ยังไม่มีชื่อหัวข้อ)`);
       if (opt.values.length === 0)
         errs.push(`หัวข้อ "${opt.name || "ไม่มีชื่อ"}" ต้องมีอย่างน้อย 1 ตัวเลือก`);
+      if (pricingMode === "per_sqm" && opt.priceCategory === "size")
+        errs.push(`หัวข้อ "${opt.name || "ไม่มีชื่อ"}" ใช้หมวด "ขนาด" กับบริการแบบกำหนดขนาดเองไม่ได้ — ลูกค้ากรอกกว้าง/สูงเองอยู่แล้ว กรุณาเปลี่ยนหมวด`);
     });
     if (
       (pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm") &&

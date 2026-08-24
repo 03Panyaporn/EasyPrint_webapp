@@ -15,6 +15,7 @@ import { users, passwordResetTokens, shops } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
 import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
+import { createAdminNotification } from "../adminNotifications";
 
 const COOKIE_NAME = AUTH_COOKIE_NAME;
 const isProd = process.env.NODE_ENV === "production";
@@ -139,6 +140,14 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 
       return { user, shop };
     });
+
+    // แจ้งเตือนแอดมินว่ามีร้านสมัครใหม่รอตรวจสอบ — best-effort เสมอ ไม่ทำให้การสมัครร้าน (ที่บันทึกลง DB สำเร็จแล้ว) fail ไปด้วยถ้าแจ้งเตือนพลาด
+    createAdminNotification({
+      type: "shop_registered",
+      title: "ร้านค้าสมัครใหม่รอตรวจสอบ",
+      message: `${shop.name} สมัครเข้าร่วมระบบ รอการตรวจสอบและอนุมัติ`,
+      link: `/admin/shops/${shop.id}`,
+    }).catch((err) => console.error("สร้างการแจ้งเตือนร้านสมัครใหม่ไม่สำเร็จ:", err));
 
     const token = signAuthToken({ userId: user.id, role: user.role }, false);
     cookie[COOKIE_NAME]?.set({

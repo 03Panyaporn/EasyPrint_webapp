@@ -259,17 +259,13 @@ export default function AdminManageShopsPage() {
     }
     setEditLoading(true);
     try {
-      try {
-        await updateAdminShop(editShopModal.id, {
-          name: editForm.name.trim(),
-          phone: editForm.phone.trim(),
-          email: editForm.email.trim(),
-          address: editForm.address.trim(),
-          serviceTypes: editForm.serviceTypes,
-        });
-      } catch {
-        // fallback: update local state if API route is still pending
-      }
+      await updateAdminShop(editShopModal.id, {
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim(),
+        email: editForm.email.trim(),
+        address: editForm.address.trim(),
+        serviceTypes: editForm.serviceTypes,
+      });
       setShops((prev) =>
         prev.map((s) =>
           s.id === editShopModal.id

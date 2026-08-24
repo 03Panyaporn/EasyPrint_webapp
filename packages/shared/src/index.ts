@@ -4,4 +4,6 @@ export * from "./schemas/auth";
 export * from "./schemas/admin";
 export * from "./schemas/cart";
 export * from "./schemas/shop";
+export * from "./schemas/report";
+export * from "./schemas/notification";
 export * from "./pricing/engine";
