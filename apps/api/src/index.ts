@@ -5,6 +5,10 @@ import { servicesRoutes } from "./routes/services";
 import { authRoutes } from "./auth/routes";
 import { uploadsRoutes } from "./routes/uploads";
 import { adminRoutes } from "./routes/admin";
+import { adminSettingsRoutes } from "./routes/adminSettings";
+import { adminStorageRoutes } from "./routes/adminStorage";
+import { internalCleanupRoutes } from "./routes/internalCleanup";
+import { reviewsRoutes } from "./routes/reviews";
 import { shopsRoutes } from "./routes/shops";
 import { ordersRoutes } from "./routes/orders";
 import { cartRoutes } from "./routes/cart";
@@ -28,6 +32,10 @@ const app = new Elysia()
   .use(authRoutes)
   .use(uploadsRoutes)
   .use(adminRoutes)
+  .use(adminSettingsRoutes)
+  .use(adminStorageRoutes)
+  .use(internalCleanupRoutes)
+  .use(reviewsRoutes)
   .use(shopsRoutes)
   .use(ordersRoutes)
   .use(cartRoutes)

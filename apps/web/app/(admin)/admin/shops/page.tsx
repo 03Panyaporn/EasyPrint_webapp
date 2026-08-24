@@ -72,6 +72,8 @@ export default function AdminShopsPage() {
       "รอตรวจสอบ": shops.filter((s) => s.status === "รอตรวจสอบ").length,
       "อนุมัติแล้ว": shops.filter((s) => s.status === "อนุมัติแล้ว").length,
       "ไม่อนุมัติ": shops.filter((s) => s.status === "ไม่อนุมัติ").length,
+      // หน้านี้ไม่มีแท็บ "ระงับการใช้งาน"/"ลบบัญชีแล้ว" (จัดการ suspend จริงที่ /admin/manage) — ใส่ไว้แค่ให้ type ครบ ไม่เคยถูกอ่านใช้จริง
+      "ระงับการใช้งาน": shops.filter((s) => s.status === "ระงับการใช้งาน").length,
       "ลบบัญชีแล้ว": shops.filter((s) => s.status === "ลบบัญชีแล้ว").length,
     }),
     [shops]

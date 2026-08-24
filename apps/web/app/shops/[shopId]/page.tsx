@@ -23,7 +23,9 @@ import { isShopOpenNow, formatTodayHours, isShopTempClosed } from "@/lib/shopHou
 import { getMainServices } from "@/lib/api/services";
 import { getShopCart } from "@/lib/api/cart";
 import { getMe } from "@/lib/api/auth";
+import { getShopReviews } from "@/lib/api/reviews";
 import { ApiError } from "@/lib/api/client";
+import type { ReviewResponse, ShopReviewsResponse } from "@easyprint/shared";
 import type { MainService } from "@/components/shop/services/types";
 import { SERVICE_CATEGORIES } from "@/components/customer/ServiceCategoryGrid";
 import CustomerHeader from "@/components/customer/CustomerHeader";
@@ -61,15 +63,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-const MOCK_REVIEWS: {
-  id: number;
-  name: string;
-  avatar: string;
-  rating: number;
-  text: string;
-  likes: number;
-  time: string;
-}[] = [];
+function formatReviewDate(iso: string) {
+  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+}
 
 export default function ShopDetailPage({ params }: { params: { shopId: string } }) {
   const router = useRouter();
@@ -82,6 +78,12 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   const [isFavorite, setIsFavorite] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [activeReviewFilter, setActiveReviewFilter] = useState("ทั้งหมด");
+  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [reviewSummary, setReviewSummary] = useState<ShopReviewsResponse["summary"]>({
+    avgRating: null,
+    reviewCount: 0,
+    distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  });
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const categoryTrackRef = useRef<HTMLDivElement>(null);
   const [categoryScrollMeta, setCategoryScrollMeta] = useState({ thumbPct: 100, leftPct: 0, scrollable: false });
@@ -166,6 +168,22 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
       cancelled = true;
     };
   }, [params.shopId, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getShopReviews(params.shopId)
+      .then((res) => {
+        if (cancelled) return;
+        setReviews(res.reviews);
+        setReviewSummary(res.summary);
+      })
+      .catch(() => {
+        // รีวิวโหลดไม่สำเร็จ ไม่ต้อง block หน้าเพจหลัก แค่แสดงส่วนอื่นตามปกติ (ค่าเริ่มต้น 0 รีวิว)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.shopId]);
 
   const activeServices = mainServices.filter((s) => s.isActive);
   const isTempClosed = shop ? isShopTempClosed(shop.tempCloseStart, shop.tempCloseEnd) : false;
@@ -323,12 +341,19 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                   >
                     <div className="flex items-center">
                       {[...Array(5)].map((_, idx) => (
-                        <Star key={idx} className="w-3.5 h-3.5 text-slate-200 fill-slate-200" />
+                        <Star
+                          key={idx}
+                          className={`w-3.5 h-3.5 ${
+                            reviewSummary.avgRating != null && idx < Math.round(reviewSummary.avgRating)
+                              ? "text-orange-400 fill-orange-400"
+                              : "text-slate-200 fill-slate-200"
+                          }`}
+                        />
                       ))}
-                      <span className="font-black text-slate-800 ml-1.5">0.0</span>
+                      <span className="font-black text-slate-800 ml-1.5">{(reviewSummary.avgRating ?? 0).toFixed(1)}</span>
                     </div>
                     <span className="text-xs text-slate-400 font-medium border-l border-slate-200 pl-2 hover:text-orange-600 hover:underline transition-colors">
-                      (0 รีวิว)
+                      ({reviewSummary.reviewCount} รีวิว)
                     </span>
                   </a>
                 </div>
@@ -490,30 +515,37 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
 
               <div className="flex flex-col sm:flex-row gap-5 sm:gap-8 items-center justify-center sm:justify-start bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-md shadow-slate-200/60 mb-6">
                 <div className="flex flex-col items-center justify-center text-center sm:border-r border-slate-100 sm:pr-8">
-                  <div className="text-4xl sm:text-5xl font-black text-slate-900 mb-1.5 tracking-tighter">0.0</div>
+                  <div className="text-4xl sm:text-5xl font-black text-slate-900 mb-1.5 tracking-tighter">
+                    {(reviewSummary.avgRating ?? 0).toFixed(1)}
+                  </div>
                   <div className="flex items-center gap-1 mb-1.5">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-200 fill-slate-200" />
+                      <Star
+                        key={i}
+                        className={`w-4 h-4 sm:w-4.5 sm:h-4.5 ${
+                          reviewSummary.avgRating != null && i < Math.round(reviewSummary.avgRating)
+                            ? "text-orange-400 fill-orange-400"
+                            : "text-slate-200 fill-slate-200"
+                        }`}
+                      />
                     ))}
                   </div>
-                  <div className="text-xs sm:text-sm text-slate-500 font-medium">(0 รีวิว)</div>
+                  <div className="text-xs sm:text-sm text-slate-500 font-medium">({reviewSummary.reviewCount} รีวิว)</div>
                 </div>
 
                 <div className="flex flex-col gap-1.5 sm:gap-2 w-full max-w-[220px] sm:max-w-[240px]">
-                  {[
-                    { star: 5, pct: 0 },
-                    { star: 4, pct: 0 },
-                    { star: 3, pct: 0 },
-                    { star: 2, pct: 0 },
-                    { star: 1, pct: 0 },
-                  ].map(row => (
-                    <div key={row.star} className="flex items-center gap-3">
-                      <span className="w-3 text-sm font-bold text-slate-600 text-right">{row.star}</span>
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-orange-500 rounded-full" style={{ width: `${row.pct}%` }} />
+                  {([5, 4, 3, 2, 1] as const).map((star) => {
+                    const starCount = reviewSummary.distribution[star] ?? 0;
+                    const pct = reviewSummary.reviewCount > 0 ? (starCount / reviewSummary.reviewCount) * 100 : 0;
+                    return (
+                      <div key={star} className="flex items-center gap-3">
+                        <span className="w-3 text-sm font-bold text-slate-600 text-right">{star}</span>
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -534,14 +566,18 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
               </div>
 
               <div className="space-y-4">
-                {MOCK_REVIEWS.filter(r => activeReviewFilter === 'ทั้งหมด' || r.rating.toString() === activeReviewFilter).length > 0 ? (
-                  MOCK_REVIEWS.filter(r => activeReviewFilter === 'ทั้งหมด' || r.rating.toString() === activeReviewFilter).map(review => (
+                {reviews.filter(r => activeReviewFilter === 'ทั้งหมด' || r.rating.toString() === activeReviewFilter).length > 0 ? (
+                  reviews.filter(r => activeReviewFilter === 'ทั้งหมด' || r.rating.toString() === activeReviewFilter).map(review => (
                     <div key={review.id} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-2.5">
-                      <div className="flex items-center gap-3">
-                        <img src={review.avatar} alt={review.name} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-slate-100 border border-slate-200" />
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-sm leading-tight">{review.name}</span>
-                          <span className="text-xs text-slate-400 mt-0.5">{review.time}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm shrink-0">
+                            {review.customerName[0]}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 text-sm leading-tight">{review.customerName}</span>
+                            <span className="text-xs text-slate-400 mt-0.5">{formatReviewDate(review.createdAt)} · ออเดอร์ {review.orderCode}</span>
+                          </div>
                         </div>
                       </div>
 
@@ -551,9 +587,18 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                         ))}
                       </div>
 
-                      <p className="text-slate-600 leading-relaxed text-sm sm:text-base mt-1">
-                        {review.text}
-                      </p>
+                      {review.comment && (
+                        <p className="text-slate-600 leading-relaxed text-sm sm:text-base mt-1">
+                          {review.comment}
+                        </p>
+                      )}
+
+                      {review.shopReply && (
+                        <div className="mt-1.5 rounded-xl bg-slate-50 border border-slate-100 p-3">
+                          <p className="text-xs font-bold text-orange-600 mb-1">การตอบกลับจากร้าน</p>
+                          <p className="text-sm text-slate-600 leading-relaxed">{review.shopReply}</p>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (

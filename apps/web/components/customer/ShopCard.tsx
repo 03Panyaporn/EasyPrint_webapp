@@ -63,9 +63,18 @@ export default function ShopCard({ shop }: ShopCardProps) {
           {/* รีวิวดาว */}
           <div className="flex items-center gap-1">
             {[...Array(5)].map((_, idx) => (
-              <Star key={idx} className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-slate-200 fill-slate-200" />
+              <Star
+                key={idx}
+                className={`w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 ${
+                  shop.avgRating != null && idx < Math.round(shop.avgRating)
+                    ? "text-orange-400 fill-orange-400"
+                    : "text-slate-200 fill-slate-200"
+                }`}
+              />
             ))}
-            <span className="text-[9px] sm:text-xs text-slate-400">(ยังไม่มีรีวิว)</span>
+            <span className="text-[9px] sm:text-xs text-slate-400">
+              {shop.avgRating != null ? `${shop.avgRating.toFixed(1)} (${shop.reviewCount} รีวิว)` : "(ยังไม่มีรีวิว)"}
+            </span>
           </div>
 
           {(shop.serviceTypes ?? []).length > 0 && (

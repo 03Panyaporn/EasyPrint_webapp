@@ -17,6 +17,17 @@ import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
 import { createNotification } from "../utils/notification";
 import { createAdminNotification } from "../adminNotifications";
+import { getSystemSettings } from "../systemSettings";
+
+// เช็คความยาวรหัสผ่านขั้นต่ำตามค่าที่แอดมินตั้งไว้ (system_settings.minPasswordLength) — เสริมจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว
+// คืน error message ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
+async function checkMinPasswordLength(password: string): Promise<string | null> {
+  const settings = await getSystemSettings();
+  if (password.length < settings.minPasswordLength) {
+    return `รหัสผ่านต้องมีอย่างน้อย ${settings.minPasswordLength} ตัวอักษร`;
+  }
+  return null;
+}
 
 const COOKIE_NAME = AUTH_COOKIE_NAME;
 const isProd = process.env.NODE_ENV === "production";
@@ -56,6 +67,12 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     if (!parsed.success) {
       set.status = 400;
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const passwordError = await checkMinPasswordLength(parsed.data.password);
+    if (passwordError) {
+      set.status = 400;
+      return { error: passwordError };
     }
 
     const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
@@ -98,6 +115,12 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     if (!parsed.success) {
       set.status = 400;
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const passwordError = await checkMinPasswordLength(parsed.data.password);
+    if (passwordError) {
+      set.status = 400;
+      return { error: passwordError };
     }
 
     const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
@@ -242,6 +265,12 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
+    const passwordError = await checkMinPasswordLength(parsed.data.password);
+    if (passwordError) {
+      set.status = 400;
+      return { error: passwordError };
+    }
+
     const tokenHash = hashResetToken(parsed.data.token);
     const resetToken = await db.query.passwordResetTokens.findFirst({
       where: and(
@@ -304,6 +333,12 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     if (parsed.data.currentPassword === parsed.data.newPassword) {
       set.status = 400;
       return { error: "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน" };
+    }
+
+    const passwordError = await checkMinPasswordLength(parsed.data.newPassword);
+    if (passwordError) {
+      set.status = 400;
+      return { error: passwordError };
     }
 
     const passwordHash = await hashPassword(parsed.data.newPassword);

@@ -42,9 +42,10 @@
 | shop_photo_url | text | public URL เต็มจาก Supabase Storage bucket `shop-photos` (public) อัปโหลดผ่าน `POST /uploads` |
 | social_media | text | ช่องทาง Social Media ที่กรอกตอนสมัคร |
 | opening_hours | jsonb | array ตารางเวลาทำการ 7 วัน `[{ day, isOpen, openTime, closeTime }, ...]` |
-| approval_status | enum: pending / approved / rejected | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน ถึงจะตั้งบริการ/ราคาได้ (ดู `requireShopOwner()` ใน `apps/api/src/routes/services.ts`) |
-| rejected_reason | text | nullable — ใส่ตอนแอดมินกด "ไม่อนุมัติ" เท่านั้น, ถูกล้างเป็น null อัตโนมัติถ้ากลับมาอนุมัติทีหลัง |
+| approval_status | enum: pending / approved / rejected / suspended | default `pending` — ร้านใหม่ต้องรอแอดมินอนุมัติก่อน ถึงจะตั้งบริการ/ราคาได้ (ดู `requireShopOwner()` ใน `apps/api/src/routes/services.ts`) — `suspended` = ร้านที่เคย approved แล้วโดนแอดมินระงับทีหลัง แยกจาก `rejected` (ร้านสมัครใหม่ที่ไม่ผ่านตรวจสอบ) |
+| rejected_reason | text | nullable — ใส่ตอนแอดมินกด "ไม่อนุมัติ"/"ระงับ" เท่านั้น, ถูกล้างเป็น null อัตโนมัติถ้ากลับมาอนุมัติทีหลัง |
 | delivery_enabled | boolean | default true |
+| storage_quota_mb | integer | nullable — โควต้าพื้นที่จัดเก็บของร้านนี้ (MB) override ค่ากลาง — null = ใช้ `system_settings.default_shop_storage_quota_mb` |
 | created_at | timestamp | |
 
 ### `orders`
@@ -73,6 +74,7 @@
 | slip_uploaded_at | timestamp | nullable |
 | cancel_reason | enum | nullable — customer_request / invalid_payment_slip / amount_mismatch / no_transfer_found / invalid_file / shop_unavailable / other (ใส่ตอนสถานะเป็น cancelled เท่านั้น รวมถึงกรณีปฏิเสธการชำระเงิน) |
 | cancel_note | text | nullable |
+| finished_at | timestamp | nullable — ตั้งอัตโนมัติตอนสถานะเปลี่ยนเป็น `completed`/`cancelled` (ดู `PATCH /orders/:id/status`) ใช้เป็นจุดเริ่มนับ 1 วันก่อนลบไฟล์งานพิมพ์อัตโนมัติใน bucket `order-files` |
 | created_at | timestamp | |
 
 ⚠️ ตารางนี้เป็น placeholder เก่าจาก scaffold เริ่มโปรเจกต์ ยังไม่เชื่อมกับระบบ `main_services`/`service_options`/`service_option_values` จริงเลย (ดู TODO ใน `docs/api-spec.md` หัวข้อ Orders) — ระบบสั่งซื้อจริงที่แปลงจากตะกร้า (`carts`) เป็นออเดอร์ยังไม่ได้สร้าง เป็นงาน phase ถัดไป
@@ -221,6 +223,41 @@
 | admin_reply | text | nullable — ใส่ตอนแอดมินตอบกลับ |
 | created_at | timestamp | |
 
+### `system_settings`
+ตั้งค่าระบบฝั่งแอดมิน (ข้อมูลระบบ/การแจ้งเตือน/ความปลอดภัย) — **มีแถวเดียวเสมอ (singleton)** อ่าน/เขียนผ่าน `GET /admin/settings`, `PATCH /admin/settings` เท่านั้น
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| system_name | text | default `"EasyPrint"` |
+| logo_url | text | nullable |
+| contact_email | text | nullable |
+| contact_phone | text | nullable |
+| website | text | nullable |
+| notification_settings | jsonb | nullable — toggle การแจ้งเตือนต่างๆ (newShop, storageWarning90 ฯลฯ) ยังไม่ผูกกับการส่งอีเมลจริง เก็บเป็น preference ก่อน |
+| min_password_length | integer | default `8` — **บังคับใช้จริง** ตอนสมัคร/เปลี่ยนรหัสผ่าน (ดู `apps/api/src/auth/routes.ts`) |
+| require_special_char | boolean | default `true` — เก็บไว้แสดงผลเฉยๆ ยังไม่บังคับใช้จริง |
+| enable_2fa | boolean | default `false` — เก็บไว้แสดงผลเฉยๆ ยังไม่บังคับใช้จริง |
+| auto_logout_minutes | integer | default `30` — เก็บไว้แสดงผลเฉยๆ ยังไม่บังคับใช้จริง |
+| default_shop_storage_quota_mb | integer | default `1024` — ค่า default โควต้าพื้นที่ต่อร้าน (MB) เมื่อร้านนั้นไม่ได้ตั้ง `shops.storage_quota_mb` ของตัวเองไว้ |
+| updated_at | timestamp | |
+| created_at | timestamp | |
+
+### `reviews`
+รีวิวร้านค้าจากลูกค้า — รีวิวได้เฉพาะออเดอร์ที่ `completed` เท่านั้น และ 1 ออเดอร์รีวิวได้ 1 ครั้ง (unique `order_id`)
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| shop_id | uuid (FK → shops.id) | |
+| order_id | uuid (FK → orders.id, unique) | 1 ออเดอร์รีวิวได้ครั้งเดียว |
+| customer_id | uuid (FK → users.id) | |
+| rating | integer | 1-5 — ช่วงคะแนนบังคับที่ Zod ชั้น API เท่านั้น (ไม่มี DB check constraint เพราะ drizzle-kit 0.31.10 พังตอน introspect CHECK บน Postgres 17 ของ Supabase — ดูหมายเหตุด้านล่าง) |
+| comment | text | nullable — อนุญาตรีวิวแค่ให้คะแนนโดยไม่ต้องเขียนข้อความ |
+| shop_reply | text | nullable — คำตอบกลับจากร้าน (ใส่ได้ครั้งเดียว แก้ทับได้) |
+| shop_replied_at | timestamp | nullable |
+| created_at | timestamp | |
+
+⚠️ **หมายเหตุเรื่อง `drizzle-kit push`:** ตอนนี้ `bun --cwd apps/api drizzle-kit push` จะ crash ("Cannot read properties of undefined (reading 'replace')" ใน `checkValue.replace`) ตอน "Pulling schema from database" — พิสูจน์แล้วว่าเป็น bug ของ `drizzle-kit@0.31.10` เองตอน introspect DB บน Postgres 17.6 (ไม่เกี่ยวกับ schema ของโปรเจกต์นี้ เกิดกับ schema.ts เดิมก่อนแก้ด้วย) การเปลี่ยนแปลงรอบนี้ (enum `suspended`, `shops.storage_quota_mb`, `orders.finished_at`, ตาราง `system_settings`/`reviews`) ถูก apply ขึ้น Supabase ด้วย SQL ตรงแทน (ตรวจสอบแล้วว่าตรงกับ `schema.ts` 100%) — ครั้งหน้าที่แก้ schema ให้ลอง `drizzle-kit push` ก่อน ถ้ายัง crash อยู่ ให้ apply SQL ด้วยมือแบบเดียวกันแล้วเช็คกับ `schema.ts` ให้ตรงกันเสมอ
+
 ## ความสัมพันธ์ (Relationships)
 
 ```
@@ -246,6 +283,9 @@ cart_items (1) ──< cart_item_option_selections (cart_item_id) [ON DELETE CAS
 service_options (1) ──< cart_item_option_selections (option_id) [ON DELETE CASCADE]
 service_option_values (1) ──< cart_item_option_selections (value_id)
 shops (1) ──< contact_admin_messages (shop_id)
+shops (1) ──< reviews (shop_id)
+orders (1) ──< reviews (order_id) [unique — 1 ออเดอร์รีวิวได้ 1 ครั้ง]
+users (1) ──< reviews (customer_id)
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)
