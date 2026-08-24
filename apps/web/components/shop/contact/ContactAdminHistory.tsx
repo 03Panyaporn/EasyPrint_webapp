@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, User, Calendar, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, User, Calendar, Loader2, Paperclip, Download } from "lucide-react";
 import { getMyShopProfile } from "@/lib/api/shops";
 import { getShopContactAdminMessages } from "@/lib/api/contactAdmin";
 import type { ContactAdminMessageItem, ContactAdminStatus } from "@easyprint/shared";
@@ -23,6 +23,61 @@ const StatusBadge = ({ status }: { status: ContactAdminStatus }) => {
     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
       <Clock className="w-3.5 h-3.5" /> รอดำเนินการ
     </span>
+  );
+};
+
+const AttachmentList = ({ attachments }: { attachments: string[] | null | undefined }) => {
+  if (!attachments || attachments.length === 0) return null;
+  
+  return (
+    <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {attachments.map((url, idx) => {
+        let isPdf = false;
+        try {
+          const pathname = new URL(url).pathname;
+          isPdf = pathname.toLowerCase().endsWith('.pdf');
+        } catch (e) {
+          isPdf = url.toLowerCase().includes('.pdf');
+        }
+
+        if (!isPdf) {
+          return (
+            <a 
+              key={idx} 
+              href={url} 
+              target="_blank" 
+              rel="noreferrer"
+              className="relative aspect-square border border-slate-200 rounded-xl overflow-hidden group block bg-slate-100"
+            >
+              <img src={url} alt={`ไฟล์แนบ ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <Download className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 drop-shadow-md transition-opacity" />
+              </div>
+            </a>
+          );
+        }
+
+        // สำหรับไฟล์ PDF
+        return (
+          <a 
+            key={idx} 
+            href={url} 
+            target="_blank" 
+            rel="noreferrer"
+            className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors col-span-full sm:col-span-2"
+          >
+            <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-red-500">PDF</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-700 truncate">ไฟล์แนบ {idx + 1}</p>
+              <p className="text-xs text-slate-400">เอกสาร PDF</p>
+            </div>
+            <Download className="w-4 h-4 text-slate-400 shrink-0" />
+          </a>
+        );
+      })}
+    </div>
   );
 };
 
@@ -104,6 +159,7 @@ export default function ContactAdminHistory() {
                   <p className="text-sm font-semibold text-slate-800 mb-1">คุณ (ร้านค้า)</p>
                   <div className="bg-white p-4 rounded-xl rounded-tl-none border border-slate-200 text-sm text-slate-600 shadow-sm whitespace-pre-wrap">
                     {ticket.message}
+                    <AttachmentList attachments={ticket.attachments} />
                   </div>
                 </div>
               </div>
@@ -118,6 +174,7 @@ export default function ContactAdminHistory() {
                     <p className="text-sm font-semibold text-slate-800 mb-1">แอดมิน EasyPrint</p>
                     <div className="bg-blue-50 p-4 rounded-xl rounded-tl-none border border-blue-100 text-sm text-slate-700 shadow-sm whitespace-pre-wrap">
                       {ticket.adminReply}
+                      <AttachmentList attachments={ticket.adminReplyAttachments} />
                     </div>
                   </div>
                 </div>

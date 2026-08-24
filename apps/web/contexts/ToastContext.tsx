@@ -11,6 +11,7 @@ export interface ToastMessage {
   message: string;
   type: ToastType;
   duration?: number;
+  link?: string;
 }
 
 interface ToastContextType {
@@ -43,17 +44,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div className="fixed top-20 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
-        {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
-        ))}
+      <div className="fixed top-24 right-6 z-[100] w-[340px] pointer-events-none">
+        {toasts.map((toast, index) => {
+          const offset = toasts.length - 1 - index; // 0 คือรายการล่าสุด (อยู่หน้าสุด)
+          return (
+            <ToastItem 
+              key={toast.id} 
+              toast={toast} 
+              onRemove={removeToast} 
+              offset={offset}
+            />
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: string) => void }) {
+function ToastItem({ toast, onRemove, offset }: { toast: ToastMessage; onRemove: (id: string) => void; offset: number }) {
   const duration = toast.duration || 5000;
+  const router = require("next/navigation").useRouter();
 
   React.useEffect(() => {
     if (duration > 0) {
@@ -90,9 +100,32 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
     }
   };
 
+  // คำนวณ style สำหรับการเรียงซ้อน (Stacking)
+  const isHidden = offset >= 4;
+  const style: React.CSSProperties = {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 100 - offset,
+    transform: `translateY(${offset * 14}px) scale(${1 - offset * 0.05})`,
+    opacity: isHidden ? 0 : 1 - offset * 0.15,
+    pointerEvents: isHidden ? "none" : "auto",
+    transition: "all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+    visibility: isHidden ? "hidden" : "visible",
+  };
+  
+  const handleClick = () => {
+    if (toast.link) {
+      router.push(toast.link);
+      onRemove(toast.id);
+    }
+  };
+
   return (
     <div
-      className={`pointer-events-auto flex items-start gap-3 p-4 w-[340px] rounded-xl shadow-lg border animate-in slide-in-from-right-8 fade-in duration-300 ${getBgColor()}`}
+      style={style}
+      onClick={handleClick}
+      className={`flex items-start gap-3 p-4 w-[340px] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border ${getBgColor()} ${toast.link ? 'cursor-pointer hover:brightness-95 transition-all' : ''}`}
     >
       <div className="shrink-0 mt-0.5">{getIcon()}</div>
       <div className="flex-1 min-w-0">
@@ -100,7 +133,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
         <p className="text-xs opacity-90 leading-relaxed line-clamp-2">{toast.message}</p>
       </div>
       <button
-        onClick={() => onRemove(toast.id)}
+        onClick={(e) => { e.stopPropagation(); onRemove(toast.id); }}
         className="shrink-0 p-1 opacity-50 hover:opacity-100 transition-opacity"
       >
         <X className="w-4 h-4" />

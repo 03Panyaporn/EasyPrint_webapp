@@ -548,8 +548,10 @@ export const contactAdminMessages = pgTable("contact_admin_messages", {
   shopId: uuid("shop_id").references(() => shops.id).notNull(),
   subject: text("subject").notNull(),
   message: text("message").notNull(),
+  attachments: text("attachments").array(), // URL รูปภาพหรือไฟล์ที่ร้านค้าแนบมา
   status: contactAdminStatusEnum("status").notNull().default("open"),
   adminReply: text("admin_reply"), // คำตอบจากแอดมิน — null ถ้ายังไม่ตอบ
+  adminReplyAttachments: text("admin_reply_attachments").array(), // URL ไฟล์แนบจากแอดมิน
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

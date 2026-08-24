@@ -82,14 +82,25 @@ export default function GlobalNotificationListener() {
         const res = await getNotifications();
         const notifications = res.notifications || [];
 
-        // ถ้าโหลดครั้งแรก ให้บันทึก ID ทั้งหมดไว้เป็น seen เพื่อไม่ให้เด้งแจ้งเตือนย้อนหลัง
-        if (initialLoadRef.current) {
-          notifications.forEach((n: any) => seenIdsRef.current.add(n.id));
+        const isInitial = initialLoadRef.current;
+        if (isInitial) {
           initialLoadRef.current = false;
-          return;
         }
 
-        // เช็คการแจ้งเตือนใหม่ที่ยังไม่เคยเห็น
+        // เช็คการแจ้งเตือนที่จะนำมาแสดง popup
+        const newNotifications = notifications.filter((n: any) => {
+          if (isInitial) {
+            // โหลดครั้งแรก: แสดงเฉพาะรายการที่ "ยังไม่ได้อ่าน"
+            return !n.isRead;
+          } else {
+            // Polling รอบถัดๆ ไป: แสดงรายการที่ "เพิ่งเพิ่มเข้ามาใหม่"
+            return !seenIdsRef.current.has(n.id);
+          }
+        });
+
+        // อัปเดตรายการที่เคยเห็นแล้วทั้งหมด
+        notifications.forEach((n: any) => seenIdsRef.current.add(n.id));
+
         const settings = shop.notificationSettings || {
           newOrder: true,
           orderUpdate: false,
@@ -99,10 +110,7 @@ export default function GlobalNotificationListener() {
           adminUpdates: false,
         };
 
-        const newNotifications = notifications.filter((n: any) => !seenIdsRef.current.has(n.id));
-
         newNotifications.forEach((n: any) => {
-          seenIdsRef.current.add(n.id);
 
           // วิเคราะห์ Category และเช็ค Setting ของร้านค้า
           let shouldShow = false;
@@ -137,6 +145,7 @@ export default function GlobalNotificationListener() {
               message: n.message,
               type: type,
               duration: 5000,
+              link: n.link,
             });
             // ส่ง event เผื่อส่วนอื่นๆใน Dashboard (เช่น widget การแจ้งเตือน) อยากอัปเดตข้อมูลด้วย
             window.dispatchEvent(new Event("new-notification"));

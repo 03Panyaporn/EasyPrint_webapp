@@ -3,7 +3,7 @@ import { ApiError } from "./client";
 // ห้ามใช้ localhost:3000 เป็นค่า default — ชนกับพอร์ตเริ่มต้นของ Next.js เอง (apps/web ก็รันที่ 3000)
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-export type UploadType = "shop-photo" | "id-card" | "service-image" | "delivery-logo" | "order-file" | "payment-slip" | "system-logo";
+export type UploadType = "shop-photo" | "id-card" | "service-image" | "delivery-logo" | "order-file" | "payment-slip" | "contact-admin-attachment" | "system-logo";
 export type UploadResult = { path: string; url: string | null };
 
 // แยกจาก apiFetch ใน client.ts เพราะ multipart/form-data ห้ามตั้ง Content-Type เอง (browser ต้องคำนวณ boundary ให้)
