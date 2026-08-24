@@ -1,4 +1,12 @@
-import type { RejectShopInput, AdminDashboardResponse } from "@easyprint/shared";
+import type {
+  RejectShopInput,
+  SuspendShopInput,
+  AdminDashboardResponse,
+  AdminSettingsResponse,
+  UpdateAdminSettingsInput,
+  AdminStorageOverviewResponse,
+  AdminStorageFilesResponse,
+} from "@easyprint/shared";
 import { apiFetch } from "./client";
 
 export function getAdminDashboard() {
@@ -23,7 +31,7 @@ export type AdminShop = {
   shopPhotoUrl: string | null;
   socialMedia: string | null;
   openingHours: AdminOpeningHoursDay[] | null;
-  approvalStatus: "pending" | "approved" | "rejected";
+  approvalStatus: "pending" | "approved" | "rejected" | "suspended";
   rejectedReason: string | null;
   createdAt: string;
   ownerEmail: string | null;
@@ -53,6 +61,7 @@ export type UpdateShopInput = {
   email?: string;
   address?: string;
   serviceTypes?: string[];
+  storageQuotaMb?: number | null;
 };
 
 export function updateAdminShop(id: string, input: UpdateShopInput) {
@@ -71,4 +80,46 @@ export function rejectShop(id: string, input: RejectShopInput) {
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export function suspendShop(id: string, input: SuspendShopInput) {
+  return apiFetch<{ shop: unknown }>(`/admin/shops/${id}/suspend`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+// คืนสถานะร้านที่เคยถูกระงับกลับเป็น approved — ใช้ endpoint เดียวกับ approveShop() เพราะ backend ทำสิ่งเดียวกันเป๊ะ (ตั้ง approved + ล้างเหตุผลเดิม)
+export const reinstateShop = approveShop;
+
+export function getAdminSettings() {
+  return apiFetch<{ settings: AdminSettingsResponse }>("/admin/settings");
+}
+
+export function updateAdminSettings(input: UpdateAdminSettingsInput) {
+  return apiFetch<{ settings: AdminSettingsResponse }>("/admin/settings", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getAdminStorageOverview() {
+  return apiFetch<AdminStorageOverviewResponse>("/admin/storage/overview");
+}
+
+export function getAdminStorageFiles(shopId?: string) {
+  const qs = shopId ? `?shopId=${encodeURIComponent(shopId)}` : "";
+  return apiFetch<AdminStorageFilesResponse>(`/admin/storage/files${qs}`);
+}
+
+export function getAdminStorageFileUrl(path: string) {
+  return apiFetch<{ url: string }>(`/admin/storage/files/${encodeURIComponent(path)}/url`);
+}
+
+export function deleteAdminStorageFile(path: string) {
+  return apiFetch<{ message: string }>(`/admin/storage/files/${encodeURIComponent(path)}`, { method: "DELETE" });
+}
+
+export function deleteAdminStorageShopFiles(shopId: string) {
+  return apiFetch<{ message: string; deletedCount: number }>(`/admin/storage/shops/${shopId}/files`, { method: "DELETE" });
 }

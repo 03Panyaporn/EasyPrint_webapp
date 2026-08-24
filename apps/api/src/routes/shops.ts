@@ -1,32 +1,59 @@
 import { Elysia } from "elysia";
 import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
-import { shops } from "../../drizzle/schema";
+import { shops, reviews } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 
 import { updateShopProfileSchema } from "@easyprint/shared";
+
+// สรุปคะแนนรีวิวของทุกร้านในทีเดียว (group by shopId ใน JS แทน SQL GROUP BY เพราะจำนวนรีวิวยังน้อย ไม่คุ้มความซับซ้อนของ aggregate query)
+// ใช้ร่วมกันทั้ง GET /shops (list) และ GET /shops/:shopId (detail)
+async function getShopRatingMap(): Promise<Map<string, { avgRating: number; reviewCount: number }>> {
+  const rows = await db.select({ shopId: reviews.shopId, rating: reviews.rating }).from(reviews);
+  const totals = new Map<string, { sum: number; count: number }>();
+  for (const r of rows) {
+    const entry = totals.get(r.shopId) ?? { sum: 0, count: 0 };
+    entry.sum += r.rating;
+    entry.count += 1;
+    totals.set(r.shopId, entry);
+  }
+  const result = new Map<string, { avgRating: number; reviewCount: number }>();
+  for (const [shopId, { sum, count }] of totals) {
+    result.set(shopId, { avgRating: sum / count, reviewCount: count });
+  }
+  return result;
+}
 
 export const shopsRoutes = new Elysia()
   // endpoint สาธารณะ ไม่ต้อง login — ฝั่งลูกค้าใช้ดึงรายชื่อร้านค้าหน้าแรก
   // คืนเฉพาะร้านที่ approvalStatus === "approved" เท่านั้น ร้านที่ยัง pending/rejected ต้องไม่หลุดออกมา
   .get("/shops", async () => {
-    const rows = await db
-      .select({
-        id: shops.id,
-        name: shops.name,
-        address: shops.address,
-        serviceTypes: shops.serviceTypes,
-        deliveryMethods: shops.deliveryMethods,
-        openingHours: shops.openingHours,
-        shopPhotoUrl: shops.shopPhotoUrl,
-        tempCloseStart: shops.tempCloseStart,
-        tempCloseEnd: shops.tempCloseEnd,
-      })
-      .from(shops)
-      .where(eq(shops.approvalStatus, "approved"))
-      .orderBy(desc(shops.createdAt));
+    const [rows, ratingMap] = await Promise.all([
+      db
+        .select({
+          id: shops.id,
+          name: shops.name,
+          address: shops.address,
+          serviceTypes: shops.serviceTypes,
+          deliveryMethods: shops.deliveryMethods,
+          openingHours: shops.openingHours,
+          shopPhotoUrl: shops.shopPhotoUrl,
+          tempCloseStart: shops.tempCloseStart,
+          tempCloseEnd: shops.tempCloseEnd,
+        })
+        .from(shops)
+        .where(eq(shops.approvalStatus, "approved"))
+        .orderBy(desc(shops.createdAt)),
+      getShopRatingMap(),
+    ]);
 
-    return { shops: rows };
+    return {
+      shops: rows.map((shop) => ({
+        ...shop,
+        avgRating: ratingMap.get(shop.id)?.avgRating ?? null,
+        reviewCount: ratingMap.get(shop.id)?.reviewCount ?? 0,
+      })),
+    };
   })
 
   // ให้เจ้าของร้าน login อยู่ดึงข้อมูลร้านของตัวเอง (รู้ shopId ตัวเอง + เช็คสถานะอนุมัติ) ใช้ตอนเปิดหน้า /shop/services เป็นต้น
@@ -122,8 +149,11 @@ export const shopsRoutes = new Elysia()
       return { error: "ไม่พบร้านค้านี้" };
     }
 
+    const ratingRows = await db.select({ rating: reviews.rating }).from(reviews).where(eq(reviews.shopId, params.shopId));
+    const avgRating = ratingRows.length > 0 ? ratingRows.reduce((s, r) => s + r.rating, 0) / ratingRows.length : null;
+
     const { approvalStatus: _approvalStatus, ...shop } = row;
-    return { shop };
+    return { shop: { ...shop, avgRating, reviewCount: ratingRows.length } };
   })
   
   // อัปเดตข้อมูลร้านค้า

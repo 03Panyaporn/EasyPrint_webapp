@@ -25,6 +25,8 @@ export const UPLOAD_BUCKETS = {
   "payment-slip": { bucket: "payment-slips", public: false, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
   "order-file": { bucket: "order-files", public: false, allowedMime: PRINT_FILE_MIME, maxSize: 20 * 1024 * 1024 },
   "contact-admin-attachment": { bucket: "contact-admin-attachments", public: false, allowedMime: PRINT_FILE_MIME, maxSize: 20 * 1024 * 1024 },
+  // โลโก้ระบบ (หน้า /admin/settings) — รูปสาธารณะเหมือนกัน ใช้ bucket "shop-photos" ร่วมด้วย ไม่ต้องสร้าง bucket ใหม่
+  "system-logo": { bucket: "shop-photos", public: true, allowedMime: IMAGE_MIME, maxSize: 5 * 1024 * 1024 },
 } as const;
 export type UploadType = keyof typeof UPLOAD_BUCKETS;
 
@@ -56,4 +58,31 @@ export async function uploadFile(type: UploadType, file: File) {
     return { path, url: data.publicUrl };
   }
   return { path, url: null };
+}
+
+// list ไฟล์ทั้งหมดใน bucket (แบ่งหน้าอัตโนมัติ) พร้อมขนาดไฟล์ — ใช้ตอนหน้าแอดมิน "จัดการพื้นที่จัดเก็บ" คำนวณพื้นที่ใช้งานจริง
+// เหตุผลที่ต้องมาดึงจาก Storage API ตรงๆ (ไม่ใช่จาก DB): ไฟล์ใน bucket "order-files" ตั้งชื่อเป็น UUID สุ่มล้วน ไม่มีโฟลเดอร์แยกตามร้าน
+// และ DB (cart_items/order_items) ก็ไม่ได้เก็บขนาดไฟล์ไว้เลย ต้องมาขอจาก Storage แล้ว join กับ DB เอาเองที่ apps/api/src/routes/adminStorage.ts
+export async function listBucketFiles(bucket: string): Promise<Map<string, number>> {
+  const sizeByPath = new Map<string, number>();
+  const limit = 1000;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabaseAdmin.storage
+      .from(bucket)
+      .list("", { limit, offset, sortBy: { column: "name", order: "asc" } });
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+
+    for (const file of data) {
+      const size = (file.metadata as { size?: number } | null)?.size ?? 0;
+      sizeByPath.set(file.name, size);
+    }
+
+    if (data.length < limit) break;
+    offset += limit;
+  }
+
+  return sizeByPath;
 }

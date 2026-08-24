@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Printer,
   UserPlus,
@@ -14,73 +14,177 @@ import {
   Bell,
   ShieldCheck,
   Building2,
-  Sliders
+  Sliders,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
+import { getAdminSettings, updateAdminSettings } from "@/lib/api/admin";
+import { uploadFile } from "@/lib/api/uploads";
+import { ApiError } from "@/lib/api/client";
+import type { AdminSettingsResponse, NotificationToggles } from "@easyprint/shared";
+
+const DEFAULT_NOTIFICATIONS: NotificationToggles = {
+  newShop: true,
+  storageWarning90: true,
+  shopPendingReview: true,
+  newMessage: true,
+  storageWarning80: true,
+  systemError: true,
+};
+
+// backend เก็บ autoLogoutMinutes เป็นตัวเลข ส่วน UI เดิมใช้ dropdown เป็น label ภาษาไทย — แปลงไปมาที่นี่ที่เดียว
+const AUTO_LOGOUT_OPTIONS: { label: string; minutes: number }[] = [
+  { label: "15 นาที", minutes: 15 },
+  { label: "30 นาที", minutes: 30 },
+  { label: "1 ชั่วโมง", minutes: 60 },
+  { label: "2 ชั่วโมง", minutes: 120 },
+];
+function minutesToLabel(minutes: number) {
+  return AUTO_LOGOUT_OPTIONS.find((o) => o.minutes === minutes)?.label ?? `${minutes} นาที`;
+}
+function labelToMinutes(label: string) {
+  return AUTO_LOGOUT_OPTIONS.find((o) => o.label === label)?.minutes ?? 30;
+}
+
+function applySettings(s: AdminSettingsResponse, set: {
+  setSystemName: (v: string) => void;
+  setContactEmail: (v: string) => void;
+  setContactPhone: (v: string) => void;
+  setMainWebsite: (v: string) => void;
+  setLogoUrl: (v: string | null) => void;
+  setNotifications: (v: NotificationToggles) => void;
+  setMinPasswordLength: (v: number) => void;
+  setRequireSpecialChar: (v: boolean) => void;
+  setEnable2FA: (v: boolean) => void;
+  setAutoLogoutTime: (v: string) => void;
+}) {
+  set.setSystemName(s.systemName);
+  set.setContactEmail(s.contactEmail ?? "");
+  set.setContactPhone(s.contactPhone ?? "");
+  set.setMainWebsite(s.website ?? "");
+  set.setLogoUrl(s.logoUrl);
+  set.setNotifications(s.notificationSettings ?? DEFAULT_NOTIFICATIONS);
+  set.setMinPasswordLength(s.minPasswordLength);
+  set.setRequireSpecialChar(s.requireSpecialChar);
+  set.setEnable2FA(s.enable2fa);
+  set.setAutoLogoutTime(minutesToLabel(s.autoLogoutMinutes));
+}
 
 export default function AdminSettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [systemName, setSystemName] = useState("EasyPrint");
-  const [contactEmail, setContactEmail] = useState("support@easyprint.com");
-  const [contactPhone, setContactPhone] = useState("02-123-4567");
-  const [mainWebsite, setMainWebsite] = useState("https://easyprint.com");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [mainWebsite, setMainWebsite] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [notifications, setNotifications] = useState({
-    newShop: true,
-    storageWarning90: true,
-    shopPendingReview: true,
-    newMessage: true,
-    storageWarning80: true,
-    systemError: true,
-  });
+  const [notifications, setNotifications] = useState<NotificationToggles>(DEFAULT_NOTIFICATIONS);
 
   const [minPasswordLength, setMinPasswordLength] = useState(8);
   const [requireSpecialChar, setRequireSpecialChar] = useState(true);
-  const [enable2FA, setEnable2FA] = useState(true);
+  const [enable2FA, setEnable2FA] = useState(false);
   const [autoLogoutTime, setAutoLogoutTime] = useState("30 นาที");
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const setters = {
+    setSystemName,
+    setContactEmail,
+    setContactPhone,
+    setMainWebsite,
+    setLogoUrl,
+    setNotifications,
+    setMinPasswordLength,
+    setRequireSpecialChar,
+    setEnable2FA,
+    setAutoLogoutTime,
+  };
+
+  const fetchSettings = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const { settings } = await getAdminSettings();
+      applySettings(settings, setters);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "โหลดการตั้งค่าไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setLogoUrl(url);
+    if (!file) return;
+    setUploadingLogo(true);
+    setSaveError("");
+    try {
+      const result = await uploadFile(file, "system-logo");
+      setLogoUrl(result.url);
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : "อัปโหลดโลโก้ไม่สำเร็จ");
+    } finally {
+      setUploadingLogo(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const toggleNotification = (key: keyof typeof notifications) => {
+  const toggleNotification = (key: keyof NotificationToggles) => {
     setNotifications((prev) => ({
       ...prev,
       [key]: !prev[key],
     }));
   };
 
+  // "ยกเลิก" = ทิ้งการแก้ไขที่ยังไม่บันทึก แล้วโหลดค่าล่าสุดจากเซิร์ฟเวอร์กลับมาใหม่ (ไม่ใช่ reset เป็นค่าเริ่มต้นโรงงาน)
   const handleReset = () => {
-    setSystemName("EasyPrint");
-    setContactEmail("support@easyprint.com");
-    setContactPhone("02-123-4567");
-    setMainWebsite("https://easyprint.com");
-    setLogoUrl(null);
-    setNotifications({
-      newShop: true,
-      storageWarning90: true,
-      shopPendingReview: true,
-      newMessage: true,
-      storageWarning80: true,
-      systemError: true,
-    });
-    setMinPasswordLength(8);
-    setRequireSpecialChar(true);
-    setEnable2FA(true);
-    setAutoLogoutTime("30 นาที");
+    setSaveError("");
+    fetchSettings();
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    setIsSaving(false);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3500);
+    setSaveError("");
+    try {
+      const { settings } = await updateAdminSettings({
+        systemName,
+        contactEmail,
+        contactPhone,
+        website: mainWebsite,
+        logoUrl,
+        notificationSettings: notifications,
+        minPasswordLength,
+        requireSpecialChar,
+        enable2fa: enable2FA,
+        autoLogoutMinutes: labelToMinutes(autoLogoutTime),
+      });
+      applySettings(settings, setters);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3500);
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : "บันทึกการตั้งค่าไม่สำเร็จ");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
+        <Loader2 size={32} className="animate-spin text-orange-500" />
+        <p className="text-sm">กำลังโหลดการตั้งค่าระบบ...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12">
@@ -104,6 +208,20 @@ export default function AdminSettingsPage() {
           </p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-200 text-sm">
+          <AlertCircle size={18} />
+          <span>{loadError}</span>
+        </div>
+      )}
+      {saveError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-200 text-sm">
+          <AlertCircle size={18} />
+          <span>{saveError}</span>
+        </div>
+      )}
+
       <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-sm space-y-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center  shrink-0">
@@ -127,10 +245,12 @@ export default function AdminSettingsPage() {
               className="hidden"
             />
             <div
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => !uploadingLogo && fileInputRef.current?.click()}
               className="w-48 h-48 sm:w-52 sm:h-52 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-orange-400 transition-all flex flex-col items-center justify-center p-4 text-center cursor-pointer group relative overflow-hidden"
             >
-              {logoUrl ? (
+              {uploadingLogo ? (
+                <Loader2 size={32} className="animate-spin text-orange-500" />
+              ) : logoUrl ? (
                 <img
                   src={logoUrl}
                   alt="System Logo Preview"
@@ -364,7 +484,7 @@ export default function AdminSettingsPage() {
               />
               <span className="text-xs  text-slate-600">ตัวอักษร</span>
             </div>
-            <p className="text-[11px] text-slate-400">แนะนำอย่างน้อย 8 ตัวอักษร</p>
+            <p className="text-[11px] text-slate-400">บังคับใช้จริงตอนสมัคร/เปลี่ยนรหัสผ่าน (6-32 ตัวอักษร)</p>
           </div>
 
           {/* Require Special Char & 2FA Checkboxes */}
@@ -381,7 +501,7 @@ export default function AdminSettingsPage() {
               />
               <div>
                 <p className="text-xs text-slate-800">บังคับใช้อักษรพิเศษ</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">ต้องมีอักษรพิเศษอย่างน้อย 1 ตัว</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">ต้องมีอักษรพิเศษอย่างน้อย 1 ตัว (ยังไม่บังคับใช้จริง — เก็บค่าไว้ก่อน)</p>
               </div>
             </div>
 
@@ -399,7 +519,7 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-slate-800">
                   เปิดใช้งาน Two-Factor Authentication (2FA)
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">เพิ่มความปลอดภัยในการเข้าสู่ระบบ</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">เพิ่มความปลอดภัยในการเข้าสู่ระบบ (ยังไม่บังคับใช้จริง — เก็บค่าไว้ก่อน)</p>
               </div>
             </div>
           </div>
@@ -414,13 +534,12 @@ export default function AdminSettingsPage() {
               onChange={(e) => setAutoLogoutTime(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition cursor-pointer"
             >
-              <option value="15 นาที">15 นาที</option>
-              <option value="30 นาที">30 นาที</option>
-              <option value="1 ชั่วโมง">1 ชั่วโมง</option>
-              <option value="2 ชั่วโมง">2 ชั่วโมง</option>
+              {AUTO_LOGOUT_OPTIONS.map((o) => (
+                <option key={o.label} value={o.label}>{o.label}</option>
+              ))}
             </select>
             <p className="text-[11px] text-slate-400">
-              ระบบจะออกจากระบบอัตโนมัติเมื่อไม่มีการใช้งานตามเวลาที่กำหนด
+              ยังไม่บังคับใช้จริง — เก็บค่าไว้ก่อน
             </p>
           </div>
         </div>

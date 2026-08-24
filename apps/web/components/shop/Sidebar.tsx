@@ -17,6 +17,7 @@ import {
   ChevronDown,
   X,
   Printer,
+  Star,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────
@@ -81,6 +82,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "บริการและราคา", href: "/shop/services", icon: Wrench },
       { label: "โปรไฟล์ร้าน", href: "/shop/profile", icon: Store },
+      { label: "รีวิว", href: "/shop/reviews", icon: Star },
     ],
   },
   // ── Section: ระบบ ───────────────────────────────

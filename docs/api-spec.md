@@ -19,13 +19,11 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| POST | `/uploads` | อัปโหลดไฟล์ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"` / `"payment-slip"` / `"order-file"`) — คืน `{ path, url }`, `url` เป็น `null` ถ้า bucket private (`id-card`, `payment-slip`, `order-file`) | ไม่ต้อง ยกเว้น `order-file` ที่ต้อง login เป็น customer |
+| POST | `/uploads` | อัปโหลดไฟล์ (multipart/form-data: `file` + `type` เป็น `"shop-photo"` / `"id-card"` / `"service-image"` / `"delivery-logo"` / `"payment-slip"` / `"order-file"` / `"system-logo"`) — คืน `{ path, url }`, `url` เป็น `null` ถ้า bucket private (`id-card`, `payment-slip`, `order-file`) | ไม่ต้อง ยกเว้น `order-file`/`payment-slip` ที่ต้อง login เป็น customer และ `system-logo` ที่ต้อง login เป็น admin |
 
-โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง bucket: `shop-photos` (public), `id-cards` (private), `payment-slips` (private), `order-files` (private, สร้างใหม่ตอนทำระบบตะกร้า) — `service-image`/`delivery-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่ ส่วน `order-file` (ไฟล์งานพิมพ์ในตะกร้า/ออเดอร์) รับ JPG/PNG/WEBP/PDF ไม่เกิน 20MB ต่างจาก type อื่นที่รับแค่รูปไม่เกิน 5MB และเป็น private เพราะอาจมีข้อมูลส่วนตัวในไฟล์
+โค้ดอยู่ที่ `apps/api/src/routes/uploads.ts` + `apps/api/src/storage.ts` — ใช้ Supabase Storage จริง bucket: `shop-photos` (public), `id-cards` (private), `payment-slips` (private), `order-files` (private, สร้างใหม่ตอนทำระบบตะกร้า) — `service-image`/`delivery-logo`/`system-logo` ใช้ bucket `shop-photos` ร่วมกับ `shop-photo` เพราะเป็นรูปสาธารณะเหมือนกัน ไม่ต้องสร้าง bucket ใหม่ ส่วน `order-file` (ไฟล์งานพิมพ์ในตะกร้า/ออเดอร์) รับ JPG/PNG/WEBP/PDF ไม่เกิน 20MB ต่างจาก type อื่นที่รับแค่รูปไม่เกิน 5MB และเป็น private เพราะอาจมีข้อมูลส่วนตัวในไฟล์
 
-⚠️ endpoint นี้เปิดสาธารณะโดยไม่มี rate limit (ยกเว้น `order-file` ที่บังคับ login แล้ว) — กันได้แค่ระดับ mime type + ขนาดไฟล์ ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้
-
-⚠️ **TODO ที่ยังเหลือจากการ merge:** `apps/api/src/routes/uploads.ts` ยัง whitelist แค่ `["shop-photo", "id-card", "service-image", "delivery-logo", "order-file"]` — ขาด `"payment-slip"` (และฝั่ง frontend `apps/web/lib/api/uploads.ts` ก็ยังไม่มี type นี้ใน union) ทั้งที่ `storage.ts` เตรียม bucket ไว้แล้ว ต้องเพิ่มก่อนฟีเจอร์อัปโหลดสลิปจะใช้งานได้จริง
+⚠️ endpoint นี้เปิดสาธารณะโดยไม่มี rate limit (ยกเว้น `order-file`/`payment-slip`/`system-logo` ที่บังคับ login แล้ว) — กันได้แค่ระดับ mime type + ขนาดไฟล์ ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้
 
 ## Orders
 
@@ -34,11 +32,25 @@
 | POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ (ลูกค้า) — `customerId` ดึงจาก JWT เท่านั้น ห้ามรับจาก body (กัน spoof), รันเลขที่ออเดอร์ (`code` ต่อร้าน + `ref` ทั้งระบบ) อัตโนมัติ, ลองใหม่ 3 ครั้งถ้าเลขชนกัน (unique constraint `shop_id`+`code`), ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้าแบบ best-effort หลังบันทึกสำเร็จ | ต้อง login เป็น customer |
 | GET | `/shops/:shopId/orders` | list ออเดอร์ของร้าน เรียงใหม่สุดก่อน, filter ด้วย `?status=` ได้ (ไม่ใส่ = เอาทุกสถานะ) | ต้อง login เป็น shop_owner ของร้านนี้ |
 | GET | `/orders/:id` | รายละเอียดออเดอร์เดียว | shop_owner ของร้านนี้ หรือ customer เจ้าของออเดอร์เอง หรือ admin |
-| PATCH | `/orders/:id/status` | เปลี่ยนสถานะออเดอร์ — ใช้ endpoint เดียวกันทั้ง "เดินหน้า" (`{ status }`), "ยกเลิก", และ "ปฏิเสธการชำระเงิน" (`{ status: "cancelled", cancelReason, cancelNote? }` บังคับ `cancelReason` เมื่อ `status: "cancelled"`) — บังคับเดินตามลำดับ `pending_review → accepted → in_progress → shipping/completed` (ข้าม `shipping` อัตโนมัติถ้า `deliveryMethod: "self_pickup"`) ห้ามข้ามขั้น (400 ถ้าข้าม), ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ `completed`/`cancelled` — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะตอนยกเลิกเท่านั้น (แยกข้อความ "ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอนสถานะยังเป็น `pending_review` กับ "ยกเลิกงาน" ถ้ายกเลิกตอนอื่น) ส่วนเดินหน้าสถานะปกติ (accepted/in_progress/shipping/completed) **ไม่ส่งอีเมล** ลูกค้าติดตามผ่านหน้าเว็บของลูกค้าแทน (ตาม `docs/proposal.md` หัวข้อ 1.3.2) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| PATCH | `/orders/:id/status` | เปลี่ยนสถานะออเดอร์ — ใช้ endpoint เดียวกันทั้ง "เดินหน้า" (`{ status }`), "ยกเลิก", และ "ปฏิเสธการชำระเงิน" (`{ status: "cancelled", cancelReason, cancelNote? }` บังคับ `cancelReason` เมื่อ `status: "cancelled"`) — บังคับเดินตามลำดับ `pending_review → accepted → in_progress → shipping/completed` (ข้าม `shipping` อัตโนมัติถ้า `deliveryMethod: "self_pickup"`) ห้ามข้ามขั้น (400 ถ้าข้าม), ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ `completed`/`cancelled` — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะตอนร้านเป็นคนยกเลิก/ปฏิเสธเท่านั้น (แยกข้อความ "ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอนสถานะยังเป็น `pending_review` กับ "ยกเลิกงาน" ถ้ายกเลิกตอนอื่น) ส่วนเดินหน้าสถานะปกติ (accepted/in_progress/shipping/completed) **ไม่ส่งอีเมล** ลูกค้าติดตามผ่านหน้าเว็บของลูกค้าแทน (ตาม `docs/proposal.md` หัวข้อ 1.3.2) — สร้าง `admin_notifications` (type `order_cancelled`) ทุกครั้งที่ยกเลิก ไม่ว่าฝั่งไหนเป็นคนกด | ต้อง login เป็น shop_owner ของร้านนี้ **หรือ**ลูกค้าเจ้าของออเดอร์ (จำกัดกว่า: ยกเลิกได้อย่างเดียว เฉพาะตอน `status` ยังเป็น `pending_review` เท่านั้น, ล็อก `cancelReason` เป็น `customer_request` เสมอไม่สนใจค่าที่ส่งมา) |
+| GET | `/customers/orders` | ประวัติ/รายการออเดอร์ทั้งหมดของลูกค้าที่ login อยู่ (ทุกสถานะ) — หน้า "ประวัติการสั่งซื้อ" ฝั่ง web กรองเอาเฉพาะ `status: "completed"` เองจากผลลัพธ์นี้ | ต้อง login เป็น customer |
 
 โค้ดอยู่ที่ `apps/api/src/routes/orders.ts` — Zod schema อยู่ที่ `packages/shared/src/schemas/order.ts` (`createOrderSchema`, `updateOrderStatusSchema`, `orderListQuerySchema`) — มี seed script (`bun --cwd apps/api run seed`) ไว้ใส่ออเดอร์จำลองทดสอบ เพราะหน้าสั่งซื้อจริงฝั่งลูกค้ายังไม่เสร็จ (ดู `apps/api/src/seed.ts`)
 
-⚠️ **TODO ที่ยังเหลือ (ไม่ใช่ช่องโหว่ แต่เป็นฟีเจอร์ที่ยังไม่มี):** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่ได้อิงราคาจริงจาก `main_services`/`service_options`/`service_option_values` ของร้าน — `POST /orders` ยังไม่ได้เชื่อมกับระบบตะกร้า (`carts`) ที่สร้างขึ้นทีหลัง ต้องมี endpoint ใหม่ (เช่น `POST /cart/checkout`) แปลงตะกร้าเป็นออเดอร์จริง คำนวณราคา + snapshot ราคา ณ ตอนสั่งไว้ในออเดอร์ (ต่างจากตะกร้าที่คำนวณสดตลอด) — เป็นงาน phase ถัดไป **⚠️ ตอนสร้าง flow จริง ต้องคำนวณราคาฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** โดยเฉพาะกรณี `pricingModel: "per_sqm"` ที่ลูกค้ากรอกกว้าง/สูงเอง (ราคารวม = กว้าง(ม.) x สูง(ม.) x `basePrice` ต้องคำนวณเซิร์ฟเวอร์เอง — ดูตัวอย่างวิธีทำที่ `apps/api/src/routes/cart.ts` `buildCartResponse()`)
+⚠️ **`POST /orders` เป็น endpoint เก่า (Schema v1) ที่ไม่มี frontend เรียกใช้แล้ว — ตกค้างไว้เฉยๆ ไม่ได้ลบ:** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่อิงราคาจริง และไม่ได้สร้าง `order_items` เลย ส่วน flow สั่งซื้อจริงที่ frontend ใช้อยู่ตอนนี้คือ `POST /shops/:shopId/cart/checkout` (ดูหัวข้อ Cart) ที่คำนวณราคาฝั่ง server ครบถ้วนและ snapshot ราคา ณ ตอนสั่งไว้ใน `order_items` แล้ว — ควรพิจารณาลบ `POST /orders` ทิ้งถ้ายืนยันว่าไม่มีที่ไหนเรียกใช้อีก
+
+## Reviews (รีวิว)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| POST | `/orders/:id/review` | ลูกค้ารีวิวออเดอร์ของตัวเอง (`{ rating: 1-5, comment?: string }`) — รีวิวได้เฉพาะออเดอร์ `status: "completed"` เท่านั้น และรีวิวได้ครั้งเดียวต่อออเดอร์ (409 ถ้ารีวิวไปแล้ว) | ต้อง login เป็น customer เจ้าของออเดอร์ |
+| GET | `/orders/:id/review` | ดูรีวิวของออเดอร์ตัวเอง — คืน `{ review: null }` ถ้ายังไม่เคยรีวิว ใช้เช็คก่อนแสดงฟอร์มเขียนรีวิว/แสดงรีวิวที่เขียนไปแล้ว | ต้อง login เป็นเจ้าของออเดอร์หรือ admin |
+| GET | `/shops/:shopId/reviews` | list รีวิวทั้งหมดของร้าน (ใหม่สุดก่อน) พร้อมสรุปคะแนนเฉลี่ยและ distribution ตามดาว | ไม่ต้อง |
+| PATCH | `/shops/:shopId/reviews/:id/reply` | ร้านตอบกลับรีวิว (`{ reply: string }`) — ตอบซ้ำได้ (แก้ทับคำตอบเดิม) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| DELETE | `/reviews/:id` | ลบรีวิว | เจ้าของรีวิวเอง (customer) หรือ admin เท่านั้น |
+| GET | `/admin/reviews` | list รีวิวทั้งหมดจากทุกร้านในระบบ (ใหม่สุดก่อน) พร้อมชื่อร้าน — ใช้หน้า moderation `/admin/reviews` ฝั่ง web | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/reviews.ts` — Zod/type ที่ `packages/shared/src/schemas/review.ts` — ชื่อลูกค้าที่แสดงในรีวิวสาธารณะตัดเหลือแค่ชื่อจริง + นามสกุลอักษรย่อ (เช่น "สมชาย จ.") เพื่อความเป็นส่วนตัว — `GET /shops` (list) และ `GET /shops/:shopId` (detail) เพิ่ม field `avgRating`/`reviewCount` เข้าไปในทุก response แล้ว (คำนวณจากตาราง `reviews` สด ไม่มี cache) — หน้าแอดมิน moderation อยู่ที่ `apps/web/app/(admin)/admin/reviews/page.tsx`
 
 ## Shops (สาธารณะฝั่งลูกค้า)
 
@@ -105,6 +117,7 @@
 | DELETE | `/cart/items/:id` | ลบรายการเดียวออกจากตะกร้า | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
 | PATCH | `/shops/:shopId/cart` | เลือก/ยกเลิกวิธีจัดส่งของตะกร้าร้านนี้ (`{ deliveryOptionId: string \| null }`) | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
 | DELETE | `/shops/:shopId/cart` | ล้างตะกร้าของร้านนี้ | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
+| POST | `/shops/:shopId/cart/checkout` | แปลงตะกร้าของร้านนี้เป็นออเดอร์จริง — คำนวณราคาฝั่ง server แล้ว snapshot ทุกอย่าง (ชื่อบริการ/ราคา/ตัวเลือก/สี ณ ตอนสั่ง) ลง `order_items`, ลบตะกร้าทิ้งหลังสำเร็จ, ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้าแบบ best-effort | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
 
 โค้ดอยู่ที่ `apps/api/src/routes/cart.ts` — Zod schema ที่ `packages/shared/src/schemas/cart.ts`
 
@@ -116,25 +129,108 @@
 - `addOnIds` ที่ส่งมาทุกตัวต้องผูกกับ `mainServiceId` นั้นจริง (กันส่ง ID มั่วๆ ข้ามร้าน/ข้ามบริการ)
 - **`pricingModel: "per_page"`**: ลูกค้าต้องแนบ `fileUrl` (ไฟล์ PDF ที่อัปโหลดไว้แล้ว) — **ไม่มี field `pageCount` ให้ client ส่งเลย** เซิร์ฟเวอร์ดาวน์โหลดไฟล์จาก Supabase Storage แล้วนับจำนวนหน้าเองด้วย `pdf-lib` (`countPdfPages()` ใน `apps/api/src/routes/cart.ts`) ทุกครั้งที่เพิ่ม/แก้ไขรายการ — กัน customer ปลอมจำนวนหน้าผ่าน request ตรงๆ เพื่อกดราคาถูกลง
 - **`pricingModel: "per_sqm"`**: ลูกค้าต้องส่ง `widthCm`/`heightCm` เอง (1-1000 ซม.) คำนวณพื้นที่ = กว้าง(ม.) x สูง(ม.) ฝั่ง server เสมอ
-- ยังไม่มี endpoint checkout แปลงตะกร้าเป็นออเดอร์จริง (ดู TODO ในหัวข้อ Orders ด้านบน)
+
+## Reports (รายงานร้านค้า)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/shops/:shopId/reports` | สรุปรายงานร้าน — `?period=today\|7days\|30days\|thisMonth\|thisYear` — คืน `metrics` (รายได้รวม/วันนี้, จำนวนออเดอร์รวม/สำเร็จ พร้อม % เปลี่ยนแปลงเทียบช่วงก่อนหน้า), `categories` (สัดส่วนรายได้ตามชื่อบริการ รวมค่าจัดส่งเป็นหมวดแยก), `series` (จุดกราฟตามช่วงเวลา), `ordersByStatus` (จำนวน/ยอดตามใบสั่งซื้อ แยกครบทุกสถานะ นับทุกสถานะไม่ใช่แค่ completed) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/shops/:shopId/reports/orders` | รายการออเดอร์แบบละเอียดในช่วงเวลาเดียวกับ `?period=` — ใช้ประกอบการ export Excel เท่านั้น (แยก endpoint จากตัวบนเพราะข้อมูลหนักกว่า ไม่ต้องดึงทุกครั้งที่เปิดหน้า) | ต้อง login เป็น shop_owner ของร้านนี้ |
+
+โค้ดอยู่ที่ `apps/api/src/routes/reports.ts` — Zod schema + type ที่ `packages/shared/src/schemas/report.ts` — เวลาไทย (UTC+7) แปลงจาก UTC ทุกครั้งก่อน query กันขอบเขต "วันนี้"/"เดือนนี้" ผิดเวลา — ฝั่ง web export เป็นไฟล์ `.xlsx` จริงด้วย `exceljs` (2 sheet: สรุป + รายการออเดอร์ละเอียด) ไม่ใช่ CSV แล้ว
+
+## Contact Admin (ร้านค้าติดต่อแอดมิน)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| POST | `/shops/:shopId/contact-admin` | ร้านส่งข้อความ/คำร้องถึงแอดมิน (`{ subject, message }`) — สร้าง `admin_notifications` (type `contact_admin_message`) ให้อัตโนมัติ | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/shops/:shopId/contact-admin` | ประวัติข้อความที่ร้านตัวเองเคยส่ง (ใหม่สุดก่อน) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/admin/contact-messages` | แอดมินดูข้อความ contact-admin ทั้งหมดจากทุกร้าน | ต้อง login เป็น admin |
+| PATCH | `/admin/contact-messages/:id/reply` | แอดมินตอบกลับข้อความ (`{ adminReply }`) — ตั้ง `status` เป็น `resolved` อัตโนมัติ | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/contactAdmin.ts` — Zod schema ที่ `packages/shared/src/schemas/notification.ts`
+
+## Admin — การแจ้งเตือน (in-app)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/admin/notifications` | list การแจ้งเตือน 50 รายการล่าสุด (ใหม่สุดก่อน) + จำนวนที่ยังไม่อ่าน — ฝั่ง web polling ทุก 30 วิ (ไม่มี WebSocket ในระบบ) | ต้อง login เป็น admin |
+| PATCH | `/admin/notifications/:id/read` | มาร์คอ่านแล้วรายการเดียว | ต้อง login เป็น admin |
+| PATCH | `/admin/notifications/read-all` | มาร์คอ่านแล้วทั้งหมด | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/adminNotificationsRoutes.ts` + helper กลาง `apps/api/src/adminNotifications.ts` (เรียกจาก route อื่นแบบ best-effort ไม่ทำให้ request หลัก fail ถ้าแจ้งเตือนพลาด) — event ที่มีตอนนี้ 3 อย่าง: ร้านสมัครใหม่ (`shop_registered`, ยิงจาก `POST /auth/register/shop`), ออเดอร์ถูกยกเลิก/ปฏิเสธชำระเงิน (`order_cancelled`, ยิงจาก `PATCH /orders/:id/status`), ข้อความ contact-admin ใหม่ (`contact_admin_message`)
 
 ## Admin — ตรวจสอบร้านค้า
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
+| GET | `/admin/dashboard` | สรุปภาพรวมหน้าหลักแอดมิน — จำนวนร้านทั้งหมด/อนุมัติแล้ว/รอตรวจสอบ, จำนวนลูกค้าทั้งหมด (พร้อม % เปลี่ยนแปลงเทียบ 7 วันที่แล้วเฉพาะยอดที่อิง `createdAt`), รายชื่อร้านรอตรวจสอบ 5 อันดับล่าสุด | ต้อง login เป็น admin |
 | GET | `/admin/shops` | list ร้านทั้งหมด พร้อมข้อมูลเจ้าของร้าน (join `users`) | ต้อง login เป็น admin |
 | GET | `/admin/shops/:id` | รายละเอียดร้าน + signed URL ชั่วคราว (10 นาที) สำหรับดูรูปบัตรประชาชน | ต้อง login เป็น admin |
-| PATCH | `/admin/shops/:id/approve` | อนุมัติร้าน (`approvalStatus` → `approved`, ล้าง `rejectedReason`) | ต้อง login เป็น admin |
-| PATCH | `/admin/shops/:id/reject` | ไม่อนุมัติร้าน พร้อมเหตุผล (`{ reason: string }`, บังคับกรอก) | ต้อง login เป็น admin |
+| PATCH | `/admin/shops/:id` | แก้ข้อมูลร้านค้าแทนเจ้าของร้าน (ชื่อ/เบอร์/อีเมล/ที่อยู่/ประเภทบริการ) | ต้อง login เป็น admin |
+| DELETE | `/admin/shops/:id` | ลบร้านค้า — ลบไม่ได้ถ้ามีบริการ/ออเดอร์ผูกอยู่ (409, ให้ใช้ระงับ/ปฏิเสธแทน) | ต้อง login เป็น admin |
+| PATCH | `/admin/shops/:id/approve` | อนุมัติร้าน (`approvalStatus` → `approved`, ล้าง `rejectedReason`) — ใช้ endpoint เดียวกันทั้งอนุมัติร้านสมัครใหม่และ "คืนสถานะ" ร้านที่เคยถูกระงับ (`suspended` → `approved`) เพราะทำสิ่งเดียวกันเป๊ะ | ต้อง login เป็น admin |
+| PATCH | `/admin/shops/:id/reject` | ไม่อนุมัติร้าน พร้อมเหตุผล (`{ reason: string }`, บังคับกรอก) — ใช้กับร้านสมัครใหม่ที่ยังไม่เคยอนุมัติเท่านั้น | ต้อง login เป็น admin |
+| PATCH | `/admin/shops/:id/suspend` | ระงับร้านที่เคยอนุมัติแล้ว พร้อมเหตุผล (`{ reason: string }`, บังคับกรอก, `approvalStatus` → `suspended`) — ต่างจาก `reject` ตรงที่ใช้กับร้านที่เปิดขายอยู่จริงแล้วโดนระงับทีหลัง ไม่ใช่ร้านสมัครใหม่ | ต้อง login เป็น admin |
 
-โค้ดอยู่ที่ `apps/api/src/routes/admin.ts` — ร้านต้อง `approvalStatus: "approved"` ก่อนถึงจะเรียก endpoint แก้ไข/ลบใน Main Services / Add-on Services / Delivery Options ด้านบนได้
+โค้ดอยู่ที่ `apps/api/src/routes/admin.ts` — ร้านต้อง `approvalStatus: "approved"` ก่อนถึงจะเรียก endpoint แก้ไข/ลบใน Main Services / Add-on Services / Delivery Options ด้านบนได้ (ร้าน `suspended` ถูกกันแบบเดียวกับ `pending`/`rejected` โดยอัตโนมัติ เพราะ `requireShopOwner()`/`canViewShopPublicly()` เช็คแบบ `!== "approved"`/`=== "approved"` อยู่แล้ว ไม่ต้องแก้โค้ดจุดนั้นเพิ่มตอนเพิ่มสถานะ `suspended`) — `GET /shops` (list สาธารณะ) กรองด้วย `WHERE approvalStatus = 'approved'` ตรงๆ เลยไม่ต้องแก้เพิ่มเช่นกัน ร้าน `suspended` จะหายจากรายการสาธารณะทันที
+
+## Admin — จัดการพื้นที่จัดเก็บ
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/admin/storage/overview` | สรุปพื้นที่ใช้งานต่อร้าน (พื้นที่ใช้ไป/โควต้า/เปอร์เซ็นต์/สถานะ `normal`\|`warning`(>65%)\|`danger`(>85%)) พร้อมยอดรวมทั้งระบบ | ต้อง login เป็น admin |
+| GET | `/admin/storage/files` | list ไฟล์งานพิมพ์ทั้งหมด (ทั้งที่ยังอยู่ในตะกร้าและอยู่ในออเดอร์แล้ว) เรียงไฟล์ใหญ่สุดก่อน — filter เฉพาะร้านเดียวด้วย `?shopId=` ได้ | ต้อง login เป็น admin |
+| GET | `/admin/storage/files/:path/url` | ออก signed URL ชั่วคราว (10 นาที) ให้ดูตัวอย่าง/ดาวน์โหลดไฟล์ | ต้อง login เป็น admin |
+| DELETE | `/admin/storage/files/:path` | ลบไฟล์เดียวถาวรจาก Storage จริง + เคลียร์ `fileUrl`/`fileName` ใน DB (ไม่มีถังขยะ/กู้คืน) | ต้อง login เป็น admin |
+| DELETE | `/admin/storage/shops/:shopId/files` | ลบไฟล์ทั้งหมดของร้านเดียวในทีเดียว | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/adminStorage.ts` — Zod/type ที่ `packages/shared/src/schemas/adminStorage.ts` — `path` = ชื่อไฟล์ใน bucket `order-files` (UUID สุ่ม ไม่ใช่ DB id เพราะไม่มีตาราง "ไฟล์" แยก) `storageQuotaMb` แก้ผ่าน `PATCH /admin/shops/:id` เดิม (เพิ่ม field นี้เข้า `adminUpdateShopSchema` แล้ว) ส่ง `null` เพื่อล้าง override กลับไปใช้ `system_settings.defaultShopStorageQuotaMb`
+
+⚠️ **ที่มาของขนาดไฟล์:** DB (`cart_items`/`order_items`) ไม่เก็บขนาดไฟล์เลย เพราะ bucket `order-files` ตั้งชื่อไฟล์เป็น UUID สุ่มล้วนไม่มีโฟลเดอร์แยกตามร้าน วิธีเดียวที่รู้ขนาด/เจ้าของคือ list ทั้ง bucket จาก Supabase Storage API (`listBucketFiles()` ใน `apps/api/src/storage.ts`) แล้ว join กับ DB เอาเอง (`collectAllFiles()` ใน `adminStorage.ts`) — คำนวณสดทุกครั้งที่เรียก ไม่มี cache ถ้าไฟล์เยอะมากในอนาคตอาจต้องพิจารณาแคช
+
+⚠️ **ขอบเขต:** ครอบคลุมเฉพาะ bucket `order-files` (ไฟล์งานพิมพ์ของลูกค้า) เท่านั้น ไม่รวม `shop-photos`/`id-cards`/`payment-slips` เพราะเป็น bucket ที่ไม่โตไม่จำกัดแบบ order-files (รูปโปรไฟล์/เอกสารยืนยันตัวตน ไม่ใช่ไฟล์งานพิมพ์ต่อออเดอร์)
+
+## Internal — งานลบไฟล์อัตโนมัติ
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| POST | `/internal/cleanup/expired-order-files` | ลบไฟล์งานพิมพ์ (bucket `order-files`) ของออเดอร์ที่ `status` เป็น `completed`/`cancelled` มาแล้วเกิน 1 วัน (นับจาก `orders.finishedAt`) — idempotent เรียกซ้ำได้ปลอดภัย (ไฟล์ที่ลบไปแล้ว `fileUrl` เป็น `null` แล้วจะไม่ถูกเลือกมาอีก) | ต้องส่ง header `x-cleanup-secret` ตรงกับ env `CLEANUP_SECRET` — **ไม่ใช่ JWT cookie ปกติ** เพราะเป็น machine-to-machine ไม่มีแอดมิน login ตอนเรียก |
+
+โค้ดอยู่ที่ `apps/api/src/routes/internalCleanup.ts` — `orders.finishedAt` ตั้งค่าอัตโนมัติที่ `PATCH /orders/:id/status` ตอนสถานะเปลี่ยนเป็น `completed`/`cancelled` (ดูหัวข้อ Orders ด้านบน) ออเดอร์ที่ยังทำงานอยู่ (`pending_review`/`accepted`/`in_progress`/`shipping`) จะไม่ถูกแตะเลยไม่ว่าจะสร้างมานานแค่ไหน
+
+⚠️ **ต้องตั้ง cron ภายนอกเองหลัง deploy — โค้ดนี้ให้แค่ endpoint ไม่ได้ตั้งเวลาเรียกเองในตัว** เพราะ Render free tier backend จะหลับหลังไม่มี request 15 นาที (ดู `AGENTS.md` หัวข้อ 7) ถ้าใช้ `setInterval` ในโปรเซส Bun เองงานจะไม่รันตอน backend หลับอยู่ ต้องใช้ตัวจับเวลาจากภายนอกมายิง endpoint นี้แทน เช่น:
+- **cron-job.org** (ฟรี, ตั้งง่ายสุด) — ตั้ง POST ไปที่ `https://<api-domain>/internal/cleanup/expired-order-files` พร้อม header `x-cleanup-secret: <ค่าจาก .env>` ทุกวัน
+- **Supabase pg_cron + pg_net (แนะนำ — เปิด extension ไว้ให้แล้วในโปรเจกต์นี้)** — เช็คแล้วว่า Supabase project นี้เปิดใช้ extension `pg_cron`/`pg_net` ได้จริง (`CREATE EXTENSION` ผ่านทั้งคู่) แต่**ยังไม่ได้ตั้ง job จริง เพราะยังไม่มี URL backend ที่ deploy จริงให้ยิงถึง** (ไม่เจอ Render/Vercel URL ที่ไหนในโปรเจกต์นี้เลย) พอ deploy backend เสร็จแล้วรัน SQL นี้ผ่าน Supabase SQL Editor (แทนที่ `<API_URL>` และ `<CLEANUP_SECRET>` ด้วยค่าจริง — **ห้าม commit ค่า secret ตัวจริงลง docs นี้**):
+  ```sql
+  select cron.schedule(
+    'cleanup-expired-order-files',
+    '0 3 * * *', -- ทุกวันตี 3 (UTC)
+    $$
+    select net.http_post(
+      url := '<API_URL>/internal/cleanup/expired-order-files',
+      headers := jsonb_build_object('x-cleanup-secret', '<CLEANUP_SECRET>', 'Content-Type', 'application/json')
+    );
+    $$
+  );
+  ```
+  เช็คผลรันย้อนหลังได้ที่ `select * from cron.job_run_details order by start_time desc limit 10;` — ยกเลิก job ด้วย `select cron.unschedule('cleanup-expired-order-files');`
+- **GitHub Actions scheduled workflow** — `on: schedule` ยิง `curl` ไปที่ endpoint เดียวกัน
+
+## Admin — ตั้งค่าระบบ
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/admin/settings` | อ่านค่าตั้งค่าระบบปัจจุบัน (ข้อมูลระบบ/การแจ้งเตือน/ความปลอดภัย/โควต้าพื้นที่ default) — ถ้ายังไม่เคยมีแถวใน DB เลย จะสร้างแถว default ให้อัตโนมัติแล้วคืนค่านั้น | ต้อง login เป็น admin |
+| PATCH | `/admin/settings` | แก้ค่าตั้งค่าระบบ (ส่งเฉพาะ field ที่เปลี่ยนได้ ไม่ต้องส่งครบทุกตัว) | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/adminSettings.ts` + helper กลาง `apps/api/src/systemSettings.ts` (`getSystemSettings()` — ใช้ที่นี่และใน `apps/api/src/auth/routes.ts` ตอนเช็คความยาวรหัสผ่านขั้นต่ำ) — Zod schema ที่ `packages/shared/src/schemas/admin.ts` (`updateAdminSettingsSchema`) — ตาราง `system_settings` มีแถวเดียวเสมอ (singleton)
+
+⚠️ **ขอบเขตของฟิลด์ "ความปลอดภัย":** `minPasswordLength` เท่านั้นที่บังคับใช้จริง (เช็คที่ `POST /auth/register`, `POST /auth/register/shop`, `POST /auth/reset-password`, `POST /auth/change-password` เพิ่มจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว) ส่วน `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` เก็บค่าไว้ในฐานข้อมูลจริงแต่**ยังไม่มีผลบังคับใช้จริงในระบบ** เก็บไว้ให้ UI แสดงผล/แก้ไขได้ก่อนเฉยๆ
 
 ## ยังไม่ได้ทำ (ตาม scope ในข้อเสนอโครงการ)
 
-- Shops: `PATCH /shops/:id` (toggle `delivery_enabled` ทั้งร้าน)
-- Cart: `POST /cart/checkout` (แปลงตะกร้าเป็นออเดอร์จริง คำนวณ+snapshot ราคา, เชื่อม `POST /orders` เข้ากับระบบราคาจริงของตะกร้าแทนสูตรชั่วคราว) — งาน phase ถัดไปหลังตะกร้า
-- `GET /orders/mine` (ประวัติสั่งซื้อของลูกค้า)
-- Dashboard: `GET /shops/:id/dashboard` (สรุปรายได้ตาม 1.3.1.6)
-- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว)
+- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว, มี in-app notification ให้แอดมินตอนร้านสมัครใหม่แล้วแต่ยังไม่มีอีเมลแจ้งร้านตอนผลอนุมัติออก)
 - ระบบ auto-verify สลิป (OCR อ่านยอด/ธนาคารอัตโนมัติ) — ตอนนี้ร้านต้องดูสลิปด้วยตาแล้วกดอนุมัติ/ปฏิเสธเอง
-- เพิ่ม `"payment-slip"` เข้า whitelist ของ `POST /uploads` (ดูหัวข้อ Uploads ด้านบน) — ตอนนี้ bucket พร้อมแต่ endpoint ยังปฏิเสธ type นี้อยู่
+- บังคับใช้จริง `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` ใน `system_settings` (ตอนนี้เก็บค่าไว้เฉยๆ ยังไม่มีผลกับระบบจริง — ดูหัวข้อ Admin — ตั้งค่าระบบด้านบน)
+- ระบบแจ้งเตือน (email/push) ตาม `system_settings.notificationSettings` ที่แอดมินตั้งไว้ — ตอนนี้เก็บ preference ไว้เฉยๆ ยังไม่ผูกกับการส่งจริง

@@ -11,6 +11,7 @@ import {
   Settings,
   PhoneCall,
   Bell,
+  Star,
   ChevronLeft,
   ChevronRight,
   X,
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { label: "ตรวจสอบร้านค้า", href: "/admin/shops", icon: ShieldCheck },
   { label: "จัดการร้านค้า", href: "/admin/manage", icon: Store },
   { label: "จัดการไฟล์และพื้นที่จัดเก็บ", href: "/admin/storage", icon: HardDrive },
+  { label: "รีวิวทั้งหมด", href: "/admin/reviews", icon: Star },
   { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },
   { label: "ติดต่อสอบถาม", href: "/admin/contact-messages", icon: PhoneCall },
 ];

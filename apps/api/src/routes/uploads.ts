@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { uploadFile, type UploadType } from "../storage";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
+import { requireAdmin } from "./admin";
 
 // ⚠️ endpoint นี้เปิดสาธารณะโดยดีฟอลต์ (ไม่เช็ค JWT) เพราะต้องใช้ตอนสมัครร้านค้า ก่อนมีบัญชี/login
 // กันการใช้งานผิดวัตถุประสงค์ด้วยการจำกัดชนิดไฟล์ + ขนาดไฟล์ที่ apps/api/src/storage.ts เท่านั้น
@@ -22,6 +23,7 @@ export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie
     "order-file",
     "payment-slip",
     "contact-admin-attachment",
+    "system-logo",
   ];
   if (!validTypes.includes(type as UploadType)) {
     set.status = 400;
@@ -37,6 +39,12 @@ export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie
         error: "ต้องเข้าสู่ระบบก่อนอัปโหลดไฟล์",
       };
     }
+  }
+
+  // system-logo (โลโก้ระบบในหน้า /admin/settings) ต้องเป็นแอดมินเท่านั้นถึงจะอัปโหลดได้ ต่างจาก type สาธารณะอื่นๆ
+  if (type === "system-logo") {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
   }
 
   try {

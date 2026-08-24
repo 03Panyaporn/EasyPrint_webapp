@@ -14,6 +14,7 @@ import {
 
 import { getOrder, type ApiOrder } from "@/lib/api/orders";
 import { getShop } from "@/lib/api/shops";
+import OrderReviewSection from "@/components/customer/OrderReviewSection";
 import {
   statusConfig,
   cancelReasonLabels,
@@ -724,6 +725,12 @@ export default function OrderStatusPage({
 
           </div>
         </div>
+
+        {order.status === "completed" && (
+          <div className="mt-5">
+            <OrderReviewSection orderId={order.id} />
+          </div>
+        )}
 
       </div>
     </main>
