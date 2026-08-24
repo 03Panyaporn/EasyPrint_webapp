@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -10,73 +10,64 @@ import {
   Settings,
   User,
   Store,
-  HardDrive,
-  AlertTriangle,
+  XCircle,
+  MessageCircle,
   CheckCircle2,
   CheckCheck,
-  Check,
-  ArrowRight,
   ShieldCheck,
-  X,
-  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import type { AdminNotificationItem, AdminNotificationType } from "@easyprint/shared";
+import { getAdminNotifications, markAdminNotificationRead, markAllAdminNotificationsRead } from "@/lib/api/notifications";
 
 interface AdminTopbarProps {
   onMobileMenuOpen: () => void;
   notificationCount?: number;
 }
 
-export type PopupNotification = {
-  id: string;
-  type: "shop" | "storage";
-  title: string;
-  description: string;
-  timeAgo: string;
-  isUnread: boolean;
-  href: string;
+const NOTIF_META: Record<AdminNotificationType, { icon: typeof Store; iconBg: string; iconColor: string; label: string }> = {
+  shop_registered: { icon: Store, iconBg: "bg-emerald-50 border border-emerald-200/80", iconColor: "text-emerald-600", label: "ร้านค้าใหม่" },
+  order_cancelled: { icon: XCircle, iconBg: "bg-red-50 border border-red-200/80", iconColor: "text-red-600", label: "ออเดอร์ยกเลิก" },
+  contact_admin_message: { icon: MessageCircle, iconBg: "bg-blue-50 border border-blue-200/80", iconColor: "text-blue-600", label: "ข้อความ" },
 };
 
-const INITIAL_NOTIFICATIONS: PopupNotification[] = [
-  {
-    id: "notif-1",
-    type: "shop",
-    title: "ร้านค้าใหม่ขออนุมัติ",
-    description: "ร้าน Johan Printer (เมืองพะเยา) สมัครเปิดร้านค้าใหม่ ต้องการการอนุมัติเปิดระบบ",
-    timeAgo: "10 นาทีที่แล้ว",
-    isUnread: true,
-    href: "/admin/shops",
-  },
-  {
-    id: "notif-2",
-    type: "storage",
-    title: "พื้นที่จัดเก็บใกล้เต็ม (88%)",
-    description: "Supabase Storage ใช้งานไปแล้ว 44.0 GB จาก 50.0 GB กรุณาตรวจสอบไฟล์สะสม",
-    timeAgo: "45 นาทีที่แล้ว",
-    isUnread: true,
-    href: "/admin/storage",
-  },
-  {
-    id: "notif-3",
-    type: "shop",
-    title: "ร้านค้าใหม่ยื่นเปิดร้าน",
-    description: "ร้าน TONFAH PRINTER พะเยา สมัครเข้าสู่ระบบเพื่อให้บริการพิมพ์งาน",
-    timeAgo: "2 ชั่วโมงที่แล้ว",
-    isUnread: false,
-    href: "/admin/shops",
-  },
-];
+// เวลาสัมพัทธ์แบบไทยง่ายๆ ("5 นาทีที่แล้ว") — ใช้แสดงในรายการแจ้งเตือนเท่านั้น ไม่ต้อง precise
+function formatTimeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "เมื่อสักครู่";
+  if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ชั่วโมงที่แล้ว`;
+  const days = Math.floor(hours / 24);
+  return `${days} วันที่แล้ว`;
+}
+
+const NOTIF_POLL_INTERVAL_MS = 30000;
 
 export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<PopupNotification[]>(INITIAL_NOTIFICATIONS);
-  const [activeTab, setActiveTab] = useState<"all" | "shop" | "storage">("all");
+  const [notifications, setNotifications] = useState<AdminNotificationItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"all" | AdminNotificationType>("all");
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  const loadNotifications = useCallback(() => {
+    getAdminNotifications()
+      .then((res) => setNotifications(res.notifications))
+      .catch((err) => console.error("โหลดการแจ้งเตือนไม่สำเร็จ:", err));
+  }, []);
+
+  // โหลดครั้งแรก + poll ทุก 30 วิ (ไม่มี WebSocket ในระบบนี้ — polling เพียงพอสำหรับความถี่การแจ้งเตือนที่มี)
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, NOTIF_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
 
   const handleLogout = async () => {
     try {
@@ -105,25 +96,23 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const unreadCount = notifications.filter((n) => n.isUnread).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    markAllAdminNotificationsRead().catch((err) => console.error("มาร์คอ่านทั้งหมดไม่สำเร็จ:", err));
   };
 
-  const handleNotificationClick = (notif: PopupNotification) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, isUnread: false } : n))
-    );
+  const handleNotificationClick = (notif: AdminNotificationItem) => {
+    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)));
+    if (!notif.isRead) {
+      markAdminNotificationRead(notif.id).catch((err) => console.error("มาร์คอ่านไม่สำเร็จ:", err));
+    }
     setNotifOpen(false);
-    router.push(notif.href);
+    if (notif.link) router.push(notif.link);
   };
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (activeTab === "shop") return n.type === "shop";
-    if (activeTab === "storage") return n.type === "storage";
-    return true;
-  });
+  const filteredNotifications = notifications.filter((n) => activeTab === "all" || n.type === activeTab);
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-100 shadow-sm flex items-center gap-3 px-4">
@@ -212,26 +201,19 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
               >
                 ทั้งหมด ({notifications.length})
               </button>
-              <button
-                onClick={() => setActiveTab("shop")}
-                className={`flex-1 py-1.5 rounded-lg transition-all duration-200 text-center ${
-                  activeTab === "shop"
-                    ? "bg-white text-orange-600 shadow-2xs font-extrabold scale-[1.02]"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-100/60"
-                }`}
-              >
-                ร้านค้าใหม่
-              </button>
-              <button
-                onClick={() => setActiveTab("storage")}
-                className={`flex-1 py-1.5 rounded-lg transition-all duration-200 text-center ${
-                  activeTab === "storage"
-                    ? "bg-white text-orange-600 shadow-2xs font-extrabold scale-[1.02]"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-100/60"
-                }`}
-              >
-                พื้นที่จัดเก็บ
-              </button>
+              {(Object.keys(NOTIF_META) as AdminNotificationType[]).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setActiveTab(type)}
+                  className={`flex-1 py-1.5 rounded-lg transition-all duration-200 text-center ${
+                    activeTab === type
+                      ? "bg-white text-orange-600 shadow-2xs font-extrabold scale-[1.02]"
+                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-100/60"
+                  }`}
+                >
+                  {NOTIF_META[type].label}
+                </button>
+              ))}
             </div>
 
             {/* List */}
@@ -243,44 +225,44 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
                   <p className="text-[11px] text-gray-400">ระบบทำงานเป็นปกติทุกส่วน</p>
                 </div>
               ) : (
-                filteredNotifications.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => handleNotificationClick(n)}
-                    className={`group w-full p-3.5 text-left transition-all duration-200 ease-out flex items-start gap-3 hover:bg-orange-50/70 hover:translate-x-1 ${
-                      n.isUnread ? "bg-orange-50/30" : "bg-white"
-                    }`}
-                  >
-                    {/* Icon Badge with micro hover bounce */}
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs transition-transform duration-200 group-hover:scale-110 ${
-                        n.type === "shop"
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200/80"
-                          : "bg-amber-50 text-amber-600 border border-amber-200/80"
+                filteredNotifications.map((n) => {
+                  const meta = NOTIF_META[n.type];
+                  const Icon = meta.icon;
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`group w-full p-3.5 text-left transition-all duration-200 ease-out flex items-start gap-3 hover:bg-orange-50/70 hover:translate-x-1 ${
+                        !n.isRead ? "bg-orange-50/30" : "bg-white"
                       }`}
                     >
-                      {n.type === "shop" ? <Store size={18} /> : <HardDrive size={18} />}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <h4 className={`text-xs truncate transition-colors duration-150 group-hover:text-orange-600 ${n.isUnread ? "font-extrabold text-gray-900" : "font-bold text-gray-700"}`}>
-                          {n.title}
-                        </h4>
-                        {n.isUnread && (
-                          <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0 animate-ping" />
-                        )}
+                      {/* Icon Badge with micro hover bounce */}
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs transition-transform duration-200 group-hover:scale-110 ${meta.iconBg} ${meta.iconColor}`}
+                      >
+                        <Icon size={18} />
                       </div>
-                      <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed font-medium">
-                        {n.description}
-                      </p>
-                      <p className="text-[10px] text-gray-400 font-semibold mt-1">
-                        {n.timeAgo}
-                      </p>
-                    </div>
-                  </button>
-                ))
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                          <h4 className={`text-xs truncate transition-colors duration-150 group-hover:text-orange-600 ${!n.isRead ? "font-extrabold text-gray-900" : "font-bold text-gray-700"}`}>
+                            {n.title}
+                          </h4>
+                          {!n.isRead && (
+                            <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0 animate-ping" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed font-medium">
+                          {n.message}
+                        </p>
+                        <p className="text-[10px] text-gray-400 font-semibold mt-1">
+                          {formatTimeAgo(n.createdAt)}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
 
@@ -295,12 +277,12 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
                 <span>ดูหน้าตรวจสอบร้านค้า</span>
               </Link>
               <Link
-                href="/admin/storage"
+                href="/admin/notifications"
                 onClick={() => setNotifOpen(false)}
                 className="text-[11px] font-bold text-gray-600 hover:text-gray-900 hover:underline flex items-center gap-1 transition-transform duration-150 hover:translate-x-0.5"
               >
-                <HardDrive size={13} />
-                <span>จัดการพื้นที่จัดเก็บ</span>
+                <Bell size={13} />
+                <span>ดูการแจ้งเตือนทั้งหมด</span>
               </Link>
             </div>
           </div>

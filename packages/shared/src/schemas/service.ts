@@ -219,6 +219,37 @@ function refineQuantityTierOverlap(
   }
 }
 
+// quantityTiers ใช้ได้เฉพาะ pricingModel = per_piece — โมเดลอื่นไม่มี UI สร้างค่านี้อยู่แล้ว แต่กันไว้ไม่ให้ backend เก็บขยะเข้า DB ถ้ามีการยิง request ตรงๆ
+function refineQuantityTiersOnlyForPerPiece(
+  d: { pricingModel?: z.infer<typeof pricingModelSchema>; quantityTiers?: QuantityTierInput[] },
+  ctx: z.RefinementCtx
+) {
+  if (!d.pricingModel || d.pricingModel === "per_piece" || !d.quantityTiers || d.quantityTiers.length === 0) return;
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: `ราคาขั้นบันได (Quantity Tier) ใช้ได้เฉพาะบริการแบบ "per_piece" เท่านั้น — บริการแบบ "${d.pricingModel}" ต้องไม่มีค่านี้`,
+    path: ["quantityTiers"],
+  });
+}
+
+// หมวดราคา "size" (ตัวเลือกขนาดสำเร็จรูป เช่น A4/A3) ใช้กับ per_sqm ไม่ได้ — per_sqm ให้ลูกค้ากรอกกว้าง/สูงเองอิสระอยู่แล้ว
+// (buildDefaultOptions ฝั่ง wizard ไม่สร้างหัวข้อนี้ให้อัตโนมัติเมื่อ per_sqm อยู่แล้ว แต่ร้านค้ากด "+ เพิ่มหัวข้อพิเศษ" เองได้ กันไว้ชั้น schema ด้วย)
+function refineSizeCategoryNotAllowedForSqm(
+  d: { pricingModel?: z.infer<typeof pricingModelSchema>; options?: ServiceOptionInput[] },
+  ctx: z.RefinementCtx
+) {
+  if (d.pricingModel !== "per_sqm" || !d.options) return;
+  d.options.forEach((opt, optIdx) => {
+    if (opt.priceCategory === "size") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `หัวข้อ "${opt.name || "-"}" ใช้หมวด "ขนาด" กับบริการแบบกำหนดขนาดเอง (per_sqm) ไม่ได้ — ลูกค้ากรอกกว้าง/สูงเองอยู่แล้ว`,
+        path: ["options", optIdx, "priceCategory"],
+      });
+    }
+  });
+}
+
 function refineMainService(
   d: {
     options?: ServiceOptionInput[];
@@ -231,6 +262,8 @@ function refineMainService(
   refineNoDuplicatePriceCategory(d, ctx);
   refinePriceScopeAllowList(d, ctx);
   refineQuantityTierOverlap(d, ctx);
+  refineQuantityTiersOnlyForPerPiece(d, ctx);
+  refineSizeCategoryNotAllowedForSqm(d, ctx);
 }
 
 export const createMainServiceSchema = mainServiceObjectSchema.superRefine(refineMainService);

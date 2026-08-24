@@ -20,10 +20,7 @@ import {
 } from "@/lib/api/orders";
 import { ApiError } from "@/lib/api/client";
 
-type HistoryOrder = ApiOrder & {
-    customerConfirmed?: boolean;
-    customerConfirmedAt?: string | null;
-};
+type HistoryOrder = ApiOrder;
 
 export default function OrderHistoryPage() {
     const [orders, setOrders] = useState<HistoryOrder[]>([]);
@@ -33,11 +30,11 @@ export default function OrderHistoryPage() {
     useEffect(() => {
         getCustomerOrders()
             .then((res) => {
-                const confirmedOrders = (res.orders as HistoryOrder[]).filter(
-                    (order) => order.customerConfirmed === true
+                const completedOrders = res.orders.filter(
+                    (order) => order.status === "completed"
                 );
 
-                setOrders(confirmedOrders);
+                setOrders(completedOrders);
             })
             .catch((err) => {
                 setError(
@@ -102,7 +99,7 @@ export default function OrderHistoryPage() {
                                 </h1>
 
                                 <p className="mt-0.5 text-xs text-slate-400 md:text-sm">
-                                    งานที่คุณยืนยันรับเรียบร้อยแล้ว
+                                    งานที่เสร็จสิ้นเรียบร้อยแล้ว
                                 </p>
                             </div>
                         </div>
@@ -133,7 +130,7 @@ export default function OrderHistoryPage() {
                                     className="text-green-500"
                                 />
                                 <span className="text-xs text-slate-400">
-                                    ยืนยันรับงานแล้ว
+                                    เสร็จสิ้นแล้ว
                                 </span>
                             </div>
 
@@ -162,7 +159,7 @@ export default function OrderHistoryPage() {
                             </p>
 
                             <p className="text-[11px] text-slate-400">
-                                จากคำสั่งซื้อที่ยืนยันแล้ว
+                                จากคำสั่งซื้อที่เสร็จสิ้นแล้ว
                             </p>
                         </div>
                     </div>
@@ -180,7 +177,7 @@ export default function OrderHistoryPage() {
                         </h2>
 
                         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-400">
-                            เมื่อคุณได้รับงานและกดยืนยันรับงาน
+                            เมื่อคำสั่งซื้อของคุณเสร็จสิ้น
                             รายการจะถูกบันทึกไว้ในหน้านี้
                         </p>
 
@@ -211,18 +208,6 @@ export default function OrderHistoryPage() {
                                 hour: "2-digit",
                                 minute: "2-digit",
                             });
-
-                            const confirmedDate = order.customerConfirmedAt
-                                ? new Date(
-                                    order.customerConfirmedAt
-                                ).toLocaleString("th-TH", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                })
-                                : null;
 
                             return (
                                 <div
@@ -255,7 +240,7 @@ export default function OrderHistoryPage() {
                                                 />
 
                                                 <span className="text-[11px] text-green-600">
-                                                    ยืนยันรับงานแล้ว
+                                                    เสร็จสิ้นแล้ว
                                                 </span>
                                             </div>
                                         </div>
@@ -325,15 +310,6 @@ export default function OrderHistoryPage() {
                                                     สั่งซื้อเมื่อ {dateStr}
                                                 </span>
                                             </div>
-
-                                            {confirmedDate && (
-                                                <div className="flex items-center gap-2 text-green-500">
-                                                    <CheckCircle2 size={14} />
-                                                    <span>
-                                                        ยืนยันรับงานเมื่อ {confirmedDate}
-                                                    </span>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
 
@@ -356,7 +332,7 @@ export default function OrderHistoryPage() {
                 {/* MOBILE COUNT */}
                 {orders.length > 0 && (
                     <p className="mt-5 text-center text-[11px] text-slate-400 sm:hidden">
-                        {orders.length} รายการที่ยืนยันรับแล้ว
+                        {orders.length} รายการที่เสร็จสิ้นแล้ว
                     </p>
                 )}
             </div>
