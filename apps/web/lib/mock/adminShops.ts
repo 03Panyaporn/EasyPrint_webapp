@@ -1,7 +1,7 @@
 // Mock data สำหรับ Admin — ตรวจสอบร้านค้า
 // เตรียมเชื่อม API จริงในภายหลัง (structure ตรงกับ DB schema)
 
-export type ShopStatus = "รอตรวจสอบ" | "อนุมัติแล้ว" | "ไม่อนุมัติ";
+export type ShopStatus = "รอตรวจสอบ" | "อนุมัติแล้ว" | "ไม่อนุมัติ" | "ลบบัญชีแล้ว";
 
 export interface MockDocument {
   id: string;
