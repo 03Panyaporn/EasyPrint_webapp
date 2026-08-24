@@ -24,12 +24,12 @@ export default function NotificationToast({
     return () => clearTimeout(timer);
   }, [onClose, duration]);
 
-  const isApprove = type === "approve";
+  const isSuccess = type === "approve" || type === "edit";
 
   return (
     <div
       className={`fixed bottom-6 right-6 z-[100] flex items-start gap-3 px-4 py-4 rounded-2xl shadow-2xl border max-w-xs w-full
-        ${isApprove
+        ${isSuccess
           ? "bg-white border-green-200"
           : "bg-white border-red-200"
         }
@@ -38,10 +38,10 @@ export default function NotificationToast({
       {/* Icon */}
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          isApprove ? "bg-green-100" : "bg-red-100"
+          isSuccess ? "bg-green-100" : "bg-red-100"
         }`}
       >
-        {isApprove ? (
+        {isSuccess ? (
           <CheckCircle2 size={22} className="text-green-500" />
         ) : (
           <XCircle size={22} className="text-red-500" />
@@ -51,10 +51,10 @@ export default function NotificationToast({
       {/* Content */}
       <div className="flex-1 min-w-0 pt-0.5">
         <p className="text-sm font-bold text-gray-900">
-          {isApprove ? "อนุมัติร้านค้าแล้ว" : "ไม่อนุมัติร้านค้า"}
+          {type === "approve" ? "อนุมัติร้านค้าแล้ว" : type === "reject" ? "ไม่อนุมัติร้านค้า" : type === "edit" ? "แก้ไขข้อมูลร้านค้าแล้ว" : type === "suspend" ? "ระงับการใช้งานร้านค้า" : "ลบร้านค้าแล้ว"}
         </p>
         <p className="text-xs text-gray-500 mt-0.5 truncate">
-          ร้าน &ldquo;{shopName}&rdquo; {isApprove ? "ได้รับการอนุมัติแล้ว" : "ถูกปฏิเสธการสมัคร"}
+          ร้าน &ldquo;{shopName}&rdquo; {type === "approve" ? "ได้รับการอนุมัติแล้ว" : type === "reject" ? "ถูกปฏิเสธการสมัคร" : type === "edit" ? "ได้รับการแก้ไขข้อมูลแล้ว" : type === "suspend" ? "ถูกระงับการใช้งานชั่วคราว" : "ถูกลบออกจากระบบแล้ว"}
         </p>
       </div>
 
@@ -69,7 +69,7 @@ export default function NotificationToast({
       {/* Progress bar */}
       <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl overflow-hidden">
         <div
-          className={`h-full ${isApprove ? "bg-green-400" : "bg-red-400"}`}
+          className={`h-full ${isSuccess ? "bg-green-400" : "bg-red-400"}`}
           style={{ animation: `shrink ${duration}ms linear forwards` }}
         />
       </div>
