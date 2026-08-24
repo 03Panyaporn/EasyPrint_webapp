@@ -5,11 +5,15 @@ import {
     Search,
     Paperclip,
     Send,
-    Phone,
     CheckCheck,
     ArrowLeft,
+    FileText,
+    Download,
+    Loader2,
+    Image as ImageIcon
 } from "lucide-react";
 import { ChatMessage } from "@/types/chat";
+import { uploadFile } from "@/lib/api/uploads";
 
 type Sender = "customer" | "shop";
 
@@ -87,8 +91,10 @@ export default function ChatPage({
     const [messages, setMessages] = useState<ChatMessage[]>(mockMessages);
     const [text, setText] = useState("");
     const [showChat, setShowChat] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({
@@ -110,13 +116,47 @@ export default function ChatPage({
         setText("");
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+
+        try {
+            let fileUrl = "";
+            try {
+                const res = await uploadFile(file, "order-file");
+                fileUrl = res.url || URL.createObjectURL(file);
+            } catch {
+                fileUrl = URL.createObjectURL(file);
+            }
+
+            const newMessage: ChatMessage = {
+                id: Date.now().toString(),
+                sender: currentUser,
+                text: file.name,
+                fileUrl,
+                fileName: file.name,
+                fileType: file.type,
+                createdAt: new Date().toISOString(),
+            };
+
+            setMessages((prev) => [...prev, newMessage]);
+        } catch (err) {
+            console.error("Upload error:", err);
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
     const selectRoom = (room: ChatRoom) => {
         setSelectedRoom(room);
         setShowChat(true);
     };
 
     return (
-        <div className="h-[calc(100vh-64px)] bg-slate-50 flex overflow-hidden">
+        <div className="h-[calc(100dvh-9.5rem)] sm:h-[calc(100dvh-10.5rem)] md:h-[540px] bg-white flex rounded-xl sm:rounded-2xl border border-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden w-full">
 
             {/* ================================================= */}
             {/* CHAT LIST */}
@@ -124,10 +164,10 @@ export default function ChatPage({
 
             <aside
                 className={`
-                    w-[500px]
+                    w-full md:w-80 
                     shrink-0
                     bg-white
-                    border-r border-slate-300
+                    border-r border-slate-200
                     flex flex-col
                     h-full
 
@@ -276,7 +316,6 @@ text-white
                     bg-white
                     h-full
                     overflow-hidden
-                    border
 
                     ${showChat ? "flex" : "hidden md:flex"}
                 `}
@@ -289,7 +328,7 @@ text-white
                 <header className="
                     h-[72px]
                     shrink-0
-                    border-b border-slate-300
+                    border-b border-slate-200
                     bg-white
                     flex
                     items-center
@@ -365,28 +404,6 @@ text-white
                         </div>
 
                     </div>
-
-
-                    {/* ACTION */}
-
-                    <div className="flex items-center gap-1">
-
-                        <button
-                            className="
-                                w-8
-                                h-8
-                                rounded-lg
-                                flex
-                                items-center
-                                justify-center
-                                bg-orange-50
-                                text-orange-500
-                            "
-                        >
-                            <Phone size={16} />
-                        </button>
-                    </div>
-
                 </header>
 
 
@@ -478,14 +495,48 @@ text-white
                                         `}
                                     >
 
-                                        <p className="
-                                            text-xs
-                                            md:text-sm
-                                            leading-5
-                                            break-words
-                                        ">
-                                            {message.text}
-                                        </p>
+                                        {message.fileUrl ? (
+                                            <div className="my-1 space-y-1.5">
+                                                {message.fileType?.startsWith("image/") || message.fileUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
+                                                    <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-slate-200 shadow-xs max-w-xs hover:opacity-95 transition">
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={message.fileUrl} alt={message.fileName || "รูปภาพ"} className="w-full h-auto max-h-48 object-cover rounded-lg" />
+                                                    </a>
+                                                ) : (
+                                                    <a
+                                                        href={message.fileUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={`flex items-center gap-2.5 p-2 rounded-xl border transition ${isMine
+                                                            ? "bg-white/15 border-white/20 text-white hover:bg-white/25"
+                                                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                                            }`}
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isMine ? "bg-white/20 text-white" : "bg-orange-100 text-orange-600"}`}>
+                                                            <FileText size={18} />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-semibold truncate">{message.fileName || message.text || "ไฟล์แนบ"}</p>
+                                                            <span className="text-[10px] opacity-80 flex items-center gap-1">
+                                                                <Download size={10} /> ดาวน์โหลดไฟล์
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                )}
+                                                {message.text && message.text !== message.fileName && (
+                                                    <p className="text-xs md:text-sm leading-5 break-words">{message.text}</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="
+                                                text-xs
+                                                md:text-sm
+                                                leading-5
+                                                break-words
+                                            ">
+                                                {message.text}
+                                            </p>
+                                        )}
 
                                         <div
                                             className={`
@@ -538,12 +589,14 @@ text-white
 
                 <div className="
                     shrink-0
+                    sticky bottom-0 z-10
                     border-t
                     border-slate-100
                     bg-white
-                    px-3
+                    px-2
                     sm:px-4
-                    py-2.5
+                    py-2
+                    sm:py-2.5
                 ">
 
                     <form
@@ -567,10 +620,19 @@ text-white
                         "
                     >
 
-                        {/* ATTACH */}
+                        {/* ATTACH FILE INPUT */}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                        />
 
                         <button
                             type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
                             className="
                                 w-8
                                 h-8
@@ -582,9 +644,16 @@ text-white
                                 text-slate-400
                                 hover:bg-orange-50
                                 hover:text-orange-500
+                                disabled:opacity-50
+                                transition
                             "
+                            title="แนบไฟล์ / รูปภาพ"
                         >
-                            <Paperclip size={17} />
+                            {uploading ? (
+                                <Loader2 size={17} className="animate-spin text-orange-500" />
+                            ) : (
+                                <Paperclip size={17} />
+                            )}
                         </button>
 
 
