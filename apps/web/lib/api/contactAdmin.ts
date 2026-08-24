@@ -26,3 +26,9 @@ export function replyContactAdminMessage(id: string, input: ReplyContactAdminMes
     body: JSON.stringify(input),
   });
 }
+
+export function deleteContactAdminMessage(id: string) {
+  return apiFetch<{ success: boolean }>(`/admin/contact-messages/${id}`, {
+    method: "DELETE",
+  });
+}

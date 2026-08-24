@@ -6,7 +6,7 @@ import {
   type ContactAdminMessageItem,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { contactAdminMessages, shops } from "../../drizzle/schema";
+import { contactAdminMessages, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { createAdminNotification } from "../adminNotifications";
@@ -25,11 +25,12 @@ async function requireAdmin(cookie: Record<string, { value?: unknown } | undefin
   return null;
 }
 
-function serialize(row: typeof contactAdminMessages.$inferSelect, shopName?: string): ContactAdminMessageItem {
+function serialize(row: typeof contactAdminMessages.$inferSelect, shopName?: string, shopEmail?: string): ContactAdminMessageItem {
   return {
     id: row.id,
     shopId: row.shopId,
     shopName,
+    shopEmail,
     subject: row.subject,
     message: row.message,
     status: row.status,
@@ -87,12 +88,13 @@ export const contactAdminRoutes = new Elysia()
     if (authError) return authError;
 
     const rows = await db
-      .select({ message: contactAdminMessages, shopName: shops.name })
+      .select({ message: contactAdminMessages, shopName: shops.name, shopEmail: users.email })
       .from(contactAdminMessages)
       .leftJoin(shops, eq(contactAdminMessages.shopId, shops.id))
+      .leftJoin(users, eq(shops.ownerId, users.id))
       .orderBy(desc(contactAdminMessages.createdAt));
 
-    return { messages: rows.map((r) => serialize(r.message, r.shopName ?? undefined)) };
+    return { messages: rows.map((r) => serialize(r.message, r.shopName ?? undefined, r.shopEmail ?? undefined)) };
   })
 
   // ── แอดมินตอบกลับข้อความ ──────────
@@ -120,4 +122,22 @@ export const contactAdminRoutes = new Elysia()
     const [shop] = await db.select({ name: shops.name }).from(shops).where(eq(shops.id, updated.shopId));
 
     return { message: serialize(updated, shop?.name) };
+  })
+  
+  // ── แอดมินลบข้อความ ──────────
+  .delete("/admin/contact-messages/:id", async ({ params, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const [deleted] = await db
+      .delete(contactAdminMessages)
+      .where(eq(contactAdminMessages.id, params.id))
+      .returning();
+
+    if (!deleted) {
+      set.status = 404;
+      return { error: "ไม่พบข้อความนี้" };
+    }
+
+    return { success: true };
   });

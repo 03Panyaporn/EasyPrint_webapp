@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
   { label: "จัดการร้านค้า", href: "/admin/manage", icon: Store },
   { label: "จัดการไฟล์และพื้นที่จัดเก็บ", href: "/admin/storage", icon: HardDrive },
   { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },
-  { label: "ติดต่อสอบถาม", href: "/admin/contact", icon: PhoneCall },
+  { label: "ติดต่อสอบถาม", href: "/admin/contact-messages", icon: PhoneCall },
 ];
 
 // ─────────────────────────────────────────────────
