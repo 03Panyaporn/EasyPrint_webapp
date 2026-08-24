@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { Bell, X, CheckCircle2, XCircle } from "lucide-react";
 
-export type ToastType = "approve" | "reject";
+export type ToastType = "approve" | "reject" | "delete" | "edit" | "suspend";
 
 interface NotificationToastProps {
   type: ToastType;

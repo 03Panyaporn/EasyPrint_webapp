@@ -9,9 +9,22 @@ import {
     CheckCheck,
     ArrowLeft,
 } from "lucide-react";
-import { ChatMessage } from "@/types/chat";
 
 type Sender = "customer" | "shop";
+
+export type ChatMessage = {
+    id: string;
+    text: string;
+    sender: Sender;
+    time?: string;
+    createdAt: string;
+    status?: "read" | "sent";
+    file?: {
+        name: string;
+        url: string;
+    };
+};
+
 
 type ChatRoom = {
     id: string;

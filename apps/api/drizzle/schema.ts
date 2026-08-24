@@ -478,3 +478,40 @@ export const addresses = pgTable("addresses", {
     .defaultNow()
     .notNull(),
 });
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  typeId: integer("type_id").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  category: text("category").notNull(),
+  isRead: boolean("is_read").default(false).notNull(),
+  link: text("link"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  shopId: uuid("shop_id").notNull().references(() => shops.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  order: one(orders, { fields: [messages.orderId], references: [orders.id] }),
+  sender: one(users, { fields: [messages.senderId], references: [users.id] }),
+  shop: one(shops, { fields: [messages.shopId], references: [shops.id] }),
+}));

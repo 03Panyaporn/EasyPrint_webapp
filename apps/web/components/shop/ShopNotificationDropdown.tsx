@@ -21,6 +21,11 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "../../lib/api/notifications";
 
 // Notification Data Types
 export type NotificationCategory = "all" | "chat" | "general";
@@ -77,8 +82,26 @@ const initialNotifications: NotificationItem[] = [
 export default function ShopNotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NotificationCategory>("all");
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getNotifications();
+        if (data && data.notifications) {
+          setNotifications(data.notifications as NotificationItem[]);
+        }
+      } catch (err) {
+        console.error("Failed to load notifications", err);
+      }
+    }
+    load();
+    
+    // Optional: poll every 30s
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -98,16 +121,30 @@ export default function ShopNotificationDropdown() {
     return n.category === activeTab;
   });
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  const markAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const markAsRead = async (id: string) => {
+    const notif = notifications.find(n => n.id === id);
+    if (notif && !notif.isRead) {
+      try {
+        await markNotificationAsRead(id);
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   const removeNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    // Optional: add delete API later if needed
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
@@ -195,17 +232,15 @@ export default function ShopNotificationDropdown() {
 
                       {/* Content */}
                       <div className="flex-1 min-w-0 pr-6">
-                        <div className="flex justify-between items-start mb-0.5 gap-2">
-                          <h4 className={`text-[14px] leading-tight truncate ${!notif.isRead ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
-                            {notif.title}
-                          </h4>
-                        </div>
-                        <p className={`text-[13px] leading-snug line-clamp-2 ${!notif.isRead ? 'text-slate-700' : 'text-slate-500'}`}>
+                        <p className="text-sm font-semibold text-slate-800 leading-snug">{notif.title}</p>
+                        <p className={`text-xs mt-0.5 line-clamp-2 ${notif.isRead ? 'text-slate-500' : 'text-slate-600 font-medium'}`}>
                           {notif.message}
                         </p>
-                        <span className="block text-[11px] font-medium text-slate-400 mt-1.5">
-                          {notif.createdAt}
-                        </span>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium flex items-center gap-1">
+                          {new Date(notif.createdAt).toLocaleString("th-TH", {
+                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                          })}
+                        </p>
                       </div>
 
                       {/* Delete Button (appears on hover) */}

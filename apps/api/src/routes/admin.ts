@@ -1,10 +1,11 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { desc, eq } from "drizzle-orm";
 import { rejectShopSchema } from "@easyprint/shared";
 import { db } from "../db";
 import { shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { supabaseAdmin } from "../storage";
+import { createNotification } from "../utils/notification";
 
 // เช็คว่า request มี JWT ที่ login เป็น admin จริง — คืน { error } (ตั้ง set.status ให้แล้ว) ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
 async function requireAdmin(cookie: Record<string, { value?: unknown } | undefined>, set: { status?: unknown }) {
@@ -100,6 +101,15 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       set.status = 404;
       return { error: "ไม่พบร้านค้านี้" };
     }
+
+    await createNotification({
+      userId: shop.ownerId,
+      typeId: 4,
+      category: "general", // 4 = แอดมินอนุมัติเรื่อง
+      title: "ร้านค้าของคุณได้รับการอนุมัติแล้ว",
+      message: "ยินดีด้วย! บัญชีร้านค้าของคุณผ่านการตรวจสอบและพร้อมเปิดให้บริการแล้ว",
+    });
+
     return { shop };
   })
 
@@ -123,5 +133,52 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       set.status = 404;
       return { error: "ไม่พบร้านค้านี้" };
     }
+
+    await createNotification({
+      userId: shop.ownerId,
+      typeId: 6,
+      category: "general", // 6 = บัญชีถูกระงับ/เตือน
+      title: "บัญชีร้านค้าถูกปฏิเสธ/ระงับการใช้งาน",
+      message: `เหตุผล: ${parsed.data.reason}`,
+    });
+
     return { shop };
+  })
+
+  // ── ส่งประกาศระบบถึงผู้ใช้งานทั้งหมด (หรือทุกร้านค้า) ──────────
+  .post("/announcements", async ({ body, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const { title, message, target } = body;
+
+    // หาผู้ใช้ตามเป้าหมาย (ทั้งหมด, เลือกร้านค้า, เลือกลูกค้า)
+    let targetUsers: { id: string }[] = [];
+    if (target === "all") {
+      targetUsers = await db.select({ id: users.id }).from(users);
+    } else if (target === "shops") {
+      targetUsers = await db.select({ id: users.id }).from(users).where(eq(users.role, "shop_owner"));
+    } else if (target === "customers") {
+      targetUsers = await db.select({ id: users.id }).from(users).where(eq(users.role, "customer"));
+    }
+
+    let successCount = 0;
+    for (const u of targetUsers) {
+      await createNotification({
+        userId: u.id,
+        typeId: 4,
+      category: "general", // ใช้ typeId = 4 (คำร้องถูกอนุมัติ/ประกาศจากแอดมิน - ชั่วคราวไปก่อน หรือ type ใหม่)
+        title,
+        message,
+      });
+      successCount++;
+    }
+
+    return { ok: true, sent: successCount };
+  }, {
+    body: t.Object({
+      title: t.String({ minLength: 1 }),
+      message: t.String({ minLength: 1 }),
+      target: t.Union([t.Literal("all"), t.Literal("shops"), t.Literal("customers")]),
+    })
   });

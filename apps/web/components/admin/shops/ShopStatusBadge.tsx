@@ -18,6 +18,10 @@ const CONFIG: Record<ShopStatus, { label: string; className: string }> = {
     label: "ไม่อนุมัติ",
     className: "bg-red-100 text-red-600 border border-red-200",
   },
+  "ลบบัญชีแล้ว": {
+    label: "ลบบัญชีแล้ว",
+    className: "bg-gray-100 text-gray-600 border border-gray-200",
+  },
 };
 
 export default function ShopStatusBadge({ status, size = "md" }: ShopStatusBadgeProps) {

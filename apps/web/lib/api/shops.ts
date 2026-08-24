@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { NotificationSettings } from "@easyprint/shared";
 
 export type ShopOpeningHours = {
   day: string;
@@ -31,6 +32,11 @@ export type PublicShopDetail = PublicShopListItem & {
   tempCloseStart: string | null;
   tempCloseEnd: string | null;
   tempCloseReason: string | null;
+  bankAccountName: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  promptpayNumber: string | null;
+  promptpayQrUrl: string | null;
 };
 
 export type MyShopProfile = {
@@ -58,7 +64,7 @@ export type MyShopProfile = {
   bankAccountNumber: string | null;
   promptpayNumber: string | null;
   promptpayQrUrl: string | null;
-  notificationSettings: any | null;
+  notificationSettings: NotificationSettings | null;
 };
 
 // endpoint สาธารณะ ไม่ต้องส่ง cookie — คืนเฉพาะร้านที่แอดมินอนุมัติแล้วเท่านั้น

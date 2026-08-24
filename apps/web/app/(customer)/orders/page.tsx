@@ -23,7 +23,7 @@ import {
   type ApiOrder,
 } from "@/lib/api/orders";
 import { statusConfig } from "@/components/shop/orders/statusConfig";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, apiFetch } from "@/lib/api/client";
 
 // ── Types ─────────────────────────────────────────────
 type ReviewData = {
@@ -181,11 +181,14 @@ export default function CustomerOrdersPage() {
     if (!cancelOrder) return;
     try {
       setCancelling(true);
-      await new Promise((r) => setTimeout(r, 500));
+      const res = await apiFetch(`/customers/orders/${cancelOrder.id}/cancel`, {
+        method: "PATCH",
+      }) as any;
+
+      if (res.error) throw new Error(res.error);
+
       setOrders((prev) =>
-        prev.map((o) =>
-          o.id === cancelOrder.id ? { ...o, status: "cancelled" } : o
-        )
+        prev.map((o) => (o.id === cancelOrder.id ? { ...o, status: "cancelled" } : o))
       );
       setCancelOrder(null);
     } catch {
