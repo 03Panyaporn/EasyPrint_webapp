@@ -1,5 +1,29 @@
 import { z } from "zod";
 
+export const notificationSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  typeId: z.number().int().positive(),
+  title: z.string().min(1),
+  message: z.string().min(1),
+  category: z.string(),
+  isRead: z.boolean(),
+  link: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type Notification = z.infer<typeof notificationSchema>;
+
+export const createNotificationSchema = z.object({
+  userId: z.string().uuid(),
+  typeId: z.number().int().positive(),
+  title: z.string().min(1),
+  message: z.string().min(1),
+  category: z.string(),
+  link: z.string().optional(),
+});
+
+export type CreateNotificationInput = z.infer<typeof createNotificationSchema>;
 // สคีมานี้ใช้ทั้งฝั่ง apps/web และ apps/api
 
 // ── Admin notifications (in-app) — มีแค่ 3 event ตอนนี้: ร้านสมัครใหม่, ออเดอร์ถูกยกเลิก/ปฏิเสธชำระเงิน, ข้อความ contact-admin ──

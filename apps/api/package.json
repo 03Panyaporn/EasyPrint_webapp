@@ -10,8 +10,10 @@
   "dependencies": {
     "@easyprint/shared": "workspace:*",
     "@elysiajs/cors": "^1.1.1",
+    "@elysiajs/cron": "^1.4.2",
     "@supabase/supabase-js": "^2.110.8",
     "argon2": "^0.40.3",
+    "dayjs": "^1.11.23",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "elysia": "^1.1.0",

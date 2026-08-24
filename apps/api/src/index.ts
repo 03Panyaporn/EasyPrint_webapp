@@ -9,6 +9,9 @@ import { shopsRoutes } from "./routes/shops";
 import { ordersRoutes } from "./routes/orders";
 import { cartRoutes } from "./routes/cart";
 import { addressRoutes } from "./routes/addresses";
+import { notificationsRoutes } from "./routes/notifications";
+import { messagesRoutes } from "./routes/messages";
+import { cronRoutes } from "./cron";
 import { reportsRoutes } from "./routes/reports";
 import { contactAdminRoutes } from "./routes/contactAdmin";
 import { adminNotificationsRoutes } from "./routes/adminNotificationsRoutes";
@@ -29,6 +32,9 @@ const app = new Elysia()
   .use(ordersRoutes)
   .use(cartRoutes)
   .use(addressRoutes)
+  .use(notificationsRoutes)
+  .use(messagesRoutes)
+  .use(cronRoutes)
   .use(reportsRoutes)
   .use(contactAdminRoutes)
   .use(adminNotificationsRoutes)

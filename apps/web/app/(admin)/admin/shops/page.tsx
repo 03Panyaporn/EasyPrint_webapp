@@ -72,6 +72,7 @@ export default function AdminShopsPage() {
       "รอตรวจสอบ": shops.filter((s) => s.status === "รอตรวจสอบ").length,
       "อนุมัติแล้ว": shops.filter((s) => s.status === "อนุมัติแล้ว").length,
       "ไม่อนุมัติ": shops.filter((s) => s.status === "ไม่อนุมัติ").length,
+      "ลบบัญชีแล้ว": shops.filter((s) => s.status === "ลบบัญชีแล้ว").length,
     }),
     [shops]
   );
