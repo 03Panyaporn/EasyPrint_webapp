@@ -1,60 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Store,
   ShieldCheck,
   Clock,
-  HardDrive,
   Users,
   ChevronRight,
   FileText,
-  Bell,
-  MessageSquare,
-  Sparkles,
-  MoreVertical,
-  Send,
-  CloudLightning,
   ShieldAlert,
   Plus,
+  Loader2,
 } from "lucide-react";
+import { getAdminDashboard, approveShop } from "@/lib/api/admin";
+import type { AdminDashboardResponse, AdminDashboardPendingShop } from "@easyprint/shared";
+import { ApiError } from "@/lib/api/client";
 
 // ─────────────────────────────────────────────────────────
-// Interfaces & Types
+// Types & Mock Data (เฉพาะส่วนที่ยังไม่มี backend รองรับ — ดูแผนเฟส 2/3 ในแชท)
 // ─────────────────────────────────────────────────────────
-
-interface StorageUsageItem {
-  id: string;
-  name: string;
-  logoBg: string;
-  logoText: string;
-  plan: string;
-  usedGB: number;
-  totalGB: number;
-  percentage: number;
-  status: "normal" | "near_full" | "full";
-}
-
-interface PendingShopItem {
-  id: string;
-  name: string;
-  email: string;
-  registeredDate: string;
-  registeredTime: string;
-  docsCount: number;
-  avatarBg: string;
-}
-
-interface NotificationItem {
-  id: string;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  title: string;
-  description: string;
-  timeAgo: string;
-}
 
 interface SystemAnnouncement {
   id: string;
@@ -64,45 +29,74 @@ interface SystemAnnouncement {
   date: string;
 }
 
-// ─────────────────────────────────────────────────────────
-// Mock Data
-// ─────────────────────────────────────────────────────────
-
-const STORAGE_SHOPS: StorageUsageItem[] = [
-  { id: "1", name: "Copy Hub", logoBg: "bg-red-500", logoText: "CH", plan: "Free", usedGB: 85.45, totalGB: 100, percentage: 85, status: "near_full" },
-  { id: "2", name: "Print Perfect", logoBg: "bg-pink-500", logoText: "PP", plan: "Free", usedGB: 62.3, totalGB: 100, percentage: 62, status: "normal" },
-  { id: "3", name: "Quick Print", logoBg: "bg-cyan-600", logoText: "QP", plan: "Free", usedGB: 92.1, totalGB: 100, percentage: 92, status: "near_full" },
-  { id: "4", name: "Easy Copy", logoBg: "bg-amber-500", logoText: "EC", plan: "Free", usedGB: 45.65, totalGB: 100, percentage: 46, status: "normal" },
-  { id: "5", name: "Print & Go", logoBg: "bg-emerald-600", logoText: "PG", plan: "Free", usedGB: 23.08, totalGB: 100, percentage: 23, status: "normal" },
-];
-
-const PENDING_SHOPS: PendingShopItem[] = [
-  { id: "p1", name: "Speed Print", email: "speedprint@gmail.com", registeredDate: "19 พ.ค. 2567", registeredTime: "10:30 น.", docsCount: 3, avatarBg: "bg-blue-900" },
-  { id: "p2", name: "Master Copy", email: "mastercopy@gmail.com", registeredDate: "19 พ.ค. 2567", registeredTime: "09:15 น.", docsCount: 2, avatarBg: "bg-purple-800" },
-  { id: "p3", name: "Top Print", email: "topprint@gmail.com", registeredDate: "18 พ.ค. 2567", registeredTime: "16:45 น.", docsCount: 3, avatarBg: "bg-teal-700" },
-];
-
-const NOTIFICATIONS: NotificationItem[] = [
-  { id: "n1", icon: Store, iconBg: "bg-orange-100", iconColor: "text-orange-600", title: 'ร้านค้า "Copy Hub"', description: "ส่งคำขอสมัครร้านค้าใหม่", timeAgo: "5 นาทีที่แล้ว" },
-  { id: "n2", icon: ShieldCheck, iconBg: "bg-red-100", iconColor: "text-red-500", title: 'ร้านค้า "Print Perfect"', description: "รอการอนุมัติเอกสารเพิ่มเติม", timeAgo: "20 นาทีที่แล้ว" },
-  { id: "n3", icon: CloudLightning, iconBg: "bg-amber-100", iconColor: "text-amber-600", title: 'พื้นที่จัดเก็บของร้าน "Quick Print"', description: "ใกล้เต็ม 90%", timeAgo: "1 ชม.ที่แล้ว" },
-  { id: "n4", icon: FileText, iconBg: "bg-purple-100", iconColor: "text-purple-600", title: "รายงานประจำวัน", description: "สรุปการใช้งานประจำวัน พร้อมแล้ว", timeAgo: "2 ชม.ที่แล้ว" },
-  { id: "n5", icon: HardDrive, iconBg: "bg-emerald-100", iconColor: "text-emerald-600", title: 'ร้านค้า "Easy Copy"', description: "อัปโหลดไฟล์จำนวนมาก", timeAgo: "3 ชม.ที่แล้ว" },
-];
-
+// TODO(เฟส 2): ยังไม่มีตาราง announcements ใน backend — ค้างเป็น mock ไปก่อน
 const INITIAL_ANNOUNCEMENTS: SystemAnnouncement[] = [
   { id: "a1", type: "update", title: "อัปเดตระบบ", content: "ระบบ EasyPrint จะปิดปรับปรุงในวันที่ 25 พ.ค. 2567 02:00 - 04:00 น.", date: "20 พ.ค." },
   { id: "a2", type: "feature", title: "ฟีเจอร์ใหม่", content: "เพิ่มฟีเจอร์จัดการไฟล์และพื้นที่จัดเก็บของร้านค้า", date: "18 พ.ค." },
   { id: "a3", type: "security", title: "แจ้งเตือนความปลอดภัย", content: "แนะนำให้เปลี่ยนรหัสผ่านอย่างสม่ำเสมอเพื่อความปลอดภัย", date: "17 พ.ค." },
 ];
 
+function formatThaiDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatThaiTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) + " น.";
+}
+
+// การ์ดตัวเลขเปลี่ยนแปลง — null = ไม่มีวิธีคำนวณที่แม่นยำ (ดูคอมเมนต์ apps/api/src/routes/admin.ts) ไม่แสดง badge เลยแทนการเดา
+function ChangeBadge({ change }: { change: number | null }) {
+  if (change === null) return null;
+  const isUp = change >= 0;
+  return (
+    <span
+      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isUp ? "text-emerald-600 bg-emerald-50" : "text-rose-500 bg-rose-50"}`}
+    >
+      {isUp ? "+" : ""}
+      {change}
+    </span>
+  );
+}
+
 export default function AdminDashboardPage() {
-  const [selectedShopModal, setSelectedShopModal] = useState<PendingShopItem | null>(null);
+  const [dashboard, setDashboard] = useState<AdminDashboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [selectedShopModal, setSelectedShopModal] = useState<AdminDashboardPendingShop | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
   const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>(INITIAL_ANNOUNCEMENTS);
   const [isAddAnnouncementOpen, setIsAddAnnouncementOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState<"update" | "feature" | "security">("update");
+
+  useEffect(() => {
+    getAdminDashboard()
+      .then(setDashboard)
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "โหลดข้อมูลแดชบอร์ดไม่สำเร็จ"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleApproveFromModal = async (shop: AdminDashboardPendingShop) => {
+    setIsApproving(true);
+    try {
+      await approveShop(shop.id);
+      setDashboard((prev) =>
+        prev
+          ? {
+              ...prev,
+              shops: { ...prev.shops, approved: prev.shops.approved + 1, pending: prev.shops.pending - 1 },
+              pendingShops: prev.pendingShops.filter((s) => s.id !== shop.id),
+            }
+          : prev
+      );
+      setSelectedShopModal(null);
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : "อนุมัติร้านค้าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const handleAddAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,385 +155,240 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────
-          Stat Cards (Ultra Compact 5 Columns Grid)
-         ───────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-        {/* Card 1: ร้านค้าทั้งหมด */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-600 group-hover:scale-105 transition-transform shrink-0">
-              <Store size={16} />
-            </div>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              +8
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <p className="text-[10px] font-semibold text-gray-500 leading-none">ร้านค้าทั้งหมด</p>
-            <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">128</p>
-          </div>
-          <Link
-            href="/admin/shops"
-            className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
-          >
-            <span>ดูทั้งหมด</span>
-            <ChevronRight size={12} />
-          </Link>
+      {loadError && (
+        <div className="p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-600 font-semibold">
+          {loadError}
         </div>
+      )}
 
-        {/* Card 2: ร้านค้าที่อนุมัติแล้ว */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform shrink-0">
-              <ShieldCheck size={16} />
-            </div>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              +5
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <p className="text-[10px] font-semibold text-gray-500 leading-none">อนุมัติแล้ว</p>
-            <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">98</p>
-          </div>
-          <Link
-            href="/admin/shops"
-            className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
-          >
-            <span>ดูทั้งหมด</span>
-            <ChevronRight size={12} />
-          </Link>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
+          <Loader2 size={24} className="animate-spin" />
+          <p className="text-sm">กำลังโหลดข้อมูล...</p>
         </div>
-
-        {/* Card 3: รอการตรวจสอบ */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform shrink-0">
-              <Clock size={16} />
-            </div>
-            <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-md">
-              -2
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <p className="text-[10px] font-semibold text-gray-500 leading-none">รอตรวจสอบ</p>
-            <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">12</p>
-          </div>
-          <Link
-            href="/admin/shops"
-            className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
-          >
-            <span>ดูทั้งหมด</span>
-            <ChevronRight size={12} />
-          </Link>
-        </div>
-
-        {/* Card 4: พื้นที่จัดเก็บรวม */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 group-hover:scale-105 transition-transform shrink-0">
-              <HardDrive size={16} />
-            </div>
-            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md">
-              42.6%
-            </span>
-          </div>
-          <div className="mt-1">
-            <p className="text-[10px] font-semibold text-gray-500 leading-none">พื้นที่รวม</p>
-            <p className="text-base font-black text-gray-900 mt-0.5 tracking-tight leading-tight">426.58 GB</p>
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-100 h-1.5 rounded-full mt-1 overflow-hidden">
-              <div className="bg-purple-600 h-full rounded-full w-[42.66%]" />
-            </div>
-          </div>
-          <Link
-            href="/admin/storage"
-            className="mt-1 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
-          >
-            <span>ดูรายละเอียด</span>
-            <ChevronRight size={12} />
-          </Link>
-        </div>
-
-        {/* Card 5: ผู้ใช้งานทั้งหมด */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-600 group-hover:scale-105 transition-transform shrink-0">
-              <Users size={16} />
-            </div>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              +156
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <p className="text-[10px] font-semibold text-gray-500 leading-none">ผู้ใช้ทั้งหมด</p>
-            <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">2,456</p>
-          </div>
-          <Link
-            href="/admin/users"
-            className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
-          >
-            <span>ดูทั้งหมด</span>
-            <ChevronRight size={12} />
-          </Link>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────
-          Main Layout Grid (Left 8 Cols, Right 4 Cols)
-         ───────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
-        {/* Left Column (8 Cols): Tables */}
-        <div className="lg:col-span-8 space-y-2.5">
-          {/* Table A: การใช้พื้นที่จัดเก็บของแต่ละร้านค้า */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-extrabold text-gray-900">
-                การใช้พื้นที่จัดเก็บของแต่ละร้านค้า
-              </h2>
-              <Link
-                href="/admin/storage"
-                className="text-[11px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-0.5"
-              >
-                <span>ดูทั้งหมด</span>
-                <ChevronRight size={12} />
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[500px]">
-                <thead>
-                  <tr className="text-gray-400 text-[10px] font-bold border-b border-gray-100">
-                    <th className="py-1.5 px-2">ร้านค้า</th>
-                    <th className="py-1.5 px-2">แผน</th>
-                    <th className="py-1.5 px-2">พื้นที่ใช้</th>
-                    <th className="py-1.5 px-2">พื้นที่รวม</th>
-                    <th className="py-1.5 px-2 w-28">การใช้งาน</th>
-                    <th className="py-1.5 px-2">สถานะ</th>
-                    <th className="py-1.5 px-2 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 text-xs">
-                  {STORAGE_SHOPS.map((shop) => (
-                    <tr key={shop.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-1.5 px-2 font-bold text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-6 h-6 rounded-lg ${shop.logoBg} flex items-center justify-center text-white font-extrabold text-[9px] shadow-2xs shrink-0`}
-                          >
-                            {shop.logoText}
-                          </div>
-                          <span className="truncate max-w-[100px]">{shop.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-1.5 px-2 text-[11px] font-semibold text-gray-500">{shop.plan}</td>
-                      <td className="py-1.5 px-2 text-xs font-bold text-gray-800">{shop.usedGB} GB</td>
-                      <td className="py-1.5 px-2 text-[11px] font-semibold text-gray-500">{shop.totalGB} GB</td>
-                      <td className="py-1.5 px-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[10px] text-gray-700 w-6">{shop.percentage}%</span>
-                          <div className="flex-1 bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                shop.percentage > 85
-                                  ? "bg-rose-500"
-                                  : shop.percentage > 60
-                                  ? "bg-amber-500"
-                                  : "bg-emerald-500"
-                              }`}
-                              style={{ width: `${shop.percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-1.5 px-2 font-semibold">
-                        {shop.status === "near_full" ? (
-                          <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full font-bold text-[10px] inline-block">
-                            ใกล้เต็ม
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] inline-block">
-                            ปกติ
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 px-2 text-right">
-                        <button className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                          <MoreVertical size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Table B: รอการตรวจสอบร้านค้า */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-extrabold text-gray-900">
-                รอการตรวจสอบร้านค้า
-              </h2>
+      ) : dashboard ? (
+        <>
+          {/* ─────────────────────────────────────────────────────────
+              Stat Cards
+             ───────────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            {/* Card 1: ร้านค้าทั้งหมด */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-600 group-hover:scale-105 transition-transform shrink-0">
+                  <Store size={16} />
+                </div>
+                <ChangeBadge change={dashboard.shops.totalChange} />
+              </div>
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold text-gray-500 leading-none">ร้านค้าทั้งหมด</p>
+                <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">
+                  {dashboard.shops.total.toLocaleString()}
+                </p>
+              </div>
               <Link
                 href="/admin/shops"
-                className="text-[11px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-0.5"
+                className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
               >
                 <span>ดูทั้งหมด</span>
                 <ChevronRight size={12} />
               </Link>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[450px]">
-                <thead>
-                  <tr className="text-gray-400 text-[10px] font-bold border-b border-gray-100">
-                    <th className="py-1.5 px-2">ร้านค้า</th>
-                    <th className="py-1.5 px-2">วันที่สมัคร</th>
-                    <th className="py-1.5 px-2 text-center">เอกสาร</th>
-                    <th className="py-1.5 px-2 text-center">สถานะ</th>
-                    <th className="py-1.5 px-2 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 text-xs">
-                  {PENDING_SHOPS.map((shop) => (
-                    <tr key={shop.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-1.5 px-2 font-bold text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-7 h-7 rounded-full ${shop.avatarBg} flex items-center justify-center text-white font-extrabold text-[10px] shrink-0`}
-                          >
-                            {shop.name.slice(0, 1)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900 text-xs leading-none">{shop.name}</p>
-                            <p className="text-[10px] text-gray-400 font-medium leading-none mt-0.5">{shop.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-1.5 px-2 font-semibold text-gray-600 text-[11px]">
-                        <span>{shop.registeredDate}</span>
-                        <span className="text-[10px] text-gray-400 ml-1">({shop.registeredTime})</span>
-                      </td>
-                      <td className="py-1.5 px-2 text-center">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md font-bold text-[10px]">
-                          <FileText size={11} className="text-gray-500" />
-                          {shop.docsCount}
-                        </span>
-                      </td>
-                      <td className="py-1.5 px-2 text-center">
-                        <span className="px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-200 rounded-full font-bold text-[10px] inline-block">
-                          รอตรวจสอบ
-                        </span>
-                      </td>
-                      <td className="py-1.5 px-2 text-right">
-                        <button
-                          onClick={() => setSelectedShopModal(shop)}
-                          className="px-2.5 py-1 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-300 rounded-lg text-[11px] font-bold transition-all"
-                        >
-                          ตรวจสอบ
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column (4 Cols): Widgets */}
-        <div className="lg:col-span-4 space-y-2.5">
-
-          {/* Widget 2: ติดต่อสอบถาม */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <MessageSquare size={15} className="text-orange-500" />
-                <h2 className="text-xs font-extrabold text-gray-900">ติดต่อสอบถาม</h2>
+            {/* Card 2: ร้านค้าที่อนุมัติแล้ว */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform shrink-0">
+                  <ShieldCheck size={16} />
+                </div>
+              </div>
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold text-gray-500 leading-none">อนุมัติแล้ว</p>
+                <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">
+                  {dashboard.shops.approved.toLocaleString()}
+                </p>
               </div>
               <Link
-                href="/admin/contact"
-                className="text-[10px] font-bold text-orange-500 hover:text-orange-600"
+                href="/admin/shops"
+                className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
               >
-                ดูทั้งหมด
+                <span>ดูทั้งหมด</span>
+                <ChevronRight size={12} />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {/* Stat Card 1: จากร้านค้า */}
-              <div className="bg-rose-50/60 border border-rose-100 rounded-xl p-2 text-center">
-                <p className="text-[10px] font-bold text-rose-600 flex items-center justify-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                  จากร้านค้า
-                </p>
-                <p className="text-lg font-black text-gray-900 mt-0.5 leading-none">3</p>
-                <p className="text-[9px] font-semibold text-gray-400">รอตอบกลับ</p>
-              </div>
-
-              {/* Stat Card 2: จากแอดมิน */}
-              <div className="bg-sky-50/60 border border-sky-100 rounded-xl p-2 text-center">
-                <p className="text-[10px] font-bold text-sky-600 flex items-center justify-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                  จากแอดมิน
-                </p>
-                <p className="text-lg font-black text-gray-900 mt-0.5 leading-none">1</p>
-                <p className="text-[9px] font-semibold text-gray-400">รอตอบกลับ</p>
-              </div>
-            </div>
-
-            <Link
-              href="/admin/contact"
-              className="w-full py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 font-extrabold text-[11px] rounded-xl flex items-center justify-center gap-1 transition-colors"
-            >
-              <Send size={12} />
-              <span>ไปยังกล่องข้อความ</span>
-            </Link>
-          </div>
-
-          {/* Widget 3: ประกาศจากระบบ */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <ShieldAlert size={15} className="text-orange-500" />
-                <h2 className="text-xs font-extrabold text-gray-900">ประกาศจากระบบ</h2>
-              </div>
-              <button
-                onClick={() => setIsAddAnnouncementOpen(true)}
-                className="w-5 h-5 rounded-md bg-orange-50 hover:bg-orange-500 text-orange-600 hover:text-white border border-orange-200 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-                title="เพิ่มข้อความประกาศ"
-              >
-                <Plus size={12} />
-              </button>
-            </div>
-
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {announcements.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-2 rounded-xl bg-gray-50/80 border border-gray-100 text-[10px] space-y-0.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`px-1.5 py-0.5 rounded font-bold text-[9px] ${
-                        item.type === "update"
-                          ? "bg-red-100 text-red-600"
-                          : item.type === "feature"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {item.title}
-                    </span>
-                    <span className="text-[9px] text-gray-400 font-medium">{item.date}</span>
-                  </div>
-                  <p className="text-gray-700 font-medium leading-tight truncate">{item.content}</p>
+            {/* Card 3: รอการตรวจสอบ */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform shrink-0">
+                  <Clock size={16} />
                 </div>
-              ))}
+              </div>
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold text-gray-500 leading-none">รอตรวจสอบ</p>
+                <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">
+                  {dashboard.shops.pending.toLocaleString()}
+                </p>
+              </div>
+              <Link
+                href="/admin/shops"
+                className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
+              >
+                <span>ดูทั้งหมด</span>
+                <ChevronRight size={12} />
+              </Link>
+            </div>
+
+            {/* Card 4: ผู้ใช้งานทั้งหมด */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs hover:shadow-xs transition-all group flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-600 group-hover:scale-105 transition-transform shrink-0">
+                  <Users size={16} />
+                </div>
+                <ChangeBadge change={dashboard.users.totalChange} />
+              </div>
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold text-gray-500 leading-none">ลูกค้าทั้งหมด</p>
+                <p className="text-xl font-black text-gray-900 mt-0.5 tracking-tight leading-tight">
+                  {dashboard.users.total.toLocaleString()}
+                </p>
+              </div>
+              <Link
+                href="/admin/users"
+                className="mt-1.5 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px] font-bold text-orange-500 hover:text-orange-600"
+              >
+                <span>ดูทั้งหมด</span>
+                <ChevronRight size={12} />
+              </Link>
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* ─────────────────────────────────────────────────────────
+              Main Layout Grid (Left 8 Cols, Right 4 Cols)
+             ───────────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+            {/* Left Column (8 Cols): Pending Shops Table */}
+            <div className="lg:col-span-8 space-y-2.5">
+              <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-xs font-extrabold text-gray-900">
+                    รอการตรวจสอบร้านค้า
+                  </h2>
+                  <Link
+                    href="/admin/shops"
+                    className="text-[11px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-0.5"
+                  >
+                    <span>ดูทั้งหมด</span>
+                    <ChevronRight size={12} />
+                  </Link>
+                </div>
+
+                {dashboard.pendingShops.length === 0 ? (
+                  <p className="text-center text-xs text-gray-400 py-8">ไม่มีร้านค้าที่รอตรวจสอบตอนนี้</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[450px]">
+                      <thead>
+                        <tr className="text-gray-400 text-[10px] font-bold border-b border-gray-100">
+                          <th className="py-1.5 px-2">ร้านค้า</th>
+                          <th className="py-1.5 px-2">วันที่สมัคร</th>
+                          <th className="py-1.5 px-2 text-center">เอกสาร</th>
+                          <th className="py-1.5 px-2 text-center">สถานะ</th>
+                          <th className="py-1.5 px-2 text-right"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 text-xs">
+                        {dashboard.pendingShops.map((shop) => (
+                          <tr key={shop.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="py-1.5 px-2 font-bold text-gray-900">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-white font-extrabold text-[10px] shrink-0">
+                                  {shop.name.slice(0, 1)}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-gray-900 text-xs leading-none">{shop.name}</p>
+                                  <p className="text-[10px] text-gray-400 font-medium leading-none mt-0.5">{shop.ownerEmail ?? "-"}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 font-semibold text-gray-600 text-[11px]">
+                              <span>{formatThaiDate(shop.createdAt)}</span>
+                              <span className="text-[10px] text-gray-400 ml-1">({formatThaiTime(shop.createdAt)})</span>
+                            </td>
+                            <td className="py-1.5 px-2 text-center">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md font-bold text-[10px]">
+                                <FileText size={11} className="text-gray-500" />
+                                {shop.hasIdCard ? 1 : 0}
+                              </span>
+                            </td>
+                            <td className="py-1.5 px-2 text-center">
+                              <span className="px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-200 rounded-full font-bold text-[10px] inline-block">
+                                รอตรวจสอบ
+                              </span>
+                            </td>
+                            <td className="py-1.5 px-2 text-right">
+                              <button
+                                onClick={() => setSelectedShopModal(shop)}
+                                className="px-2.5 py-1 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-300 rounded-lg text-[11px] font-bold transition-all"
+                              >
+                                ตรวจสอบ
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column (4 Cols): Widgets */}
+            <div className="lg:col-span-4 space-y-2.5">
+              {/* Widget: ประกาศจากระบบ */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldAlert size={15} className="text-orange-500" />
+                    <h2 className="text-xs font-extrabold text-gray-900">ประกาศจากระบบ</h2>
+                  </div>
+                  <button
+                    onClick={() => setIsAddAnnouncementOpen(true)}
+                    className="w-5 h-5 rounded-md bg-orange-50 hover:bg-orange-500 text-orange-600 hover:text-white border border-orange-200 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    title="เพิ่มข้อความประกาศ"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {announcements.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-2 rounded-xl bg-gray-50/80 border border-gray-100 text-[10px] space-y-0.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-bold text-[9px] ${item.type === "update"
+                              ? "bg-red-100 text-red-600"
+                              : item.type === "feature"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                        >
+                          {item.title}
+                        </span>
+                        <span className="text-[9px] text-gray-400 font-medium">{item.date}</span>
+                      </div>
+                      <p className="text-gray-700 font-medium leading-tight truncate">{item.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
 
       {/* ─────────────────────────────────────────────────────────
           Footer Notice
@@ -563,16 +412,14 @@ export default function AdminDashboardPage() {
           >
             <div className="flex items-center justify-between pb-2 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-8 h-8 rounded-full ${selectedShopModal.avatarBg} flex items-center justify-center text-white font-extrabold text-xs`}
-                >
+                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-extrabold text-xs">
                   {selectedShopModal.name.slice(0, 1)}
                 </div>
                 <div>
                   <h3 className="font-extrabold text-gray-900 text-sm">
                     {selectedShopModal.name}
                   </h3>
-                  <p className="text-[10px] text-gray-400 font-medium">{selectedShopModal.email}</p>
+                  <p className="text-[10px] text-gray-400 font-medium">{selectedShopModal.ownerEmail ?? "-"}</p>
                 </div>
               </div>
               <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full text-[10px] font-bold border border-orange-200">
@@ -584,13 +431,13 @@ export default function AdminDashboardPage() {
               <div className="flex justify-between py-1 border-b border-gray-50">
                 <span className="text-gray-400 font-medium">วันที่สมัคร:</span>
                 <span className="font-bold text-gray-800 text-[11px]">
-                  {selectedShopModal.registeredDate} ({selectedShopModal.registeredTime})
+                  {formatThaiDate(selectedShopModal.createdAt)} ({formatThaiTime(selectedShopModal.createdAt)})
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-50">
                 <span className="text-gray-400 font-medium">เอกสารแนบ:</span>
                 <span className="font-bold text-gray-800 text-[11px]">
-                  {selectedShopModal.docsCount} ฉบับ (บัตรประชาชน, ใบทะเบียน)
+                  {selectedShopModal.hasIdCard ? "1 ฉบับ (บัตรประชาชน)" : "ยังไม่แนบเอกสาร"}
                 </span>
               </div>
             </div>
@@ -602,14 +449,18 @@ export default function AdminDashboardPage() {
               >
                 ปิด
               </button>
-              <button
-                onClick={() => {
-                  alert(`อนุมัติร้านค้า "${selectedShopModal.name}" เรียบร้อยแล้ว`);
-                  setSelectedShopModal(null);
-                }}
-                className="flex-1 py-2 rounded-xl bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition shadow-2xs"
+              <Link
+                href={`/admin/shops/${selectedShopModal.id}`}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 font-bold text-xs hover:bg-gray-50 transition text-center"
               >
-                อนุมัติร้านค้า
+                ดูรายละเอียด
+              </Link>
+              <button
+                onClick={() => handleApproveFromModal(selectedShopModal)}
+                disabled={isApproving}
+                className="flex-1 py-2 rounded-xl bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition shadow-2xs disabled:opacity-60"
+              >
+                {isApproving ? "กำลังอนุมัติ..." : "อนุมัติร้านค้า"}
               </button>
             </div>
           </div>
@@ -655,33 +506,30 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setNewType("update")}
-                    className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${
-                      newType === "update"
+                    className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${newType === "update"
                         ? "bg-red-50 text-red-600 border-red-300 shadow-2xs"
                         : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     อัปเดตระบบ
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewType("feature")}
-                    className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${
-                      newType === "feature"
+                    className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${newType === "feature"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs"
                         : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     ฟีเจอร์ใหม่
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewType("security")}
-                    className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${
-                      newType === "security"
+                    className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${newType === "security"
                         ? "bg-amber-50 text-amber-700 border-amber-300 shadow-2xs"
                         : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     ความปลอดภัย
                   </button>

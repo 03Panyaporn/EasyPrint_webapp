@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Upload,
   AlertCircle,
   AlertTriangle,
@@ -26,8 +25,6 @@ import {
   Clock,
   Truck,
   Store as StoreIcon,
-  Printer,
-  User,
   Droplet,
   Layers,
   FlipHorizontal2,
@@ -61,6 +58,7 @@ import { addCartItem, getShopCart } from "@/lib/api/cart";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 import type { MainService, AddOnService, AllowedFileType, PriceScope } from "@/components/shop/services/types";
+import CustomerHeader from "@/components/customer/CustomerHeader";
 
 // suffix แสดงขอบเขตราคา AddOn
 const ADDON_SCOPE_SUFFIX: Record<PriceScope, string> = {
@@ -584,40 +582,7 @@ function OrderBuilderForm({
         </div>
       )}
 
-      {/* Top Bar Header */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-sky-100 sticky top-0 z-30 px-4 sm:px-6 lg:px-12 py-3 flex items-center justify-between gap-3 shadow-2xs">
-        <Link href={`/shops/${shopId}`} className="flex items-center gap-2 text-slate-600 hover:text-orange-500 transition shrink-0">
-          <ArrowLeft className="w-5 h-5" />
-          <span className="hidden sm:inline font-bold text-sm">กลับไปหน้าร้านค้า</span>
-        </Link>
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition">
-            <Printer className="w-4 h-4" />
-          </div>
-          <span className="text-lg font-black text-orange-500 tracking-tight">EASY<span className="text-orange-500">PRINT</span></span>
-        </Link>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/cart"
-            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition"
-            title="ตะกร้า"
-          >
-            <ShoppingCart className="w-5 h-5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-extrabold inline-flex items-center justify-center shrink-0 aspect-square leading-none pointer-events-none">
-                {cartCount}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/profile"
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition"
-            title="บัญชีของฉัน"
-          >
-            <User className="w-5 h-5" />
-          </Link>
-        </div>
-      </header>
+      <CustomerHeader variant="auth" cartCount={cartCount} />
 
       {/* ── 1. การ์ดข้อมูลร้าน (Full Width Vibrant Shop Banner Bar) ── */}
       <div className="w-full bg-white border-b-2 border-sky-200/80 px-4 sm:px-6 lg:px-12 py-3.5 shadow-xs relative overflow-hidden">
@@ -989,6 +954,45 @@ function OrderBuilderForm({
                   );
                 })}
 
+                {/* Add-on services (บริการเสริม) */}
+                {mainService.availableAddOns.length > 0 && (
+                  <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <span>บริการเสริม</span>
+                      <Info size={12} className="text-slate-400" />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {mainService.availableAddOns.map((binding) => {
+                        const addOn = allAddOnServices.find((a) => a.id === binding.addOnId && a.isActive);
+                        if (!addOn) return null;
+                        const isSelected = selectedAddOnIds.includes(addOn.id);
+                        return (
+                          <button
+                            type="button"
+                            key={addOn.id}
+                            onClick={() =>
+                              setSelectedAddOnIds((prev) =>
+                                prev.includes(addOn.id) ? prev.filter((id) => id !== addOn.id) : [...prev, addOn.id]
+                              )
+                            }
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                              isSelected
+                                ? "border-2 border-orange-400 bg-orange-50/90 text-orange-600 shadow-2xs"
+                                : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            {isSelected && <Check size={13} className="text-orange-500" />}
+                            <span>{addOn.name}</span>
+                            <span className={isSelected ? "text-orange-600 font-extrabold" : "text-slate-400 font-normal"}>
+                              (+฿{binding.extraPrice}{ADDON_SCOPE_SUFFIX[addOn.scope]})
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* per_sqm custom size fields */}
                 {pricingModel === "per_sqm" && (
                   <div className="space-y-2 pt-1 border-t border-slate-100">
@@ -1043,6 +1047,25 @@ function OrderBuilderForm({
                     <Sparkles size={12} className="text-amber-500" />
                   </span>
                 </div>
+              </div>
+
+              {/* Box 5: หมายเหตุถึงร้านค้า */}
+              <div className="bg-white rounded-2xl border-2 border-sky-200/80 p-4 sm:p-5 shadow-xs space-y-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-extrabold text-slate-900 tracking-wide">
+                    หมายเหตุถึงร้านค้า
+                  </h3>
+                  <span className="text-[11px] text-slate-400 font-medium">(ไม่บังคับ)</span>
+                </div>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value.slice(0, 50))}
+                  maxLength={50}
+                  rows={3}
+                  placeholder="เช่น ต้องการพิมพ์แบบหน้าเดียว, เข้าเล่มด้านซ้าย"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none"
+                />
+                <p className="text-[11px] text-slate-400 text-right font-medium">{note.length}/50</p>
               </div>
             </div>
 

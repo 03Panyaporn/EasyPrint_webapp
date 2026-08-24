@@ -12,6 +12,7 @@ import { orders, orderItems, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
+import { createAdminNotification } from "../adminNotifications";
 import { supabaseAdmin } from "../storage";
 
 // ต้องตรงกับ statusConfig.ts ฝั่ง frontend (apps/web/components/shop/orders/statusConfig.ts) — ใช้ในข้อความ error ตอนพยายามข้ามขั้นสถานะ
@@ -368,16 +369,32 @@ export const ordersRoutes = new Elysia()
       return { error: "ไม่พบออเดอร์นี้" };
     }
 
-    const authError = await requireShopOwner(cookie, row.order.shopId, set);
-    if (authError) return authError;
+    // ลูกค้าเจ้าของออเดอร์ยกเลิกออเดอร์ตัวเองได้ แต่จำกัดกว่าร้านค้ามาก — เฉพาะตอนร้านยังไม่กดยืนยันรับงาน (pending_review) เท่านั้น
+    // ถ้าไม่ใช่ลูกค้าเจ้าของออเดอร์ ให้ตกไปเช็คสิทธิ์แบบเจ้าของร้านตามปกติ (เดินหน้าสถานะ/ยกเลิกได้ทุกจุดก่อนจบ flow)
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    const isCustomerOwner = payload?.role === "customer" && payload.userId === row.order.customerId;
 
     const parsed = updateOrderStatusSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
-
     const { status: nextStatus, cancelReason, cancelNote } = parsed.data;
+
+    if (isCustomerOwner) {
+      if (nextStatus !== "cancelled") {
+        set.status = 403;
+        return { error: "ลูกค้าเปลี่ยนได้เฉพาะการยกเลิกออเดอร์เท่านั้น" };
+      }
+      if (row.order.status !== "pending_review") {
+        set.status = 400;
+        return { error: "ยกเลิกออเดอร์เองได้เฉพาะตอนที่ร้านยังไม่ยืนยันรับงานเท่านั้น" };
+      }
+    } else {
+      const authError = await requireShopOwner(cookie, row.order.shopId, set);
+      if (authError) return authError;
+    }
 
     if (nextStatus === "cancelled") {
       if (!canCancel(row.order.status as OrderStatus)) {
@@ -401,25 +418,38 @@ export const ordersRoutes = new Elysia()
       }
     }
 
+    // ลูกค้ายกเลิกเอง — ล็อกเหตุผลเป็น "customer_request" เสมอที่ฝั่ง server ไม่สนใจค่าที่ client ส่งมา (กันลูกค้าใส่เหตุผลอื่นที่ไม่ตรงความจริง)
+    const effectiveCancelReason = isCustomerOwner ? "customer_request" : cancelReason;
+
     const [updated] = await db
       .update(orders)
       .set({
         status: nextStatus,
-        cancelReason: nextStatus === "cancelled" ? cancelReason : null,
+        cancelReason: nextStatus === "cancelled" ? effectiveCancelReason : null,
         cancelNote: nextStatus === "cancelled" ? cancelNote : null,
       })
       .where(eq(orders.id, params.id))
       .returning();
 
-    // แจ้งเตือนลูกค้าเฉพาะตอนยกเลิก/ปฏิเสธการชำระเงินเท่านั้น — สถานะอื่นๆ ระหว่างทางลูกค้าติดตามผ่านหน้าเว็บแทน (ตาม docs/proposal.md หัวข้อ 1.3.2)
+    // แจ้งเตือนลูกค้าเฉพาะตอนร้านเป็นคนยกเลิก/ปฏิเสธการชำระเงินเท่านั้น — ถ้าลูกค้ายกเลิกเองไม่ต้องส่งอีเมลซ้ำ (ลูกค้ารู้อยู่แล้วว่ากดยกเลิกเอง)
     // แยกข้อความอีเมลตามสถานะ "ก่อน" อัปเดต: ยกเลิกตอนยังรอตรวจสอบ = ปฏิเสธการชำระเงิน, ยกเลิกตอนอื่นๆ = ยกเลิกงาน
-    if (nextStatus === "cancelled" && row.customer && cancelReason) {
+    if (nextStatus === "cancelled" && !isCustomerOwner && row.customer && effectiveCancelReason) {
       notifyOrderCancelled({
         to: row.customer.email,
         orderCode: updated.code,
         kind: row.order.status === "pending_review" ? "reject_payment" : "cancel",
-        reasonLabel: CANCEL_REASON_LABELS[cancelReason],
+        reasonLabel: CANCEL_REASON_LABELS[effectiveCancelReason],
       }).catch((err) => console.error("ส่งอีเมลแจ้งเตือนลูกค้าไม่สำเร็จ:", err));
+    }
+
+    // แจ้งเตือนแอดมินทุกครั้งที่มีออเดอร์ถูกยกเลิก/ปฏิเสธการชำระเงิน ไม่ว่าฝั่งไหนเป็นคนกด — เผื่อเป็นสัญญาณปัญหาร้าน (ปฏิเสธถี่ผิดปกติ) หรือลูกค้า (ยกเลิกถี่ผิดปกติ)
+    if (nextStatus === "cancelled" && effectiveCancelReason) {
+      createAdminNotification({
+        type: "order_cancelled",
+        title: isCustomerOwner ? "ลูกค้ายกเลิกออเดอร์" : "ร้านยกเลิก/ปฏิเสธการชำระเงินออเดอร์",
+        message: `ออเดอร์ ${updated.code} (${updated.ref}) ถูกยกเลิก — เหตุผล: ${CANCEL_REASON_LABELS[effectiveCancelReason]}`,
+        link: `/admin/shops/${updated.shopId}`,
+      }).catch((err) => console.error("สร้างการแจ้งเตือนออเดอร์ยกเลิกไม่สำเร็จ:", err));
     }
 
     return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };

@@ -197,6 +197,30 @@
 | is_active | boolean | default true |
 | created_at | timestamp | |
 
+### `admin_notifications`
+การแจ้งเตือนฝั่งแอดมิน (in-app) — เพิ่มแถวอัตโนมัติจาก 3 event เท่านั้น: ร้านสมัครใหม่ (`shop_registered`), ออเดอร์ถูกยกเลิก/ปฏิเสธชำระเงิน (`order_cancelled`), มีข้อความ contact-admin ใหม่ (`contact_admin_message`) — ไม่มี FK ไปยัง entity ต้นทาง (shops/orders/contact_admin_messages) โดยตั้งใจ เพราะแต่ละ event มี entity ต้นทางต่างชนิดกัน ใช้ `link` เก็บ path แทน
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| type | enum: `shop_registered` / `order_cancelled` / `contact_admin_message` | |
+| title | text | |
+| message | text | |
+| link | text | nullable — path ฝั่ง web เช่น `/admin/shops/:id` ให้กดแล้วไปดูรายละเอียด |
+| is_read | boolean | default false |
+| created_at | timestamp | |
+
+### `contact_admin_messages`
+ข้อความที่ร้านค้าส่งถึงแอดมิน (หน้า `/shop/contact-admin`)
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| shop_id | uuid (FK → shops.id) | |
+| subject | text | |
+| message | text | |
+| status | enum: `open` / `resolved` | default `open` |
+| admin_reply | text | nullable — ใส่ตอนแอดมินตอบกลับ |
+| created_at | timestamp | |
+
 ## ความสัมพันธ์ (Relationships)
 
 ```
@@ -221,6 +245,7 @@ addon_services (1) ──< cart_item_addons (addon_service_id)
 cart_items (1) ──< cart_item_option_selections (cart_item_id) [ON DELETE CASCADE]
 service_options (1) ──< cart_item_option_selections (option_id) [ON DELETE CASCADE]
 service_option_values (1) ──< cart_item_option_selections (value_id)
+shops (1) ──< contact_admin_messages (shop_id)
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)

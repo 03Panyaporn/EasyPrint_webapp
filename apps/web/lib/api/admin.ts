@@ -1,5 +1,9 @@
-import type { RejectShopInput } from "@easyprint/shared";
+import type { RejectShopInput, AdminDashboardResponse } from "@easyprint/shared";
 import { apiFetch } from "./client";
+
+export function getAdminDashboard() {
+  return apiFetch<AdminDashboardResponse>("/admin/dashboard");
+}
 
 export type AdminOpeningHoursDay = {
   day: string;
