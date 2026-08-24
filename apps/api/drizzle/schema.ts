@@ -515,3 +515,37 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   sender: one(users, { fields: [messages.senderId], references: [users.id] }),
   shop: one(shops, { fields: [messages.shopId], references: [shops.id] }),
 }));
+
+// ── admin_notifications: การแจ้งเตือนฝั่งแอดมิน (in-app) — ระบบเดียวที่มีอยู่ตอนนี้คือ 3 event: ร้านสมัครใหม่, ออเดอร์ถูกยกเลิก/ปฏิเสธชำระเงิน, ข้อความ contact-admin ──
+export const adminNotificationTypeEnum = pgEnum("admin_notification_type", [
+  "shop_registered",
+  "order_cancelled",
+  "contact_admin_message",
+]);
+
+export const adminNotifications = pgTable("admin_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: adminNotificationTypeEnum("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  link: text("link"), // path ฝั่ง web ที่กดแล้วพาไปดูรายละเอียด เช่น /admin/shops/:id — null ได้ถ้าไม่มีหน้าที่เกี่ยวข้องโดยตรง
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── contact_admin_messages: ข้อความที่ร้านค้าส่งถึงแอดมิน (หน้า /shop/contact-admin) ──
+export const contactAdminStatusEnum = pgEnum("contact_admin_status", ["open", "resolved"]);
+
+export const contactAdminMessages = pgTable("contact_admin_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  shopId: uuid("shop_id").references(() => shops.id).notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  status: contactAdminStatusEnum("status").notNull().default("open"),
+  adminReply: text("admin_reply"), // คำตอบจากแอดมิน — null ถ้ายังไม่ตอบ
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contactAdminMessagesRelations = relations(contactAdminMessages, ({ one }) => ({
+  shop: one(shops, { fields: [contactAdminMessages.shopId], references: [shops.id] }),
+}));

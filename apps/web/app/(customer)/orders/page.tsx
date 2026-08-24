@@ -20,6 +20,7 @@ import {
 
 import {
   getCustomerOrders,
+  updateOrderStatus,
   type ApiOrder,
 } from "@/lib/api/orders";
 import { statusConfig } from "@/components/shop/orders/statusConfig";
@@ -181,18 +182,16 @@ export default function CustomerOrdersPage() {
     if (!cancelOrder) return;
     try {
       setCancelling(true);
-      const res = await apiFetch(`/customers/orders/${cancelOrder.id}/cancel`, {
-        method: "PATCH",
-      }) as any;
-
-      if (res.error) throw new Error(res.error);
-
+      const { order: updated } = await updateOrderStatus(cancelOrder.id, {
+        status: "cancelled",
+        cancelReason: "customer_request",
+      });
       setOrders((prev) =>
-        prev.map((o) => (o.id === cancelOrder.id ? { ...o, status: "cancelled" } : o))
+        prev.map((o) => (o.id === cancelOrder.id ? { ...o, status: updated.status } : o))
       );
       setCancelOrder(null);
-    } catch {
-      setError("ไม่สามารถยกเลิกคำสั่งซื้อได้");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "ไม่สามารถยกเลิกคำสั่งซื้อได้");
     } finally {
       setCancelling(false);
     }

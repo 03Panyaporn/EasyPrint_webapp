@@ -1,4 +1,4 @@
-import { Lightbulb, MessageSquare, Image as ImageIcon, Clock, Bell } from "lucide-react";
+import { Lightbulb, MessageSquare, Mail, Clock, Bell } from "lucide-react";
 
 export default function ContactAdminGuidelines() {
   return (
@@ -25,12 +25,12 @@ export default function ContactAdminGuidelines() {
 
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 rounded-xl bg-green-50 text-green-500 flex items-center justify-center shrink-0">
-            <ImageIcon className="w-5 h-5" />
+            <Mail className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-800">แนบภาพประกอบ (ถ้ามี)</h4>
+            <h4 className="text-sm font-semibold text-slate-800">ทีมงานตอบกลับผ่านระบบ</h4>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              ภาพหน้าจอ หรือไฟล์ที่เกี่ยวข้อง ช่วยให้เข้าใจปัญหาได้ง่ายขึ้น
+              ดูคำตอบได้ที่เมนู &quot;ตรวจสอบคำร้อง&quot; ไม่ต้องรอทางอีเมล
             </p>
           </div>
         </div>
