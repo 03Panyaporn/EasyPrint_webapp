@@ -34,11 +34,12 @@
 | POST | `/orders` | สร้างคำสั่งพิมพ์ใหม่ (ลูกค้า) — `customerId` ดึงจาก JWT เท่านั้น ห้ามรับจาก body (กัน spoof), รันเลขที่ออเดอร์ (`code` ต่อร้าน + `ref` ทั้งระบบ) อัตโนมัติ, ลองใหม่ 3 ครั้งถ้าเลขชนกัน (unique constraint `shop_id`+`code`), ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้าแบบ best-effort หลังบันทึกสำเร็จ | ต้อง login เป็น customer |
 | GET | `/shops/:shopId/orders` | list ออเดอร์ของร้าน เรียงใหม่สุดก่อน, filter ด้วย `?status=` ได้ (ไม่ใส่ = เอาทุกสถานะ) | ต้อง login เป็น shop_owner ของร้านนี้ |
 | GET | `/orders/:id` | รายละเอียดออเดอร์เดียว | shop_owner ของร้านนี้ หรือ customer เจ้าของออเดอร์เอง หรือ admin |
-| PATCH | `/orders/:id/status` | เปลี่ยนสถานะออเดอร์ — ใช้ endpoint เดียวกันทั้ง "เดินหน้า" (`{ status }`), "ยกเลิก", และ "ปฏิเสธการชำระเงิน" (`{ status: "cancelled", cancelReason, cancelNote? }` บังคับ `cancelReason` เมื่อ `status: "cancelled"`) — บังคับเดินตามลำดับ `pending_review → accepted → in_progress → shipping/completed` (ข้าม `shipping` อัตโนมัติถ้า `deliveryMethod: "self_pickup"`) ห้ามข้ามขั้น (400 ถ้าข้าม), ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ `completed`/`cancelled` — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะตอนยกเลิกเท่านั้น (แยกข้อความ "ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอนสถานะยังเป็น `pending_review` กับ "ยกเลิกงาน" ถ้ายกเลิกตอนอื่น) ส่วนเดินหน้าสถานะปกติ (accepted/in_progress/shipping/completed) **ไม่ส่งอีเมล** ลูกค้าติดตามผ่านหน้าเว็บของลูกค้าแทน (ตาม `docs/proposal.md` หัวข้อ 1.3.2) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| PATCH | `/orders/:id/status` | เปลี่ยนสถานะออเดอร์ — ใช้ endpoint เดียวกันทั้ง "เดินหน้า" (`{ status }`), "ยกเลิก", และ "ปฏิเสธการชำระเงิน" (`{ status: "cancelled", cancelReason, cancelNote? }` บังคับ `cancelReason` เมื่อ `status: "cancelled"`) — บังคับเดินตามลำดับ `pending_review → accepted → in_progress → shipping/completed` (ข้าม `shipping` อัตโนมัติถ้า `deliveryMethod: "self_pickup"`) ห้ามข้ามขั้น (400 ถ้าข้าม), ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ `completed`/`cancelled` — ส่งอีเมลแจ้งเตือนลูกค้าเฉพาะตอนร้านเป็นคนยกเลิก/ปฏิเสธเท่านั้น (แยกข้อความ "ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอนสถานะยังเป็น `pending_review` กับ "ยกเลิกงาน" ถ้ายกเลิกตอนอื่น) ส่วนเดินหน้าสถานะปกติ (accepted/in_progress/shipping/completed) **ไม่ส่งอีเมล** ลูกค้าติดตามผ่านหน้าเว็บของลูกค้าแทน (ตาม `docs/proposal.md` หัวข้อ 1.3.2) — สร้าง `admin_notifications` (type `order_cancelled`) ทุกครั้งที่ยกเลิก ไม่ว่าฝั่งไหนเป็นคนกด | ต้อง login เป็น shop_owner ของร้านนี้ **หรือ**ลูกค้าเจ้าของออเดอร์ (จำกัดกว่า: ยกเลิกได้อย่างเดียว เฉพาะตอน `status` ยังเป็น `pending_review` เท่านั้น, ล็อก `cancelReason` เป็น `customer_request` เสมอไม่สนใจค่าที่ส่งมา) |
+| GET | `/customers/orders` | ประวัติ/รายการออเดอร์ทั้งหมดของลูกค้าที่ login อยู่ (ทุกสถานะ) — หน้า "ประวัติการสั่งซื้อ" ฝั่ง web กรองเอาเฉพาะ `status: "completed"` เองจากผลลัพธ์นี้ | ต้อง login เป็น customer |
 
 โค้ดอยู่ที่ `apps/api/src/routes/orders.ts` — Zod schema อยู่ที่ `packages/shared/src/schemas/order.ts` (`createOrderSchema`, `updateOrderStatusSchema`, `orderListQuerySchema`) — มี seed script (`bun --cwd apps/api run seed`) ไว้ใส่ออเดอร์จำลองทดสอบ เพราะหน้าสั่งซื้อจริงฝั่งลูกค้ายังไม่เสร็จ (ดู `apps/api/src/seed.ts`)
 
-⚠️ **TODO ที่ยังเหลือ (ไม่ใช่ช่องโหว่ แต่เป็นฟีเจอร์ที่ยังไม่มี):** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่ได้อิงราคาจริงจาก `main_services`/`service_options`/`service_option_values` ของร้าน — `POST /orders` ยังไม่ได้เชื่อมกับระบบตะกร้า (`carts`) ที่สร้างขึ้นทีหลัง ต้องมี endpoint ใหม่ (เช่น `POST /cart/checkout`) แปลงตะกร้าเป็นออเดอร์จริง คำนวณราคา + snapshot ราคา ณ ตอนสั่งไว้ในออเดอร์ (ต่างจากตะกร้าที่คำนวณสดตลอด) — เป็นงาน phase ถัดไป **⚠️ ตอนสร้าง flow จริง ต้องคำนวณราคาฝั่ง server เท่านั้น ห้ามรับราคารวมหรืออัตราจากฝั่งลูกค้าเด็ดขาด** โดยเฉพาะกรณี `pricingModel: "per_sqm"` ที่ลูกค้ากรอกกว้าง/สูงเอง (ราคารวม = กว้าง(ม.) x สูง(ม.) x `basePrice` ต้องคำนวณเซิร์ฟเวอร์เอง — ดูตัวอย่างวิธีทำที่ `apps/api/src/routes/cart.ts` `buildCartResponse()`)
+⚠️ **`POST /orders` เป็น endpoint เก่า (Schema v1) ที่ไม่มี frontend เรียกใช้แล้ว — ตกค้างไว้เฉยๆ ไม่ได้ลบ:** `totalPrice` ยังคำนวณจากสูตรชั่วคราว (`pages * copies * 100`) ไม่อิงราคาจริง และไม่ได้สร้าง `order_items` เลย ส่วน flow สั่งซื้อจริงที่ frontend ใช้อยู่ตอนนี้คือ `POST /shops/:shopId/cart/checkout` (ดูหัวข้อ Cart) ที่คำนวณราคาฝั่ง server ครบถ้วนและ snapshot ราคา ณ ตอนสั่งไว้ใน `order_items` แล้ว — ควรพิจารณาลบ `POST /orders` ทิ้งถ้ายืนยันว่าไม่มีที่ไหนเรียกใช้อีก
 
 ## Shops (สาธารณะฝั่งลูกค้า)
 
@@ -105,6 +106,7 @@
 | DELETE | `/cart/items/:id` | ลบรายการเดียวออกจากตะกร้า | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
 | PATCH | `/shops/:shopId/cart` | เลือก/ยกเลิกวิธีจัดส่งของตะกร้าร้านนี้ (`{ deliveryOptionId: string \| null }`) | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
 | DELETE | `/shops/:shopId/cart` | ล้างตะกร้าของร้านนี้ | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
+| POST | `/shops/:shopId/cart/checkout` | แปลงตะกร้าของร้านนี้เป็นออเดอร์จริง — คำนวณราคาฝั่ง server แล้ว snapshot ทุกอย่าง (ชื่อบริการ/ราคา/ตัวเลือก/สี ณ ตอนสั่ง) ลง `order_items`, ลบตะกร้าทิ้งหลังสำเร็จ, ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้าแบบ best-effort | ต้อง login เป็น customer เจ้าของตะกร้านั้น |
 
 โค้ดอยู่ที่ `apps/api/src/routes/cart.ts` — Zod schema ที่ `packages/shared/src/schemas/cart.ts`
 
@@ -116,14 +118,46 @@
 - `addOnIds` ที่ส่งมาทุกตัวต้องผูกกับ `mainServiceId` นั้นจริง (กันส่ง ID มั่วๆ ข้ามร้าน/ข้ามบริการ)
 - **`pricingModel: "per_page"`**: ลูกค้าต้องแนบ `fileUrl` (ไฟล์ PDF ที่อัปโหลดไว้แล้ว) — **ไม่มี field `pageCount` ให้ client ส่งเลย** เซิร์ฟเวอร์ดาวน์โหลดไฟล์จาก Supabase Storage แล้วนับจำนวนหน้าเองด้วย `pdf-lib` (`countPdfPages()` ใน `apps/api/src/routes/cart.ts`) ทุกครั้งที่เพิ่ม/แก้ไขรายการ — กัน customer ปลอมจำนวนหน้าผ่าน request ตรงๆ เพื่อกดราคาถูกลง
 - **`pricingModel: "per_sqm"`**: ลูกค้าต้องส่ง `widthCm`/`heightCm` เอง (1-1000 ซม.) คำนวณพื้นที่ = กว้าง(ม.) x สูง(ม.) ฝั่ง server เสมอ
-- ยังไม่มี endpoint checkout แปลงตะกร้าเป็นออเดอร์จริง (ดู TODO ในหัวข้อ Orders ด้านบน)
+
+## Reports (รายงานร้านค้า)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/shops/:shopId/reports` | สรุปรายงานร้าน — `?period=today\|7days\|30days\|thisMonth\|thisYear` — คืน `metrics` (รายได้รวม/วันนี้, จำนวนออเดอร์รวม/สำเร็จ พร้อม % เปลี่ยนแปลงเทียบช่วงก่อนหน้า), `categories` (สัดส่วนรายได้ตามชื่อบริการ รวมค่าจัดส่งเป็นหมวดแยก), `series` (จุดกราฟตามช่วงเวลา), `ordersByStatus` (จำนวน/ยอดตามใบสั่งซื้อ แยกครบทุกสถานะ นับทุกสถานะไม่ใช่แค่ completed) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/shops/:shopId/reports/orders` | รายการออเดอร์แบบละเอียดในช่วงเวลาเดียวกับ `?period=` — ใช้ประกอบการ export Excel เท่านั้น (แยก endpoint จากตัวบนเพราะข้อมูลหนักกว่า ไม่ต้องดึงทุกครั้งที่เปิดหน้า) | ต้อง login เป็น shop_owner ของร้านนี้ |
+
+โค้ดอยู่ที่ `apps/api/src/routes/reports.ts` — Zod schema + type ที่ `packages/shared/src/schemas/report.ts` — เวลาไทย (UTC+7) แปลงจาก UTC ทุกครั้งก่อน query กันขอบเขต "วันนี้"/"เดือนนี้" ผิดเวลา — ฝั่ง web export เป็นไฟล์ `.xlsx` จริงด้วย `exceljs` (2 sheet: สรุป + รายการออเดอร์ละเอียด) ไม่ใช่ CSV แล้ว
+
+## Contact Admin (ร้านค้าติดต่อแอดมิน)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| POST | `/shops/:shopId/contact-admin` | ร้านส่งข้อความ/คำร้องถึงแอดมิน (`{ subject, message }`) — สร้าง `admin_notifications` (type `contact_admin_message`) ให้อัตโนมัติ | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/shops/:shopId/contact-admin` | ประวัติข้อความที่ร้านตัวเองเคยส่ง (ใหม่สุดก่อน) | ต้อง login เป็น shop_owner ของร้านนี้ |
+| GET | `/admin/contact-messages` | แอดมินดูข้อความ contact-admin ทั้งหมดจากทุกร้าน | ต้อง login เป็น admin |
+| PATCH | `/admin/contact-messages/:id/reply` | แอดมินตอบกลับข้อความ (`{ adminReply }`) — ตั้ง `status` เป็น `resolved` อัตโนมัติ | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/contactAdmin.ts` — Zod schema ที่ `packages/shared/src/schemas/notification.ts`
+
+## Admin — การแจ้งเตือน (in-app)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/admin/notifications` | list การแจ้งเตือน 50 รายการล่าสุด (ใหม่สุดก่อน) + จำนวนที่ยังไม่อ่าน — ฝั่ง web polling ทุก 30 วิ (ไม่มี WebSocket ในระบบ) | ต้อง login เป็น admin |
+| PATCH | `/admin/notifications/:id/read` | มาร์คอ่านแล้วรายการเดียว | ต้อง login เป็น admin |
+| PATCH | `/admin/notifications/read-all` | มาร์คอ่านแล้วทั้งหมด | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/adminNotificationsRoutes.ts` + helper กลาง `apps/api/src/adminNotifications.ts` (เรียกจาก route อื่นแบบ best-effort ไม่ทำให้ request หลัก fail ถ้าแจ้งเตือนพลาด) — event ที่มีตอนนี้ 3 อย่าง: ร้านสมัครใหม่ (`shop_registered`, ยิงจาก `POST /auth/register/shop`), ออเดอร์ถูกยกเลิก/ปฏิเสธชำระเงิน (`order_cancelled`, ยิงจาก `PATCH /orders/:id/status`), ข้อความ contact-admin ใหม่ (`contact_admin_message`)
 
 ## Admin — ตรวจสอบร้านค้า
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
+| GET | `/admin/dashboard` | สรุปภาพรวมหน้าหลักแอดมิน — จำนวนร้านทั้งหมด/อนุมัติแล้ว/รอตรวจสอบ, จำนวนลูกค้าทั้งหมด (พร้อม % เปลี่ยนแปลงเทียบ 7 วันที่แล้วเฉพาะยอดที่อิง `createdAt`), รายชื่อร้านรอตรวจสอบ 5 อันดับล่าสุด | ต้อง login เป็น admin |
 | GET | `/admin/shops` | list ร้านทั้งหมด พร้อมข้อมูลเจ้าของร้าน (join `users`) | ต้อง login เป็น admin |
 | GET | `/admin/shops/:id` | รายละเอียดร้าน + signed URL ชั่วคราว (10 นาที) สำหรับดูรูปบัตรประชาชน | ต้อง login เป็น admin |
+| PATCH | `/admin/shops/:id` | แก้ข้อมูลร้านค้าแทนเจ้าของร้าน (ชื่อ/เบอร์/อีเมล/ที่อยู่/ประเภทบริการ) | ต้อง login เป็น admin |
+| DELETE | `/admin/shops/:id` | ลบร้านค้า — ลบไม่ได้ถ้ามีบริการ/ออเดอร์ผูกอยู่ (409, ให้ใช้ระงับ/ปฏิเสธแทน) | ต้อง login เป็น admin |
 | PATCH | `/admin/shops/:id/approve` | อนุมัติร้าน (`approvalStatus` → `approved`, ล้าง `rejectedReason`) | ต้อง login เป็น admin |
 | PATCH | `/admin/shops/:id/reject` | ไม่อนุมัติร้าน พร้อมเหตุผล (`{ reason: string }`, บังคับกรอก) | ต้อง login เป็น admin |
 
@@ -131,10 +165,6 @@
 
 ## ยังไม่ได้ทำ (ตาม scope ในข้อเสนอโครงการ)
 
-- Shops: `PATCH /shops/:id` (toggle `delivery_enabled` ทั้งร้าน)
-- Cart: `POST /cart/checkout` (แปลงตะกร้าเป็นออเดอร์จริง คำนวณ+snapshot ราคา, เชื่อม `POST /orders` เข้ากับระบบราคาจริงของตะกร้าแทนสูตรชั่วคราว) — งาน phase ถัดไปหลังตะกร้า
-- `GET /orders/mine` (ประวัติสั่งซื้อของลูกค้า)
-- Dashboard: `GET /shops/:id/dashboard` (สรุปรายได้ตาม 1.3.1.6)
-- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว)
+- แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว, มี in-app notification ให้แอดมินตอนร้านสมัครใหม่แล้วแต่ยังไม่มีอีเมลแจ้งร้านตอนผลอนุมัติออก)
 - ระบบ auto-verify สลิป (OCR อ่านยอด/ธนาคารอัตโนมัติ) — ตอนนี้ร้านต้องดูสลิปด้วยตาแล้วกดอนุมัติ/ปฏิเสธเอง
 - เพิ่ม `"payment-slip"` เข้า whitelist ของ `POST /uploads` (ดูหัวข้อ Uploads ด้านบน) — ตอนนี้ bucket พร้อมแต่ endpoint ยังปฏิเสธ type นี้อยู่
