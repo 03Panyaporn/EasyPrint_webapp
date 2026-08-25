@@ -8,4 +8,5 @@ export * from "./schemas/cart";
 export * from "./schemas/shop";
 export * from "./schemas/report";
 export * from "./schemas/notification";
+export * from "./schemas/address";
 export * from "./pricing/engine";

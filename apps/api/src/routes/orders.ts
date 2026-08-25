@@ -1,5 +1,8 @@
 import { Elysia } from "elysia";
 import { and, count, desc, eq } from "drizzle-orm";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import {
   createOrderSchema,
   updateOrderStatusSchema,
@@ -12,9 +15,81 @@ import { orders, orderItems, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
-import { createNotification } from "../utils/notification";
 import { createAdminNotification } from "../adminNotifications";
 import { supabaseAdmin } from "../storage";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// วันในสัปดาห์ภาษาไทย ต้องตรงกับ opening_hours.day ที่บันทึกจริง (ดู THAI_DAY_BY_JS_INDEX ฝั่ง frontend apps/web/lib/shopHours.ts) — ไม่มีคำว่า "วัน" นำหน้า
+const THAI_DAY_BY_INDEX = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+const DAY_ID_TO_THAI: Record<string, string> = {
+  sun: "อาทิตย์", mon: "จันทร์", tue: "อังคาร", wed: "พุธ", thu: "พฤหัสบดี", fri: "ศุกร์", sat: "เสาร์",
+};
+
+type OpeningHourEntry = { day: string; isOpen: boolean; openTime: string; closeTime: string };
+
+// เช็คว่าร้านอยู่ในเวลาทำการตอนนี้ไหม — คำนวณด้วยเวลาไทย (Asia/Bangkok) เสมอ ไม่ใช่เวลาเครื่อง server
+// (ต่างจาก isShopOpenNow ฝั่ง frontend apps/web/lib/shopHours.ts ที่ใช้เวลาเครื่อง browser ตรงๆ — เชื่อฝั่ง client ไม่ได้เพราะปลอมได้)
+function isShopWithinOpeningHours(openingHours: unknown): boolean {
+  if (!Array.isArray(openingHours) || openingHours.length === 0) return false;
+  const now = dayjs().tz("Asia/Bangkok");
+  const todayThai = THAI_DAY_BY_INDEX[now.day()];
+  const todayEntry = (openingHours as OpeningHourEntry[]).find(
+    (h) => h.day === todayThai || DAY_ID_TO_THAI[h.day] === todayThai
+  );
+  if (!todayEntry || !todayEntry.isOpen || !todayEntry.openTime || !todayEntry.closeTime) return false;
+
+  const nowMinutes = now.hour() * 60 + now.minute();
+  const [openH, openM] = todayEntry.openTime.split(":").map(Number);
+  const [closeH, closeM] = todayEntry.closeTime.split(":").map(Number);
+  const openMinutes = openH * 60 + openM;
+  const closeMinutes = closeH * 60 + closeM;
+
+  if (openMinutes === closeMinutes) return true; // เปิด 24 ชั่วโมง
+  if (closeMinutes < openMinutes) {
+    // เปิดข้ามคืน เช่น 18:00 - 02:00
+    return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+  }
+  return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+}
+
+// เช็คว่าร้านอยู่ในช่วง "ปิดชั่วคราว" ที่ตั้งไว้ไหม — เทียบวันที่แบบเวลาไทยเสมอ (YYYY-MM-DD) กันบั๊กช่วง 00:00-06:59 น.
+// ที่วันที่ UTC ยังเป็นเมื่อวาน (ดูปัญหาเดียวกันที่พบใน apps/web/lib/shopHours.ts::isShopTempClosed)
+function isShopTempClosed(tempCloseStart: string | null, tempCloseEnd: string | null): boolean {
+  if (!tempCloseStart) return false;
+  const todayStr = dayjs().tz("Asia/Bangkok").format("YYYY-MM-DD");
+  if (tempCloseStart <= todayStr) {
+    if (!tempCloseEnd || tempCloseEnd >= todayStr) return true;
+  }
+  return false;
+}
+
+// เช็คทุกเงื่อนไขที่ทำให้ร้านรับออเดอร์ใหม่ไม่ได้ ณ ตอนนี้ — เรียกใช้ก่อนสร้างออเดอร์ทุกครั้ง (ทั้ง POST /orders แบบเก่า และ checkout จากตะกร้า)
+// สำคัญ: ต้องเช็คฝั่ง server เสมอ เพราะ UI ฝั่งลูกค้าบล็อกปุ่มสั่งซื้อได้แค่ระดับหน้าตา ข้ามได้ง่ายๆ ด้วยการยิง API ตรง
+export async function assertShopAcceptingOrders(shopId: string): Promise<{ error: string } | null> {
+  const [shop] = await db
+    .select({
+      approvalStatus: shops.approvalStatus,
+      openingHours: shops.openingHours,
+      tempCloseStart: shops.tempCloseStart,
+      tempCloseEnd: shops.tempCloseEnd,
+    })
+    .from(shops)
+    .where(eq(shops.id, shopId));
+
+  if (!shop) return { error: "ไม่พบร้านค้านี้" };
+  if (shop.approvalStatus !== "approved") {
+    return { error: "ร้านนี้ยังไม่เปิดให้บริการ (ยังไม่ผ่านการอนุมัติ หรือถูกระงับการใช้งาน)" };
+  }
+  if (isShopTempClosed(shop.tempCloseStart, shop.tempCloseEnd)) {
+    return { error: "ร้านนี้ปิดรับออเดอร์ชั่วคราวอยู่ในขณะนี้" };
+  }
+  if (!isShopWithinOpeningHours(shop.openingHours)) {
+    return { error: "ร้านนี้ปิดทำการอยู่ในขณะนี้ กรุณาสั่งซื้อในเวลาทำการ" };
+  }
+  return null;
+}
 
 // ต้องตรงกับ statusConfig.ts ฝั่ง frontend (apps/web/components/shop/orders/statusConfig.ts) — ใช้ในข้อความ error ตอนพยายามข้ามขั้นสถานะ
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -216,6 +291,12 @@ export const ordersRoutes = new Elysia()
     if (!parsed.success) {
       set.status = 400;
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const shopError = await assertShopAcceptingOrders(parsed.data.shopId);
+    if (shopError) {
+      set.status = 400;
+      return shopError;
     }
 
     // TODO: คำนวณราคาจริงตามอัตราของร้าน (ดู docs/proposal.md หัวข้อ 1.3.2.3) — ตอนนี้ยังเป็นสูตรชั่วคราว
@@ -456,51 +537,9 @@ export const ordersRoutes = new Elysia()
     }
 
     return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
-  })
-
-  // ── ลูกค้ายกเลิกออเดอร์ด้วยตัวเอง (เฉพาะตอนรอตรวจสอบ) ──────────
-  .patch("/customers/orders/:id/cancel", async ({ params, cookie, set }) => {
-    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
-    const payload = token ? verifyAuthToken(token) : null;
-    if (!payload || payload.role !== "customer") {
-      set.status = 401;
-      return { error: "ต้องเข้าสู่ระบบด้วยบัญชีลูกค้า" };
-    }
-
-    const [row] = await db
-      .select({ order: orders, customer: users })
-      .from(orders)
-      .leftJoin(users, eq(orders.customerId, users.id))
-      .where(and(eq(orders.id, params.id), eq(orders.customerId, payload.userId)));
-
-    if (!row) {
-      set.status = 404;
-      return { error: "ไม่พบออเดอร์นี้" };
-    }
-
-    if (row.order.status !== "pending_review") {
-      set.status = 400;
-      return { error: "สามารถยกเลิกได้เฉพาะตอนรอตรวจสอบเท่านั้น" };
-    }
-
-    const [updated] = await db
-      .update(orders)
-      .set({
-        status: "cancelled",
-        cancelReason: "customer_request",
-        cancelNote: "ลูกค้ายกเลิกออเดอร์ด้วยตนเอง",
-      })
-      .where(eq(orders.id, params.id))
-      .returning();
-
-    // แจ้งเตือนร้านค้า
-    await createNotification({
-      userId: row.order.shopId,
-      typeId: 2,
-      category: "general", // 2 = ลูกค้ายกเลิกออเดอร์
-      title: `ลูกค้ายกเลิกออเดอร์ ${updated.code}`,
-      message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
-    });
-
-    return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
   });
+
+// หมายเหตุ: เดิมเคยมี PATCH /customers/orders/:id/cancel แยกต่างหากสำหรับลูกค้ายกเลิกออเดอร์เอง แต่ไม่มีฝั่งไหนเรียกใช้เลย
+// (frontend ใช้ PATCH /orders/:id/status ตัวเดียวกับที่ร้านค้าใช้ยกเลิก/เปลี่ยนสถานะ — ดู isCustomerOwner ด้านบน) และ endpoint
+// ที่ถูกลบไปนั้น "ไม่ set finishedAt" ต่างจากตัวหลัก ทำให้ cron ลบไฟล์อัตโนมัติ (ดู POST /internal/cleanup/expired-order-files)
+// จะไม่ทำงานถ้ามีใครมาเรียกใช้ endpoint นั้นจริงๆ — ลบทิ้งเพื่อไม่ให้มี logic ยกเลิกออเดอร์ 2 ชุดที่พฤติกรรมไม่ตรงกัน

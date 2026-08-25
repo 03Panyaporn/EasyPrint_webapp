@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { X, MapPin, Store, MessageSquareText, Calendar } from "lucide-react";
 import { Order } from "./types";
 import { statusConfig, cancelReasonLabels } from "./statusConfig";
@@ -86,9 +87,18 @@ export default function OrderDetailModal({
         </div>
 
         {/* Customer Details */}
-        <div className="mb-5">
-          <p className="text-[12.5px] font-bold text-gray-400 mb-1">ชื่อลูกค้า</p>
-          <p className="text-[14.5px] font-medium text-gray-800">{order.customerName}</p>
+        <div className="mb-5 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[12.5px] font-bold text-gray-400 mb-1">ชื่อลูกค้า</p>
+            <p className="text-[14.5px] font-medium text-gray-800">{order.customerName}</p>
+          </div>
+          <Link
+            href={`/shop/chat?orderId=${order.id}`}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-600 transition hover:bg-orange-100"
+          >
+            <MessageSquareText size={14} />
+            แชทกับลูกค้า
+          </Link>
         </div>
 
         {/* Snapshot Items / Service Details */}

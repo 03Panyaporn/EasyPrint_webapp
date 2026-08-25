@@ -66,8 +66,11 @@ export type ReplyContactAdminMessageInput = z.infer<typeof replyContactAdminMess
 
 export interface ContactAdminMessageItem {
   id: string;
-  shopId: string;
+  senderType: "shop" | "customer";
+  shopId?: string | null;
   shopName?: string;
+  userId?: string | null;
+  customerName?: string;
   subject: string;
   message: string;
   status: ContactAdminStatus;

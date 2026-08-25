@@ -46,8 +46,8 @@ export default function AdminContactMessagesPage() {
           <MessageCircle size={17} />
         </div>
         <div>
-          <h1 className="text-base font-black text-gray-900 tracking-tight leading-none">ข้อความจากร้านค้า</h1>
-          <p className="text-[11px] text-gray-500 font-medium mt-0.5">คำร้อง/ข้อความติดต่อแอดมินจากร้านค้าทั้งหมด</p>
+          <h1 className="text-base font-black text-gray-900 tracking-tight leading-none">ข้อความติดต่อแอดมิน</h1>
+          <p className="text-[11px] text-gray-500 font-medium mt-0.5">คำร้อง/ข้อความติดต่อแอดมินจากร้านค้าและลูกค้าทั้งหมด</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export default function AdminContactMessagesPage() {
         </div>
       ) : messages.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-2xl p-10 shadow-2xs text-center text-sm text-gray-400">
-          ยังไม่มีข้อความจากร้านค้า
+          ยังไม่มีข้อความ
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -70,9 +70,22 @@ export default function AdminContactMessagesPage() {
             <div key={m.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-2xs">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">{m.subject}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                        m.senderType === "customer"
+                          ? "bg-blue-50 text-blue-600 border border-blue-200"
+                          : "bg-purple-50 text-purple-600 border border-purple-200"
+                      }`}
+                    >
+                      {m.senderType === "customer" ? "ลูกค้า" : "ร้านค้า"}
+                    </span>
+                    <p className="text-sm font-bold text-gray-900">{m.subject}</p>
+                  </div>
                   <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-                    {m.shopName ?? "ร้านค้า"} · {formatThaiDateTime(m.createdAt)}
+                    {(m.senderType === "customer" ? m.customerName : m.shopName) ??
+                      (m.senderType === "customer" ? "ลูกค้า" : "ร้านค้า")}{" "}
+                    · {formatThaiDateTime(m.createdAt)}
                   </p>
                 </div>
                 {m.status === "resolved" ? (

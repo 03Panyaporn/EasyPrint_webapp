@@ -7,6 +7,7 @@ import type {
   RegisterShopInput,
   ChangeEmailInput,
   DeleteAccountInput,
+  UpdateProfileInput,
 } from "@easyprint/shared";
 import { apiFetch } from "./client";
 
@@ -83,6 +84,13 @@ export function resetPassword(input: ResetPasswordInput) {
 export function changePassword(input: ChangePasswordInput) {
   return apiFetch<{ ok: true }>("/auth/change-password", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateProfile(input: UpdateProfileInput) {
+  return apiFetch<{ user: PublicUser }>("/auth/me", {
+    method: "PUT",
     body: JSON.stringify(input),
   });
 }

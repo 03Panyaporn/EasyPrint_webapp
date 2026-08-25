@@ -17,8 +17,9 @@ import {
     Tag,
     ShieldCheck
 } from "lucide-react";
-import { getMe } from "@/lib/api/auth";
+import { getMe, updateProfile } from "@/lib/api/auth";
 import type { PublicUser } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import {
     getAddresses,
     createAddress as createAddressApi,
@@ -62,6 +63,12 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<PublicUser | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // — แก้ไขข้อมูลส่วนตัว (ชื่อ-นามสกุล/เบอร์โทร) —
+    const [editingProfile, setEditingProfile] = useState(false);
+    const [profileForm, setProfileForm] = useState({ firstname: "", lastname: "", phone: "" });
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [profileError, setProfileError] = useState("");
+
     async function loadAddresses() {
         try {
             const { addresses } = await getAddresses();
@@ -87,6 +94,32 @@ export default function ProfilePage() {
         loadProfile();
         loadAddresses();
     }, []);
+
+    function handleStartEditProfile() {
+        if (!profile) return;
+        setProfileForm({ firstname: profile.firstname, lastname: profile.lastname, phone: profile.phone });
+        setProfileError("");
+        setEditingProfile(true);
+    }
+
+    function handleCancelEditProfile() {
+        setEditingProfile(false);
+        setProfileError("");
+    }
+
+    async function handleSaveProfile() {
+        setSavingProfile(true);
+        setProfileError("");
+        try {
+            const { user } = await updateProfile(profileForm);
+            setProfile(user);
+            setEditingProfile(false);
+        } catch (error) {
+            setProfileError(error instanceof ApiError ? error.message : "แก้ไขข้อมูลส่วนตัวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setSavingProfile(false);
+        }
+    }
 
     async function createAddress() {
         setIsSubmitting(true);
@@ -210,9 +243,84 @@ export default function ProfilePage() {
                                 <p className="text-xs text-slate-400">ข้อมูลบัญชีสำหรับการใช้งานระบบ</p>
                             </div>
                         </div>
+
+                        {profile && !editingProfile && (
+                            <button
+                                onClick={handleStartEditProfile}
+                                className="w-9 h-9 rounded-xl text-slate-500 hover:text-orange-600 bg-slate-50 border border-slate-200/80 hover:bg-orange-50 hover:border-orange-200 flex items-center justify-center transition shadow-xs"
+                                title="แก้ไขข้อมูลส่วนตัว"
+                            >
+                                <PencilLine size={16} />
+                            </button>
+                        )}
                     </div>
 
-                    {profile ? (
+                    {profileError && (
+                        <div className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-600">
+                            {profileError}
+                        </div>
+                    )}
+
+                    {!profile ? (
+                        <div className="animate-pulse grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
+                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
+                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
+                        </div>
+                    ) : editingProfile ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs text-slate-600">ชื่อ *</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
+                                        value={profileForm.firstname}
+                                        onChange={(e) => setProfileForm({ ...profileForm, firstname: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-slate-600">นามสกุล *</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
+                                        value={profileForm.lastname}
+                                        onChange={(e) => setProfileForm({ ...profileForm, lastname: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs text-slate-600">เบอร์โทรศัพท์ *</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
+                                    placeholder="0812345678"
+                                    value={profileForm.phone}
+                                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2.5 pt-1">
+                                <button
+                                    type="button"
+                                    disabled={savingProfile}
+                                    onClick={handleCancelEditProfile}
+                                    className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 transition text-xs disabled:opacity-50 cursor-pointer"
+                                >
+                                    ยกเลิก
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={savingProfile}
+                                    onClick={handleSaveProfile}
+                                    className="px-5 py-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 active:scale-95 shadow-sm transition text-xs disabled:opacity-50 cursor-pointer"
+                                >
+                                    {savingProfile ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="rounded-2xl bg-slate-50/90 p-4 border border-slate-200/80 shadow-sm transition hover:border-orange-300 hover:bg-white hover:shadow-md space-y-1">
                                 <span className="text-xs text-slate-400 block">ชื่อ-นามสกุล</span>
@@ -234,12 +342,6 @@ export default function ProfilePage() {
                                     {profile.phone || "-"}
                                 </p>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="animate-pulse grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
-                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
-                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
                         </div>
                     )}
                 </div>

@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Check,
   Package,
+  MessageCircle,
 } from "lucide-react";
 
 import { getOrder, type ApiOrder } from "@/lib/api/orders";
@@ -206,11 +207,21 @@ export default function OrderStatusPage({
                 </div>
               </div>
 
-              <span
-                className={`inline-flex w-fit shrink-0 items-center rounded-full border px-3.5 py-2 text-xs  ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
-              >
-                {meta.label}
-              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`inline-flex w-fit items-center rounded-full border px-3.5 py-2 text-xs  ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
+                >
+                  {meta.label}
+                </span>
+
+                <Link
+                  href={`/chat?orderId=${order.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3.5 py-2 text-xs text-orange-600 transition hover:bg-orange-100"
+                >
+                  <MessageCircle size={14} />
+                  แชทกับร้าน
+                </Link>
+              </div>
 
             </div>
 

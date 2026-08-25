@@ -23,14 +23,10 @@ import {
   updateOrderStatus,
   type ApiOrder,
 } from "@/lib/api/orders";
+import { createReview, getOrderReview } from "@/lib/api/reviews";
+import type { ReviewResponse } from "@easyprint/shared";
 import { statusConfig } from "@/components/shop/orders/statusConfig";
 import { ApiError, apiFetch } from "@/lib/api/client";
-
-// ── Types ─────────────────────────────────────────────
-type ReviewData = {
-  rating: number;
-  comment: string;
-};
 
 // ── Star Rating Component ──────────────────────────────
 function StarRating({
@@ -88,23 +84,31 @@ export default function CustomerOrdersPage() {
   const [chatSending, setChatSending] = useState(false);
   const [chatSent, setChatSent] = useState(false);
 
-  // — Confirm received (completed orders)
-  const [confirmOrder, setConfirmOrder] = useState<ApiOrder | null>(null);
-  const [confirming, setConfirming] = useState(false);
-
-  // — Review
+  // — Review (ข้อมูลจริงจาก API เดียวกับหน้า /orders/[orderId] — เลิกใช้ mock state แล้ว)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null);
-  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
-  // — Local review store (mock — replace with API when ready)
-  const [reviews, setReviews] = useState<Record<string, ReviewData>>({});
+  // — สถานะรีวิวจริงของออเดอร์ที่เสร็จสิ้นแล้ว (คีย์ด้วย orderId) — undefined = ยังโหลดไม่เสร็จ, null = ยังไม่เคยรีวิว
+  const [reviewsByOrderId, setReviewsByOrderId] = useState<Record<string, ReviewResponse | null>>({});
 
   useEffect(() => {
     getCustomerOrders()
       .then((res) => {
         setOrders(res.orders);
+
+        const completedIds = res.orders.filter((o) => o.status === "completed").map((o) => o.id);
+        Promise.all(
+          completedIds.map((id) =>
+            getOrderReview(id)
+              .then((r): [string, ReviewResponse | null] => [id, r.review])
+              .catch((): [string, ReviewResponse | null] => [id, null])
+          )
+        ).then((pairs) => {
+          setReviewsByOrderId(Object.fromEntries(pairs));
+        });
       })
       .catch((err) => {
         setError(
@@ -211,28 +215,33 @@ export default function CustomerOrdersPage() {
     setChatSent(false);
   };
 
-  const handleConfirmReceived = async () => {
-    if (!confirmOrder) return;
-    setConfirming(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setConfirming(false);
-    setConfirmOrder(null);
-    // open review modal right after
-    setReviewOrder(confirmOrder);
-    setReviewRating(5);
+  const handleOpenReview = (order: ApiOrder) => {
+    setReviewOrder(order);
+    setReviewRating(0);
     setReviewComment("");
+    setReviewError("");
   };
 
   const handleSubmitReview = async () => {
     if (!reviewOrder) return;
+    if (reviewRating === 0) {
+      setReviewError("กรุณาให้คะแนนอย่างน้อย 1 ดาว");
+      return;
+    }
     setSubmittingReview(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setReviews((prev) => ({
-      ...prev,
-      [reviewOrder.id]: { rating: reviewRating, comment: reviewComment },
-    }));
-    setSubmittingReview(false);
-    setReviewOrder(null);
+    setReviewError("");
+    try {
+      const { review } = await createReview(reviewOrder.id, {
+        rating: reviewRating,
+        comment: reviewComment.trim() || undefined,
+      });
+      setReviewsByOrderId((prev) => ({ ...prev, [reviewOrder.id]: review }));
+      setReviewOrder(null);
+    } catch (err) {
+      setReviewError(err instanceof ApiError ? err.message : "ส่งรีวิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   // ── Loading ───────────────────────────────────────────
@@ -386,7 +395,7 @@ export default function CustomerOrdersPage() {
               const orderCanCancel = canCancel(order.status);
               const isCancelled = order.status === "cancelled";
               const isCompleted = order.status === "completed";
-              const orderReview = reviews[order.id];
+              const orderReview = reviewsByOrderId[order.id];
 
               return (
                 <div
@@ -512,15 +521,15 @@ export default function CustomerOrdersPage() {
                         </button>
                       )}
 
-                      {/* Confirm received button (completed, not yet reviewed) */}
+                      {/* Review button (completed, not yet reviewed) */}
                       {isCompleted && !orderReview && (
                         <button
                           type="button"
-                          onClick={() => setConfirmOrder(order)}
+                          onClick={() => handleOpenReview(order)}
                           className="flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-5 py-2.5 text-xs font-medium text-green-700 transition hover:bg-green-100"
                         >
                           <CheckCircle2 size={15} />
-                          ยืนยันรับงาน &amp; รีวิว
+                          ให้คะแนนรีวิว
                         </button>
                       )}
 
@@ -556,7 +565,7 @@ export default function CustomerOrdersPage() {
                       <div className="mt-3 flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 px-3 py-2.5">
                         <CheckCircle2 size={15} className="text-green-500" />
                         <p className="text-[11px] text-green-700">
-                          รับงานและรีวิวเรียบร้อยแล้ว — ดูได้ในประวัติสั่งซื้อ
+                          รีวิวเรียบร้อยแล้ว — ขอบคุณสำหรับความคิดเห็น
                         </p>
                       </div>
                     )}
@@ -565,7 +574,7 @@ export default function CustomerOrdersPage() {
                       <div className="mt-3 flex items-start gap-2 rounded-xl border border-green-100 bg-green-50 px-3 py-2.5">
                         <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-green-500" />
                         <p className="text-[11px] leading-relaxed text-green-700">
-                          งานเสร็จสิ้นแล้ว กรุณายืนยันรับงานและให้คะแนนรีวิว
+                          งานเสร็จสิ้นแล้ว กรุณาให้คะแนนรีวิวร้านค้า
                         </p>
                       </div>
                     )}
@@ -740,66 +749,6 @@ export default function CustomerOrdersPage() {
       )}
 
       {/* ================================================
-          MODAL: CONFIRM RECEIVED
-      ================================================ */}
-      {confirmOrder && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]"
-          onClick={() => { if (!confirming) setConfirmOrder(null); }}
-        >
-          <div
-            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-500">
-                <CheckCircle2 size={32} />
-              </div>
-            </div>
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-slate-800">ยืนยันรับงานแล้ว?</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                ยืนยันว่าคุณได้รับงานพิมพ์จาก
-              </p>
-              <p className="mt-0.5 font-medium text-slate-800">{confirmOrder.shopName}</p>
-              <p className="mt-1 text-xs text-slate-400">{confirmOrder.code}</p>
-              <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                หลังยืนยัน คุณจะสามารถให้คะแนนรีวิวร้านค้าได้
-              </p>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={confirming}
-                onClick={() => setConfirmOrder(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                ยังไม่ได้รับ
-              </button>
-              <button
-                type="button"
-                disabled={confirming}
-                onClick={handleConfirmReceived}
-                className="flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-3 text-sm text-white transition hover:bg-green-600 disabled:opacity-50"
-              >
-                {confirming ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    กำลังยืนยัน
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={16} />
-                    รับงานแล้ว
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================================================
           MODAL: REVIEW
       ================================================ */}
       {reviewOrder && (
@@ -832,6 +781,12 @@ export default function CustomerOrdersPage() {
             </div>
 
             <div className="p-5">
+              {reviewError && (
+                <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+                  {reviewError}
+                </div>
+              )}
+
               {/* Star rating */}
               <div className="mb-5 flex flex-col items-center gap-3 rounded-2xl bg-slate-50 py-5">
                 <p className="text-sm font-medium text-slate-600">

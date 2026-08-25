@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import ChatPage from "@/components/chat/chatpage";
 
@@ -20,7 +22,16 @@ export default function ShopChatPage() {
         </div>
       </div>
 
-      <ChatPage currentUser="shop" />
+      <Suspense fallback={null}>
+        <ShopChatContent />
+      </Suspense>
     </div>
   );
+}
+
+function ShopChatContent() {
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get("orderId") ?? undefined;
+
+  return <ChatPage currentUser="shop" initialOrderId={orderId} />;
 }

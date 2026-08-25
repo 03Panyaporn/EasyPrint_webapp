@@ -7,6 +7,12 @@ import { listShopOrders } from "@/lib/api/orders";
 import { toOrder } from "@/lib/ordersAdapter";
 import { Order } from "../orders/types";
 
+// แปลงเป็นวันที่ "YYYY-MM-DD" ตามเวลาไทย (Asia/Bangkok) เสมอ — ห้ามใช้ toISOString().split('T')[0] ตรงๆ
+// เพราะนั่นคือวันที่แบบ UTC ซึ่งจะผิดในช่วง 00:00-06:59 น. เวลาไทย (ตอนนั้นวันที่ UTC ยังเป็นเมื่อวาน)
+function toBangkokDateStr(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(date);
+}
+
 export default function StatCards() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState([
@@ -85,14 +91,11 @@ export default function StatCards() {
         const allOrders = apiOrders.map(toOrder);
         
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const todayStr = toBangkokDateStr(now);
+        const yesterdayStr = toBangkokDateStr(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
-        const todayOrders = allOrders.filter(o => o.createdAt.startsWith(todayStr));
-        const yesterdayOrders = allOrders.filter(o => o.createdAt.startsWith(yesterdayStr));
+        const todayOrders = allOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === todayStr);
+        const yesterdayOrders = allOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === yesterdayStr);
 
         // Income today: Only 'completed' orders from today
         const todayIncome = todayOrders

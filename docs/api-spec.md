@@ -150,6 +150,17 @@
 
 โค้ดอยู่ที่ `apps/api/src/routes/contactAdmin.ts` — Zod schema ที่ `packages/shared/src/schemas/notification.ts`
 
+## Messages (แชทลูกค้า ↔ ร้านค้า ผูกกับออเดอร์)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/messages/rooms` | list "ห้องแชท" (ออเดอร์ที่มีข้อความ) ของผู้ใช้ปัจจุบัน พร้อมข้อความล่าสุดและจำนวนที่ยังไม่อ่าน เรียงตามข้อความล่าสุดก่อน | ต้อง login เป็น customer หรือ shop_owner |
+| POST | `/messages` | ส่งข้อความในออเดอร์ — ข้อความปกติ `{ orderId, content }` หรือไฟล์แนบ `{ orderId, filePath, fileName }` (`filePath` คือ path ที่ได้จาก `POST /uploads` type `order-file`) — สร้าง notification (type 3) ให้อีกฝั่งแบบ best-effort | ต้อง login เป็นลูกค้าเจ้าของออเดอร์ หรือเจ้าของร้านของออเดอร์นั้น |
+| PATCH | `/messages/:orderId/read` | มาร์คข้อความทั้งหมดในออเดอร์นี้ที่ไม่ได้ส่งโดยตัวเองว่าอ่านแล้ว | เหมือนข้างบน |
+| GET | `/messages/:orderId` | ประวัติแชทของออเดอร์นี้ (ใหม่สุดก่อน) — แต่ละข้อความมี `isFile`/`fileUrl` (signed URL อายุ 1 ชม.)/`fileName` เพิ่มมาให้ถ้าเป็นไฟล์แนบ | เหมือนข้างบน |
+
+โค้ดอยู่ที่ `apps/api/src/routes/messages.ts` — สิทธิ์ฝั่งร้านค้าต้อง join `shops` เทียบ `ownerId` กับ user ที่ login เสมอ (`order.shopId` เป็น id ของร้าน ไม่ใช่ id ของ user เจ้าของร้าน) — ไฟล์แนบในแชทเก็บ path ของ bucket private `order-files` เป็น JSON marker ใน `messages.content` (ไม่มีคอลัมน์แยก) แล้วแปลงเป็น signed URL ตอนอ่านเท่านั้น — `POST /uploads` type `order-file` เปิดให้ทั้ง customer และ shop_owner อัปโหลดได้แล้ว (เดิมจำกัดแค่ customer)
+
 ## Admin — การแจ้งเตือน (in-app)
 
 | Method | Path | คำอธิบาย | Auth |

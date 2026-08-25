@@ -31,7 +31,7 @@ import {
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { supabaseAdmin } from "../storage";
 import { createNotification } from "../utils/notification";
-import { generateOrderCode, generateOrderRef, serializeOrder } from "./orders";
+import { generateOrderCode, generateOrderRef, serializeOrder, assertShopAcceptingOrders } from "./orders";
 import { notifyOrderCreated } from "../notifications";
 
 // นับจำนวนหน้าจริงจากไฟล์ PDF ที่อัปโหลดไว้ใน Storage — ใช้เสมอตอนเพิ่ม/แก้ไขรายการ pricingModel = per_page
@@ -596,6 +596,12 @@ export const cartRoutes = new Elysia()
     if (!parsed.success) {
       set.status = 400;
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const shopError = await assertShopAcceptingOrders(params.shopId);
+    if (shopError) {
+      set.status = 400;
+      return shopError;
     }
 
     // หาตะกร้าของร้านนี้

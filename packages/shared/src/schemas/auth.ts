@@ -5,7 +5,7 @@ import { z } from "zod";
 
 // ตัด "-" กับช่องว่างออกก่อนเช็คความยาว เพราะฟอร์ม (placeholder "0XX-XXX-XXXX") ยอมให้ผู้ใช้พิมพ์เบอร์แบบมีขีดได้
 // ถ้าไม่ตัดก่อน ค่าที่มีขีดจะยาวเกิน 10 ตัวอักษรและไม่ผ่าน validation ทั้งที่เป็นเบอร์ที่ถูกต้อง
-const phoneSchema = z
+export const phoneSchema = z
   .string()
   .transform((val) => val.replace(/[\s-]/g, ""))
   .pipe(z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"));
@@ -62,6 +62,16 @@ export const deleteAccountSchema = z.object({
 });
 
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
+
+// ใช้ตอนผู้ใช้ (ลูกค้า/ร้านค้า) แก้ไขชื่อ-นามสกุล/เบอร์โทรของตัวเองในหน้าโปรไฟล์ — ไม่รวมอีเมล/รหัสผ่านเพราะมี flow แยก
+// ที่ต้องยืนยันด้วยรหัสผ่านปัจจุบันก่อน (ดู changeEmailSchema/changePasswordSchema ด้านบน)
+export const updateProfileSchema = z.object({
+  firstname: z.string().trim().min(1, "กรุณากรอกชื่อ").max(100),
+  lastname: z.string().trim().min(1, "กรุณากรอกนามสกุล").max(100),
+  phone: phoneSchema,
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 // ตรงกับตัวเลือก "บริการของร้าน" ใน apps/web/app/(auth)/register/shop-register/page.tsx — แก้ที่นี่ที่เดียว หน้าเว็บ import ไปใช้
 // เลือกได้หลายรายการ (checkbox) แทนที่ dropdown "ประเภทร้านค้า" แบบเดิมที่เลือกได้ทีละ 1
