@@ -26,6 +26,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
 } from "../../lib/api/notifications";
+import { useRouter } from "next/navigation";
 
 // Notification Data Types
 export type NotificationCategory = "all" | "chat" | "general";
@@ -84,6 +85,7 @@ export default function ShopNotificationDropdown() {
   const [activeTab, setActiveTab] = useState<NotificationCategory>("all");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     async function load() {
@@ -130,15 +132,19 @@ export default function ShopNotificationDropdown() {
     }
   };
 
-  const markAsRead = async (id: string) => {
-    const notif = notifications.find(n => n.id === id);
-    if (notif && !notif.isRead) {
+  const markAsReadAndNavigate = async (notif: NotificationItem) => {
+    if (!notif.isRead) {
       try {
-        await markNotificationAsRead(id);
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+        await markNotificationAsRead(notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
       } catch (e) {
         console.error(e);
       }
+    }
+    
+    if (notif.link) {
+      setIsOpen(false);
+      router.push(notif.link);
     }
   };
 
@@ -217,7 +223,7 @@ export default function ShopNotificationDropdown() {
                   return (
                     <div 
                       key={notif.id}
-                      onClick={() => markAsRead(notif.id)}
+                      onClick={() => markAsReadAndNavigate(notif)}
                       className={`relative group flex gap-3.5 p-4 hover:bg-slate-50 transition-colors cursor-pointer ${!notif.isRead ? 'bg-orange-50/30' : ''}`}
                     >
                       {/* Unread Indicator dot */}

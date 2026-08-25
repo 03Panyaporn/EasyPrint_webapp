@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Bell, Loader2 } from "lucide-react";
+import { ChevronRight, BellOff, Loader2 } from "lucide-react";
 import { getNotifications } from "@/lib/api/notifications";
 import type { NotificationItem } from "../ShopNotificationDropdown";
 import { NOTIFICATION_TYPES } from "../ShopNotificationDropdown";
@@ -15,12 +15,19 @@ export default function DashboardNotifications() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     getNotifications()
       .then((res) => setNotifications((res.notifications as NotificationItem[]).slice(0, 5)))
       .catch((err) => console.error("โหลดการแจ้งเตือนไม่สำเร็จ:", err))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadData();
+    // รีเฟรชรายการทันทีเมื่อมีการแจ้งเตือนใหม่เกิดขึ้น (dispatch จากที่อื่นในแอป) ไม่ต้องรอ mount ใหม่
+    window.addEventListener("new-notification", loadData);
+    return () => window.removeEventListener("new-notification", loadData);
+  }, [loadData]);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col h-[350px]">
@@ -40,7 +47,7 @@ export default function DashboardNotifications() {
         </div>
       ) : notifications.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-300">
-          <Bell size={28} />
+          <BellOff size={28} />
           <p className="text-xs text-slate-400">ยังไม่มีการแจ้งเตือน</p>
         </div>
       ) : (
@@ -48,7 +55,7 @@ export default function DashboardNotifications() {
           <div className="flex flex-col relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-100 before:to-transparent">
             {notifications.map((notif) => {
               const typeData = NOTIFICATION_TYPES[notif.typeId as keyof typeof NOTIFICATION_TYPES];
-              const Icon = typeData?.icon ?? Bell;
+              const Icon = typeData?.icon ?? BellOff;
               return (
                 <div key={notif.id} className="relative flex items-start gap-4 mb-5 group">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 ${typeData?.bg ?? "bg-slate-100"} ring-4 ring-white`}>

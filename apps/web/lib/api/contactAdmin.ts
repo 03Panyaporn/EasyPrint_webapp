@@ -40,3 +40,9 @@ export function submitCustomerContactMessage(input: CreateContactAdminMessageInp
 export function getCustomerContactMessages() {
   return apiFetch<{ messages: ContactAdminMessageItem[] }>("/users/contact-admin");
 }
+
+export function deleteContactAdminMessage(id: string) {
+  return apiFetch<{ success: boolean }>(`/admin/contact-messages/${id}`, {
+    method: "DELETE",
+  });
+}

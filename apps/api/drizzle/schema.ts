@@ -552,8 +552,10 @@ export const contactAdminMessages = pgTable("contact_admin_messages", {
   userId: uuid("user_id").references(() => users.id), // nullable — มีเมื่อ senderType = "customer"
   subject: text("subject").notNull(),
   message: text("message").notNull(),
+  attachments: text("attachments").array(), // URL รูปภาพหรือไฟล์ที่ร้านค้าแนบมา
   status: contactAdminStatusEnum("status").notNull().default("open"),
   adminReply: text("admin_reply"), // คำตอบจากแอดมิน — null ถ้ายังไม่ตอบ
+  adminReplyAttachments: text("admin_reply_attachments").array(), // URL ไฟล์แนบจากแอดมิน
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

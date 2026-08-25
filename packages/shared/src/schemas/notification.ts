@@ -56,11 +56,13 @@ export type ContactAdminStatus = z.infer<typeof contactAdminStatusSchema>;
 export const createContactAdminMessageSchema = z.object({
   subject: z.string().trim().min(1, "กรุณากรอกหัวข้อ").max(200),
   message: z.string().trim().min(1, "กรุณากรอกรายละเอียด").max(2000),
+  attachments: z.array(z.string()).max(5, "แนบไฟล์ได้สูงสุด 5 ไฟล์").optional(),
 });
 export type CreateContactAdminMessageInput = z.infer<typeof createContactAdminMessageSchema>;
 
 export const replyContactAdminMessageSchema = z.object({
   adminReply: z.string().trim().min(1, "กรุณากรอกคำตอบ").max(2000),
+  adminReplyAttachments: z.array(z.string()).max(5, "แนบไฟล์ได้สูงสุด 5 ไฟล์").optional(),
 });
 export type ReplyContactAdminMessageInput = z.infer<typeof replyContactAdminMessageSchema>;
 
@@ -69,11 +71,14 @@ export interface ContactAdminMessageItem {
   senderType: "shop" | "customer";
   shopId?: string | null;
   shopName?: string;
+  shopEmail?: string;
   userId?: string | null;
   customerName?: string;
   subject: string;
   message: string;
+  attachments?: string[] | null;
   status: ContactAdminStatus;
   adminReply: string | null;
+  adminReplyAttachments?: string[] | null;
   createdAt: string;
 }

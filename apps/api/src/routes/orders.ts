@@ -16,6 +16,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
 import { createAdminNotification } from "../adminNotifications";
+import { createNotification } from "../utils/notification";
 import { supabaseAdmin } from "../storage";
 
 dayjs.extend(utc);
@@ -336,7 +337,7 @@ export const ordersRoutes = new Elysia()
 
         // แจ้งเตือนลูกค้าทางอีเมลว่าสั่งซื้อสำเร็จแบบ best-effort — ส่งไม่สำเร็จก็ไม่ควรทำให้สร้างออเดอร์ (ที่บันทึกลง DB สำเร็จแล้ว) fail ไปด้วย
         const [customer] = await db
-          .select({ email: users.email })
+          .select({ email: users.email, firstname: users.firstname, lastname: users.lastname })
           .from(users)
           .where(eq(users.id, payload.userId));
         if (customer) {
@@ -345,6 +346,20 @@ export const ordersRoutes = new Elysia()
             orderCode: order.code,
             totalPrice: Number(order.totalPrice ?? 0),
           }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
+        }
+
+        // แจ้งเตือนร้านค้า (Bell Notification)
+        const [shopInfo] = await db.select({ ownerId: shops.ownerId }).from(shops).where(eq(shops.id, parsed.data.shopId));
+        if (shopInfo) {
+          const customerName = customer ? `${customer.firstname ?? ''} ${customer.lastname ?? ''}`.trim() || "ลูกค้า" : "ลูกค้า";
+          await createNotification({
+            userId: shopInfo.ownerId,
+            typeId: 1, // 1 = ออเดอร์ใหม่
+            title: `ออเดอร์ใหม่ ${order.code}`,
+            message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
+            category: "general",
+            link: `/shop/orders`,
+          });
         }
 
         return { order: await withSignedFileUrls(serializeOrder(order, null)) };
@@ -441,9 +456,10 @@ export const ordersRoutes = new Elysia()
   // ── เปลี่ยนสถานะออเดอร์ (เดินหน้า / ยกเลิก / ปฏิเสธการชำระเงิน — ใช้ endpoint เดียวกันหมด) ──────────
   .patch("/orders/:id/status", async ({ params, body, cookie, set }) => {
     const [row] = await db
-      .select({ order: orders, customer: users })
+      .select({ order: orders, customer: users, shop: shops })
       .from(orders)
       .leftJoin(users, eq(orders.customerId, users.id))
+      .leftJoin(shops, eq(orders.shopId, shops.id))
       .where(eq(orders.id, params.id));
 
     if (!row) {
@@ -536,6 +552,16 @@ export const ordersRoutes = new Elysia()
       }).catch((err) => console.error("สร้างการแจ้งเตือนออเดอร์ยกเลิกไม่สำเร็จ:", err));
     }
 
+    // แจ้งเตือนร้านค้ากรณีที่ลูกค้าเป็นคนกดยกเลิก
+    if (nextStatus === "cancelled" && isCustomerOwner && row.shop) {
+      await createNotification({
+        userId: row.shop.ownerId,
+        typeId: 2,
+        category: "general", // 2 = ลูกค้ายกเลิกออเดอร์
+        title: `ลูกค้ายกเลิกออเดอร์ ${updated.code}`,
+        message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
+      });
+    }
     return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
   });
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, BarChart3, TrendingUp } from "lucide-react";
 import { getMyShop } from "@/lib/api/services";
 import { getShopReport } from "@/lib/api/reports";
 import type { ShopReportResponse } from "@easyprint/shared";
@@ -14,13 +14,20 @@ export default function DashboardCharts() {
   const [report, setReport] = useState<ShopReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     getMyShop()
       .then(({ shop }) => getShopReport(shop.id, "today"))
       .then(setReport)
       .catch((err) => console.error("โหลดข้อมูลกราฟรายได้ไม่สำเร็จ:", err))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadData();
+    // รีเฟรชกราฟทันทีเมื่อสถานะออเดอร์เปลี่ยน (เช่น เพิ่งกดยืนยัน/เสร็จงาน) ไม่ต้องรอ mount ใหม่
+    window.addEventListener("order-status-updated", loadData);
+    return () => window.removeEventListener("order-status-updated", loadData);
+  }, [loadData]);
 
   const categories = (report?.categories ?? []).map((c, i) => ({
     ...c,
@@ -41,8 +48,9 @@ export default function DashboardCharts() {
             <Loader2 size={22} className="animate-spin" />
           </div>
         ) : categories.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-center text-xs text-slate-400 px-4">
-            ยังไม่มีออเดอร์ที่เสร็จสิ้นวันนี้
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <BarChart3 size={32} className="mb-2 opacity-30" />
+            <span className="text-sm font-medium">ยังไม่มีออเดอร์ที่เสร็จสิ้นวันนี้</span>
           </div>
         ) : (
           <div className="flex-1 flex items-center relative">
@@ -74,7 +82,7 @@ export default function DashboardCharts() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [`${value.toLocaleString()} บาท`, "รายได้"]}
+                    formatter={(value: any) => [`${Number(value).toLocaleString()} บาท`, "รายได้"]}
                     contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
                   />
                 </PieChart>
@@ -109,6 +117,11 @@ export default function DashboardCharts() {
           <div className="flex-1 flex items-center justify-center text-slate-300">
             <Loader2 size={22} className="animate-spin" />
           </div>
+        ) : series.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <TrendingUp size={32} className="mb-2 opacity-30" />
+            <span className="text-sm font-medium">ยังไม่มีข้อมูลสำหรับวันนี้</span>
+          </div>
         ) : (
           <div className="flex-1 w-full relative -ml-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -138,7 +151,7 @@ export default function DashboardCharts() {
                   dx={-5}
                 />
                 <Tooltip
-                  formatter={(value: number) => [`${value.toLocaleString()} บาท`, "รายได้"]}
+                  formatter={(value: any) => [`${Number(value).toLocaleString()} บาท`, "รายได้"]}
                   labelStyle={{ color: "#475569", fontWeight: "bold", marginBottom: "4px" }}
                   contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
                 />

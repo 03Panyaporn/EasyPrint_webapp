@@ -21,10 +21,10 @@ async function sendNotificationEmail(to: string, subject: string, html: string) 
 export async function notifyOrderCreated(params: {
   to: string;
   orderCode: string;
-  totalPrice: number; // หน่วยสตางค์
+  totalPrice: number; // หน่วยบาท
 }) {
   const { to, orderCode, totalPrice } = params;
-  const priceBaht = (totalPrice / 100).toLocaleString("th-TH");
+  const priceBaht = totalPrice.toLocaleString("th-TH");
   await sendNotificationEmail(
     to,
     `ยืนยันคำสั่งซื้อ ${orderCode} สำเร็จ`,

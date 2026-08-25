@@ -48,6 +48,8 @@ export type MyShopProfile = {
   approvalStatus: string;
   rejectedReason: string | null;
   deliveryEnabled: boolean;
+  serviceTypes: string[] | null;
+  deliveryMethods: string[] | null;
   phone: string | null;
   email: string | null;
   facebook: string | null;

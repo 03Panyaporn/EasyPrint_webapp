@@ -84,7 +84,8 @@ export default function StatCards() {
   ]);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadData(isSilent = false) {
+      if (!isSilent) setLoading(true);
       try {
         const { shop } = await getMyShop();
         const { orders: apiOrders } = await listShopOrders(shop.id);
@@ -97,7 +98,13 @@ export default function StatCards() {
         const todayOrders = allOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === todayStr);
         const yesterdayOrders = allOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === yesterdayStr);
 
-        // Income today: Only 'completed' orders from today
+        const calculateTrend = (today: number, yesterday: number) => {
+          if (today === 0 && yesterday === 0) return 0;
+          if (yesterday === 0) return 100;
+          return Math.round(((today - yesterday) / yesterday) * 100);
+        };
+
+        // 1. Income
         const todayIncome = todayOrders
           .filter(o => o.status === "completed")
           .reduce((sum, o) => sum + (o.price || 0), 0);
@@ -106,16 +113,27 @@ export default function StatCards() {
           .filter(o => o.status === "completed")
           .reduce((sum, o) => sum + (o.price || 0), 0);
 
-        const incomeTrend = yesterdayIncome === 0 
-          ? 100 
-          : Math.round(((todayIncome - yesterdayIncome) / yesterdayIncome) * 100);
+        const incomeTrend = calculateTrend(todayIncome, yesterdayIncome);
 
-        // Counts
-        const newOrders = allOrders.filter(o => o.status === "pending_review").length;
-        const processingOrders = allOrders.filter(o => o.status === "in_progress" || o.status === "accepted").length;
+        // 2. New Orders (รอตรวจสอบ)
+        const newToday = todayOrders.filter(o => o.status === "pending_review").length;
+        const newYesterday = yesterdayOrders.filter(o => o.status === "pending_review").length;
+        const newTrend = calculateTrend(newToday, newYesterday);
+
+        // 3. Processing Orders (กำลังดำเนินการ)
+        const procToday = todayOrders.filter(o => o.status === "in_progress" || o.status === "accepted").length;
+        const procYesterday = yesterdayOrders.filter(o => o.status === "in_progress" || o.status === "accepted").length;
+        const procTrend = calculateTrend(procToday, procYesterday);
         
-        const completedToday = todayOrders.filter(o => o.status === "completed").length;
-        const cancelledToday = todayOrders.filter(o => o.status === "cancelled").length;
+        // 4. Completed (เสร็จสิ้น)
+        const compToday = todayOrders.filter(o => o.status === "completed").length;
+        const compYesterday = yesterdayOrders.filter(o => o.status === "completed").length;
+        const compTrend = calculateTrend(compToday, compYesterday);
+
+        // 5. Cancelled (ยกเลิก)
+        const cancToday = todayOrders.filter(o => o.status === "cancelled").length;
+        const cancYesterday = yesterdayOrders.filter(o => o.status === "cancelled").length;
+        const cancTrend = calculateTrend(cancToday, cancYesterday);
 
         setStats(prev => {
           const newStats = [...prev];
@@ -124,18 +142,21 @@ export default function StatCards() {
           newStats[0].trendValue = `${Math.abs(incomeTrend)}%`;
           newStats[0].trend = incomeTrend >= 0 ? "up" : "down";
           
-          newStats[1].value = newOrders.toString();
-          newStats[1].trendValue = "-"; // Could calculate real trends, simplified for now
+          newStats[1].value = newToday.toString();
+          newStats[1].trendValue = `${Math.abs(newTrend)}%`;
+          newStats[1].trend = newTrend >= 0 ? "up" : "down";
           
-          newStats[2].value = processingOrders.toString();
-          newStats[2].trendValue = "-";
+          newStats[2].value = procToday.toString();
+          newStats[2].trendValue = `${Math.abs(procTrend)}%`;
+          newStats[2].trend = procTrend >= 0 ? "up" : "down";
           
-          newStats[3].value = completedToday.toString();
-          newStats[3].trendValue = "-";
+          newStats[3].value = compToday.toString();
+          newStats[3].trendValue = `${Math.abs(compTrend)}%`;
+          newStats[3].trend = compTrend >= 0 ? "up" : "down";
           
-          newStats[4].value = cancelledToday.toString();
-          newStats[4].trendValue = "-";
-          newStats[4].trend = "down";
+          newStats[4].value = cancToday.toString();
+          newStats[4].trendValue = `${Math.abs(cancTrend)}%`;
+          newStats[4].trend = cancTrend >= 0 ? "up" : "down";
 
           return newStats;
         });
@@ -143,10 +164,16 @@ export default function StatCards() {
       } catch (err) {
         console.error("Failed to load stat cards data:", err);
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     }
+    
     loadData();
+
+    // Listen for custom event from LatestOrders to refresh silently
+    const handleOrderUpdate = () => loadData(true);
+    window.addEventListener("order-status-updated", handleOrderUpdate);
+    return () => window.removeEventListener("order-status-updated", handleOrderUpdate);
   }, []);
 
   return (
