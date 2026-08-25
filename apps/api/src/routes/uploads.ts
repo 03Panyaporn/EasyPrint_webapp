@@ -6,8 +6,11 @@ import { requireAdmin } from "./admin";
 // ⚠️ endpoint นี้เปิดสาธารณะโดยดีฟอลต์ (ไม่เช็ค JWT) เพราะต้องใช้ตอนสมัครร้านค้า ก่อนมีบัญชี/login
 // กันการใช้งานผิดวัตถุประสงค์ด้วยการจำกัดชนิดไฟล์ + ขนาดไฟล์ที่ apps/api/src/storage.ts เท่านั้น
 // (ไม่มี rate limit — ยอมรับความเสี่ยงนี้ไว้ก่อนสำหรับ scope โปรเจกต์นี้)
-// ยกเว้น "order-file" (ไฟล์งานพิมพ์แนบตะกร้า/ออเดอร์) และ "payment-slip" (สลิปโอนเงินตอน checkout) ที่บังคับ login เป็น customer
-// เพราะผูกกับตัวตนลูกค้าที่สั่งซื้อ/อัปโหลดไฟล์งานโดยตรง ไม่จำเป็นต้องเปิดสาธารณะเหมือน type อื่น
+// ยกเว้น "order-file" (ไฟล์งานพิมพ์แนบตะกร้า/ออเดอร์ + ไฟล์แนบในแชทของออเดอร์), "payment-slip" (สลิปโอนเงินตอน checkout)
+// และ "contact-admin-attachment" (ไฟล์แนบในคำร้อง contact-admin) — ทั้งสามชนิดนี้บังคับ login ตาม role ที่เกี่ยวข้องเท่านั้น
+// "payment-slip" บังคับ login เป็น customer เท่านั้น (ผูกกับตัวตนลูกค้าที่ checkout โดยตรง)
+// "order-file" อนุญาตทั้ง customer และ shop_owner เพราะใช้ร่วมกันทั้งตอนสั่งซื้อ (ลูกค้าเท่านั้น) และตอนแนบไฟล์ในแชทออเดอร์ (ทั้งสองฝั่งคุยกันได้)
+// "contact-admin-attachment" อนุญาต shop_owner (ตอนส่งคำร้อง) และ admin (ตอนตอบกลับ)
 export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie, set }) => {
   const { file, type } = body as { file?: unknown; type?: unknown };
 
@@ -30,14 +33,30 @@ export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie
     return { error: `type ต้องเป็นหนึ่งใน ${validTypes.join(", ")}` };
   }
 
-  if (type === "order-file" || type === "payment-slip" || type === "contact-admin-attachment") {
+  if (type === "payment-slip") {
     const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
     const payload = token ? verifyAuthToken(token) : null;
-    if (!payload || (type !== "contact-admin-attachment" && payload.role !== "customer") || (type === "contact-admin-attachment" && payload.role !== "shop_owner" && payload.role !== "admin")) {
+    if (!payload || payload.role !== "customer") {
       set.status = 401;
-      return {
-        error: "ต้องเข้าสู่ระบบก่อนอัปโหลดไฟล์",
-      };
+      return { error: "ต้องเข้าสู่ระบบเป็นลูกค้าก่อนอัปโหลดสลิปการโอนเงิน" };
+    }
+  }
+
+  if (type === "order-file") {
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || (payload.role !== "customer" && payload.role !== "shop_owner")) {
+      set.status = 401;
+      return { error: "ต้องเข้าสู่ระบบก่อนอัปโหลดไฟล์งานพิมพ์" };
+    }
+  }
+
+  if (type === "contact-admin-attachment") {
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || (payload.role !== "shop_owner" && payload.role !== "customer" && payload.role !== "admin")) {
+      set.status = 401;
+      return { error: "ต้องเข้าสู่ระบบก่อนอัปโหลดไฟล์แนบคำร้อง" };
     }
   }
 

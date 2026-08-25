@@ -96,11 +96,19 @@ export const cronRoutes = new Elysia()
         // ใช้เวลาปัจจุบัน (สมมติว่าเป็นเวลาท้องถิ่น)
         const now = dayjs().tz("Asia/Bangkok");
         const currentDayStr = now.format("dddd"); // e.g. "Monday"
+        // ⚠️ opening_hours.day ในฐานข้อมูลจริงเก็บเป็นภาษาไทย "ไม่มี" คำว่า "วัน" นำหน้า (เช่น "จันทร์" ไม่ใช่ "วันจันทร์")
+        // หรือบาง record เก็บเป็น id ภาษาอังกฤษ ("mon","tue",...) แล้วแต่ว่าร้านสมัครช่วงไหน — ต้องรองรับทั้งสองแบบ
+        // ไม่งั้น find() ด้านล่างจะไม่ match กับข้อมูลจริงเลยสักร้าน (ดู apps/web/lib/shopHours.ts::THAI_DAY_BY_JS_INDEX ที่ใช้รูปแบบเดียวกันนี้)
         const currentDayMap: Record<string, string> = {
-          "Monday": "วันจันทร์", "Tuesday": "วันอังคาร", "Wednesday": "วันพุธ",
-          "Thursday": "วันพฤหัสบดี", "Friday": "วันศุกร์", "Saturday": "วันเสาร์", "Sunday": "วันอาทิตย์"
+          "Monday": "จันทร์", "Tuesday": "อังคาร", "Wednesday": "พุธ",
+          "Thursday": "พฤหัสบดี", "Friday": "ศุกร์", "Saturday": "เสาร์", "Sunday": "อาทิตย์"
+        };
+        const dayIdMap: Record<string, string> = {
+          "Monday": "mon", "Tuesday": "tue", "Wednesday": "wed",
+          "Thursday": "thu", "Friday": "fri", "Saturday": "sat", "Sunday": "sun"
         };
         const currentDayTh = currentDayMap[currentDayStr];
+        const currentDayId = dayIdMap[currentDayStr];
         const currentTimeStr = now.format("HH:mm");
 
         const allShops = await db.select().from(shops).where(eq(shops.approvalStatus, "approved"));
@@ -124,7 +132,7 @@ export const cronRoutes = new Elysia()
 
           // 2. ตรวจสอบเวลาเปิด-ปิดร้านประจำวัน
           if (shop.openingHours && Array.isArray(shop.openingHours)) {
-            const todayHours = shop.openingHours.find((h: any) => h.day === currentDayTh);
+            const todayHours = shop.openingHours.find((h: any) => h.day === currentDayTh || h.day === currentDayId);
             
             if (todayHours && todayHours.isOpen) {
               const { openTime, closeTime } = todayHours;

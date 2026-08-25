@@ -907,7 +907,8 @@ export default function AddServiceModal({
 
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
-          {/* Service Type Radio */}
+          {/* Service Type Radio — ซ่อนเมื่อเปิด modal จาก context บริการเสริม (defaultType="addon") เพราะไม่จำเป็นต้องเลือกประเภทซ้ำ */}
+          {defaultType !== "addon" && (
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-2">
               ประเภทบริการ <span className="text-red-500">*</span>
@@ -966,6 +967,7 @@ export default function AddServiceModal({
               </label>
             </div>
           </div>
+          )}
 
           {/* Name */}
           <div>

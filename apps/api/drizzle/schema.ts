@@ -540,12 +540,16 @@ export const adminNotifications = pgTable("admin_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ── contact_admin_messages: ข้อความที่ร้านค้าส่งถึงแอดมิน (หน้า /shop/contact-admin) ──
+// ── contact_admin_messages: ข้อความที่ส่งถึงแอดมิน — ส่งได้ทั้งจากร้านค้า (/shop/contact-admin) และลูกค้าทั่วไป (/customer/contact-admin) ──
+// shopId nullable (มีเมื่อ senderType = "shop") — userId nullable (มีเมื่อ senderType = "customer") ──
 export const contactAdminStatusEnum = pgEnum("contact_admin_status", ["open", "resolved"]);
+export const contactAdminSenderTypeEnum = pgEnum("contact_admin_sender_type", ["shop", "customer"]);
 
 export const contactAdminMessages = pgTable("contact_admin_messages", {
   id: uuid("id").primaryKey().defaultRandom(),
-  shopId: uuid("shop_id").references(() => shops.id).notNull(),
+  senderType: contactAdminSenderTypeEnum("sender_type").notNull().default("shop"),
+  shopId: uuid("shop_id").references(() => shops.id), // nullable — มีเมื่อ senderType = "shop"
+  userId: uuid("user_id").references(() => users.id), // nullable — มีเมื่อ senderType = "customer"
   subject: text("subject").notNull(),
   message: text("message").notNull(),
   attachments: text("attachments").array(), // URL รูปภาพหรือไฟล์ที่ร้านค้าแนบมา
@@ -557,6 +561,7 @@ export const contactAdminMessages = pgTable("contact_admin_messages", {
 
 export const contactAdminMessagesRelations = relations(contactAdminMessages, ({ one }) => ({
   shop: one(shops, { fields: [contactAdminMessages.shopId], references: [shops.id] }),
+  user: one(users, { fields: [contactAdminMessages.userId], references: [users.id] }),
 }));
 
 // ── system_settings: ตั้งค่าระบบฝั่งแอดมิน (ข้อมูลระบบ/การแจ้งเตือน/ความปลอดภัย) — ตารางนี้มีแถวเดียวเสมอ (singleton) ──

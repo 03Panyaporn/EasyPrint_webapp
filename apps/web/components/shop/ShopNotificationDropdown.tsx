@@ -43,7 +43,7 @@ export interface NotificationItem {
 }
 
 // 15 Notification Types Definitions
-const NOTIFICATION_TYPES = {
+export const NOTIFICATION_TYPES = {
   1: { icon: FileText, color: "text-blue-500", bg: "bg-blue-50" }, // ออเดอร์ใหม่
   2: { icon: XCircle, color: "text-red-500", bg: "bg-red-50" }, // ลูกค้ายกเลิกออเดอร์
   3: { icon: MessageCircle, color: "text-green-500", bg: "bg-green-50" }, // แชทลูกค้าทักมา

@@ -9,6 +9,7 @@ import {
   registerShopSchema,
   changeEmailSchema,
   deleteAccountSchema,
+  updateProfileSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
 import { users, passwordResetTokens, shops } from "../../drizzle/schema";
@@ -228,6 +229,39 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     }
 
     const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
+    if (!user) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    return { user: toPublicUser(user) };
+  })
+
+  // แก้ไขชื่อ-นามสกุล/เบอร์โทรของตัวเอง — ไม่รวมอีเมล/รหัสผ่าน (มี endpoint แยกที่ต้องยืนยันรหัสผ่านปัจจุบันก่อน)
+  .put("/me", async ({ body, cookie, set }) => {
+    const token = cookie[COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+
+    const parsed = updateProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({
+        firstname: parsed.data.firstname,
+        lastname: parsed.data.lastname,
+        phone: parsed.data.phone,
+      })
+      .where(eq(users.id, payload.userId))
+      .returning();
+
     if (!user) {
       set.status = 401;
       return { error: "ยังไม่ได้เข้าสู่ระบบ" };

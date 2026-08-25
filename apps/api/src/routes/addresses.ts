@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { and, eq } from "drizzle-orm";
+import { addressInputSchema, addressUpdateSchema } from "@easyprint/shared";
 
 import { db } from "../db";
 import { addresses } from "../../drizzle/schema";
@@ -76,7 +77,12 @@ export const addressRoutes = new Elysia({
         }
 
 
-        const data = body as any;
+        const parsed = addressInputSchema.safeParse(body);
+        if (!parsed.success) {
+            set.status = 400;
+            return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+        }
+        const data = parsed.data;
 
 
         const [address] = await db
@@ -90,10 +96,10 @@ export const addressRoutes = new Elysia({
 
                 address: data.address,
 
-                subdistrict: data.subdistrict ?? "",
-                district: data.district ?? "",
-                province: data.province ?? "",
-                postalCode: data.postalCode ?? "",
+                subdistrict: data.subdistrict,
+                district: data.district,
+                province: data.province,
+                postalCode: data.postalCode,
 
                 label: data.label ?? "บ้าน",
 
@@ -128,11 +134,33 @@ export const addressRoutes = new Elysia({
             };
         }
 
+        const parsed = addressUpdateSchema.safeParse(body);
+        if (!parsed.success) {
+            set.status = 400;
+            return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+        }
+        // ห้ามให้ client กำหนด userId/id เอง (mass assignment) — set เฉพาะฟิลด์ที่ผ่าน schema ข้างบนเท่านั้น
+        const data = parsed.data;
+        const updateValues = {
+            ...(data.receiverName !== undefined ? { receiverName: data.receiverName } : {}),
+            ...(data.phone !== undefined ? { phone: data.phone } : {}),
+            ...(data.address !== undefined ? { address: data.address } : {}),
+            ...(data.subdistrict !== undefined ? { subdistrict: data.subdistrict } : {}),
+            ...(data.district !== undefined ? { district: data.district } : {}),
+            ...(data.province !== undefined ? { province: data.province } : {}),
+            ...(data.postalCode !== undefined ? { postalCode: data.postalCode } : {}),
+            ...(data.label !== undefined ? { label: data.label } : {}),
+            ...(data.isDefault !== undefined ? { isDefault: data.isDefault } : {}),
+        };
 
+        if (Object.keys(updateValues).length === 0) {
+            set.status = 400;
+            return { error: "ไม่มีข้อมูลที่จะแก้ไข" };
+        }
 
         const [address] = await db
             .update(addresses)
-            .set(body as any)
+            .set(updateValues)
             .where(
                 and(
                     eq(addresses.id, params.id),
@@ -141,7 +169,10 @@ export const addressRoutes = new Elysia({
             )
             .returning();
 
-
+        if (!address) {
+            set.status = 404;
+            return { error: "ไม่พบที่อยู่นี้" };
+        }
 
         return {
             address

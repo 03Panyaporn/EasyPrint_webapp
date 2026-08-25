@@ -27,6 +27,21 @@ const corsOrigin = isProd ? WEB_ORIGIN : /^http:\/\/localhost:\d+$/;
 
 const app = new Elysia()
   .use(cors({ origin: corsOrigin, credentials: true }))
+  // ดักทุก error ที่หลุดจาก route handler (เช่น DB error ตอน params เป็น id รูปแบบผิด) — ไม่ให้ raw error/SQL query
+  // หลุดออกไปให้ client เห็น (information disclosure) ต้อง log เต็มๆ ไว้ฝั่ง server เท่านั้นแล้วตอบกลับเป็นข้อความทั่วไปแทน
+  .onError(({ code, error, set }) => {
+    if (code === "VALIDATION") {
+      set.status = 400;
+      return { error: "ข้อมูลไม่ถูกต้อง" };
+    }
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      return { error: "ไม่พบ endpoint นี้" };
+    }
+    console.error(`[API Error] ${code}:`, error);
+    set.status = 500;
+    return { error: "เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง" };
+  })
   .get("/", () => ({ status: "ok", service: "EasyPrint API" }))
   .use(servicesRoutes)
   .use(authRoutes)

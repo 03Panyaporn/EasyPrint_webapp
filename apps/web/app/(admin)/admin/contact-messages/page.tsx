@@ -1,25 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  Search, 
-  Eye, 
-  CornerUpLeft, 
-  Paperclip, 
-  Trash2, 
+import {
+  Search,
+  Eye,
+  CornerUpLeft,
+  Paperclip,
+  Trash2,
   Info,
   X,
   AlertTriangle,
   Download,
   Loader2,
   FileText,
-  ImageIcon
+  ImageIcon,
 } from "lucide-react";
 import type { ContactAdminMessageItem } from "@easyprint/shared";
-import { 
-  getAllContactAdminMessages, 
+import {
+  getAllContactAdminMessages,
   replyContactAdminMessage,
-  deleteContactAdminMessage
+  deleteContactAdminMessage,
 } from "@/lib/api/contactAdmin";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
@@ -33,9 +33,15 @@ function formatThaiDateTime(iso: string): string {
   return `${day} ${month} ${year}\n${time}`;
 }
 
+// ชื่อผู้ส่งแบบ generic ใช้ร่วมกันทั้ง sender เป็นร้านค้าหรือลูกค้า
+function senderName(m: ContactAdminMessageItem): string {
+  return (m.senderType === "customer" ? m.customerName : m.shopName) ?? (m.senderType === "customer" ? "ลูกค้า" : "ร้านค้า");
+}
+
 export default function AdminContactMessagesPage() {
   const [messages, setMessages] = useState<ContactAdminMessageItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modal States
@@ -56,17 +62,17 @@ export default function AdminContactMessagesPage() {
         window.alert("แนบไฟล์ได้สูงสุด 5 ไฟล์เท่านั้น");
         return;
       }
-      const invalidFiles = selected.filter(f => f.size > 20 * 1024 * 1024);
+      const invalidFiles = selected.filter((f) => f.size > 20 * 1024 * 1024);
       if (invalidFiles.length > 0) {
         window.alert("ไฟล์ต้องมีขนาดไม่เกิน 20MB");
         return;
       }
-      setReplyFiles(prev => [...prev, ...selected].slice(0, 5));
+      setReplyFiles((prev) => [...prev, ...selected].slice(0, 5));
     }
   };
 
   const removeReplyFile = (index: number) => {
-    setReplyFiles(prev => prev.filter((_, i) => i !== index));
+    setReplyFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -77,17 +83,20 @@ export default function AdminContactMessagesPage() {
     try {
       const res = await getAllContactAdminMessages();
       setMessages(res.messages);
+      setLoadError(null);
     } catch (err) {
       console.error(err);
+      setLoadError(err instanceof ApiError ? err.message : "โหลดข้อความไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredMessages = messages.filter(m => 
-    m.subject.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (m.shopName && m.shopName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    m.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMessages = messages.filter(
+    (m) =>
+      m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      senderName(m).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleReplySubmit = async () => {
@@ -106,11 +115,11 @@ export default function AdminContactMessagesPage() {
         }
       }
 
-      const { message: updated } = await replyContactAdminMessage(replyMessage.id, { 
+      const { message: updated } = await replyContactAdminMessage(replyMessage.id, {
         adminReply: replyText,
-        adminReplyAttachments: uploadedUrls.length > 0 ? uploadedUrls : undefined
+        adminReplyAttachments: uploadedUrls.length > 0 ? uploadedUrls : undefined,
       });
-      setMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
+      setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
       setReplyMessage(null);
       setReplyText("");
       setReplyFiles([]);
@@ -126,7 +135,7 @@ export default function AdminContactMessagesPage() {
     setIsDeleting(true);
     try {
       await deleteContactAdminMessage(deleteMessage.id);
-      setMessages(prev => prev.filter(m => m.id !== deleteMessage.id));
+      setMessages((prev) => prev.filter((m) => m.id !== deleteMessage.id));
       setDeleteMessage(null);
     } catch (err) {
       window.alert(err instanceof ApiError ? err.message : "ลบไม่สำเร็จ");
@@ -139,13 +148,15 @@ export default function AdminContactMessagesPage() {
     <div className="space-y-6 pb-10">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          ติดต่อสอบถาม
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">ติดต่อสอบถาม</h1>
         <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
-          ร้านค้าสามารถติดต่อแอดมินได้ที่นี่ <Info size={14} className="text-gray-400" />
+          ร้านค้าและลูกค้าสามารถติดต่อแอดมินได้ที่นี่ <Info size={14} className="text-gray-400" />
         </p>
       </div>
+
+      {loadError && (
+        <div className="p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-600 font-semibold">{loadError}</div>
+      )}
 
       {/* Search Bar */}
       <div className="relative max-w-sm">
@@ -166,9 +177,9 @@ export default function AdminContactMessagesPage() {
             <thead className="text-xs text-gray-700 bg-gray-50/50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-bold">ID</th>
-                <th className="px-6 py-4 font-bold">จากร้านค้า</th>
+                <th className="px-6 py-4 font-bold">จาก</th>
                 <th className="px-6 py-4 font-bold">หัวข้อ</th>
-                <th className="px-6 py-4 font-bold">ข้อความจากร้านค้า</th>
+                <th className="px-6 py-4 font-bold">ข้อความ</th>
                 <th className="px-6 py-4 font-bold">สถานะ</th>
                 <th className="px-6 py-4 font-bold">วันที่-เวลา</th>
                 <th className="px-6 py-4 font-bold text-center">จัดการ</th>
@@ -190,11 +201,24 @@ export default function AdminContactMessagesPage() {
                 </tr>
               ) : (
                 filteredMessages.map((m, idx) => {
-                  const displayId = `#Q-${String(messages.length - idx).padStart(4, '0')}`;
+                  const displayId = `#Q-${String(messages.length - idx).padStart(4, "0")}`;
                   return (
                     <tr key={m.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4 font-medium text-gray-900">{displayId}</td>
-                      <td className="px-6 py-4 text-gray-700">{m.shopName || "ร้านค้า"}</td>
+                      <td className="px-6 py-4 text-gray-700">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                              m.senderType === "customer"
+                                ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                : "bg-purple-50 text-purple-600 border border-purple-200"
+                            }`}
+                          >
+                            {m.senderType === "customer" ? "ลูกค้า" : "ร้านค้า"}
+                          </span>
+                          <span>{senderName(m)}</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-gray-700 max-w-[200px] truncate">{m.subject}</td>
                       <td className="px-6 py-4 text-gray-600 max-w-[200px] truncate" title={m.message}>
                         {m.message}
@@ -215,21 +239,21 @@ export default function AdminContactMessagesPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button 
+                          <button
                             onClick={() => setViewMessage(m)}
                             className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200"
                             title="ดูรายละเอียด"
                           >
                             <Eye size={16} />
                           </button>
-                          <button 
+                          <button
                             onClick={() => setReplyMessage(m)}
                             className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-transparent hover:border-orange-200"
                             title="ตอบกลับ"
                           >
                             <CornerUpLeft size={16} />
                           </button>
-                          <button 
+                          <button
                             onClick={() => setAttachmentsMessage(m)}
                             className="relative p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200"
                             title="ไฟล์แนบ"
@@ -241,7 +265,7 @@ export default function AdminContactMessagesPage() {
                               </span>
                             )}
                           </button>
-                          <button 
+                          <button
                             onClick={() => setDeleteMessage(m)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
                             title="ลบ"
@@ -265,44 +289,50 @@ export default function AdminContactMessagesPage() {
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h2 className="text-lg font-bold text-gray-900">
-                รายละเอียดข้อความ #Q-{String(messages.findIndex(m => m.id === viewMessage.id) + 1).padStart(4, '0')}
+                รายละเอียดข้อความ #Q-{String(messages.findIndex((m) => m.id === viewMessage.id) + 1).padStart(4, "0")}
               </h2>
               <button onClick={() => setViewMessage(null)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Details Grid */}
               <div className="grid grid-cols-[120px_1fr] gap-y-3 text-sm">
-                <div className="text-gray-500 font-medium">จากร้านค้า</div>
-                <div className="text-gray-900">{viewMessage.shopName || "ร้านค้า"}</div>
-                
-                <div className="text-gray-500 font-medium">อีเมล</div>
-                <div className="text-gray-900">{viewMessage.shopEmail || "-"}</div>
-                
+                <div className="text-gray-500 font-medium">{viewMessage.senderType === "customer" ? "จากลูกค้า" : "จากร้านค้า"}</div>
+                <div className="text-gray-900">{senderName(viewMessage)}</div>
+
+                {viewMessage.senderType === "shop" && (
+                  <>
+                    <div className="text-gray-500 font-medium">อีเมล</div>
+                    <div className="text-gray-900">{viewMessage.shopEmail || "-"}</div>
+                  </>
+                )}
+
                 <div className="text-gray-500 font-medium">หัวข้อ</div>
                 <div className="text-gray-900">{viewMessage.subject}</div>
-                
+
                 <div className="text-gray-500 font-medium">วันที่-เวลา</div>
-                <div className="text-gray-900">{formatThaiDateTime(viewMessage.createdAt).replace('\n', '  ')}</div>
+                <div className="text-gray-900">{formatThaiDateTime(viewMessage.createdAt).replace("\n", "  ")}</div>
               </div>
 
-              {/* Message from shop */}
+              {/* Message */}
               <div>
-                <h3 className="text-sm font-bold text-gray-900 mb-2">ข้อความจากร้านค้า</h3>
+                <h3 className="text-sm font-bold text-gray-900 mb-2">
+                  ข้อความจาก{viewMessage.senderType === "customer" ? "ลูกค้า" : "ร้านค้า"}
+                </h3>
                 <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap border border-gray-100">
                   {viewMessage.message}
                 </div>
               </div>
 
-              {/* Attachments from Shop */}
+              {/* Attachments */}
               {viewMessage.attachments && viewMessage.attachments.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2">ไฟล์แนบจากร้านค้า ({viewMessage.attachments.length})</h3>
+                  <h3 className="text-sm font-bold text-gray-900 mb-2">ไฟล์แนบ ({viewMessage.attachments.length})</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {viewMessage.attachments.map((url, idx) => (
-                      <a 
+                      <a
                         key={idx}
                         href={url}
                         target="_blank"
@@ -339,14 +369,12 @@ export default function AdminContactMessagesPage() {
                         <span className="text-sm font-bold text-orange-600">Admin</span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-8">
-                      {viewMessage.adminReply}
-                    </p>
-                    
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-8">{viewMessage.adminReply}</p>
+
                     {viewMessage.adminReplyAttachments && viewMessage.adminReplyAttachments.length > 0 && (
                       <div className="pl-8 mt-3 grid grid-cols-2 gap-2">
                         {viewMessage.adminReplyAttachments.map((url, idx) => (
-                          <a 
+                          <a
                             key={idx}
                             href={url}
                             target="_blank"
@@ -366,7 +394,7 @@ export default function AdminContactMessagesPage() {
             </div>
 
             <div className="p-4 border-t border-gray-100 flex justify-center bg-gray-50/50 rounded-b-2xl">
-              <button 
+              <button
                 onClick={() => setViewMessage(null)}
                 className="px-6 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
               >
@@ -383,19 +411,21 @@ export default function AdminContactMessagesPage() {
           <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                ตอบกลับข้อความ #Q-{String(messages.findIndex(m => m.id === replyMessage.id) + 1).padStart(4, '0')}
+                ตอบกลับข้อความ #Q-{String(messages.findIndex((m) => m.id === replyMessage.id) + 1).padStart(4, "0")}
               </h2>
               <button onClick={() => setReplyMessage(null)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-5">
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-gray-500 font-medium w-24">ถึงร้านค้า</span>
-                <span className="text-gray-900">{replyMessage.shopName || "ร้านค้า"}</span>
+                <span className="text-gray-500 font-medium w-24">
+                  ถึง{replyMessage.senderType === "customer" ? "ลูกค้า" : "ร้านค้า"}
+                </span>
+                <span className="text-gray-900">{senderName(replyMessage)}</span>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-bold text-gray-900 mb-2">ข้อความตอบกลับ</label>
                 <textarea
@@ -408,10 +438,12 @@ export default function AdminContactMessagesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">แนบไฟล์ <span className="text-gray-400 font-normal">(สูงสุด 5 ไฟล์)</span></label>
+                <label className="block text-sm font-bold text-gray-900 mb-2">
+                  แนบไฟล์ <span className="text-gray-400 font-normal">(สูงสุด 5 ไฟล์)</span>
+                </label>
                 <div className="relative border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 p-6 flex flex-col items-center justify-center text-center hover:bg-gray-100 hover:border-orange-200 transition-colors">
-                  <input 
-                    type="file" 
+                  <input
+                    type="file"
                     multiple
                     accept="image/jpeg, image/png, image/webp, application/pdf"
                     onChange={handleReplyFileChange}
@@ -424,7 +456,7 @@ export default function AdminContactMessagesPage() {
                   <p className="text-sm font-medium text-gray-700 pointer-events-none">คลิกหรือลากไฟล์มาวางที่นี่</p>
                   <p className="text-xs text-gray-400 mt-1 pointer-events-none">รองรับ JPG, PNG, PDF (ไม่เกิน 20MB)</p>
                 </div>
-                
+
                 {replyFiles.length > 0 && (
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {replyFiles.map((file, i) => (
@@ -432,8 +464,8 @@ export default function AdminContactMessagesPage() {
                         <div className="flex items-center gap-2 overflow-hidden">
                           <span className="text-xs font-medium text-gray-700 truncate">{file.name}</span>
                         </div>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => removeReplyFile(i)}
                           disabled={isReplying}
                           className="text-gray-400 hover:text-red-500 p-1 shrink-0"
@@ -448,13 +480,13 @@ export default function AdminContactMessagesPage() {
             </div>
 
             <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50 rounded-b-2xl">
-              <button 
+              <button
                 onClick={() => setReplyMessage(null)}
                 className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors"
               >
                 ยกเลิก
               </button>
-              <button 
+              <button
                 onClick={handleReplySubmit}
                 disabled={isReplying || !replyText.trim()}
                 className="px-5 py-2.5 bg-[#FF4500] text-white rounded-xl text-sm font-bold hover:bg-[#E63E00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -481,18 +513,16 @@ export default function AdminContactMessagesPage() {
                 <AlertTriangle size={32} />
               </div>
               <h2 className="text-lg font-bold text-gray-900 mb-2">คุณต้องการลบข้อความนี้ใช่หรือไม่?</h2>
-              <p className="text-sm text-gray-500 mb-8">
-                เมื่อลบแล้ว จะไม่สามารถกู้คืนข้อมูลได้
-              </p>
-              
+              <p className="text-sm text-gray-500 mb-8">เมื่อลบแล้ว จะไม่สามารถกู้คืนข้อมูลได้</p>
+
               <div className="flex items-center gap-3 w-full">
-                <button 
+                <button
                   onClick={() => setDeleteMessage(null)}
                   className="flex-1 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors"
                 >
                   ยกเลิก
                 </button>
-                <button 
+                <button
                   onClick={handleDeleteSubmit}
                   disabled={isDeleting}
                   className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
@@ -509,19 +539,12 @@ export default function AdminContactMessagesPage() {
       {/* Modal: Attachments Viewer */}
       {attachmentsMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setAttachmentsMessage(null)}
-          />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setAttachmentsMessage(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
               <div>
-                <h2 className="text-base font-bold text-gray-900">
-                  ตรวจสอบเอกสาร — {attachmentsMessage.shopName || "ร้านค้า"}
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  เอกสารทั้งหมด {attachmentsMessage.attachments?.length || 0} ไฟล์
-                </p>
+                <h2 className="text-base font-bold text-gray-900">ตรวจสอบเอกสาร — {senderName(attachmentsMessage)}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">เอกสารทั้งหมด {attachmentsMessage.attachments?.length || 0} ไฟล์</p>
               </div>
               <button
                 onClick={() => setAttachmentsMessage(null)}
@@ -532,7 +555,7 @@ export default function AdminContactMessagesPage() {
             </div>
 
             <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
-              {(!attachmentsMessage.attachments || attachmentsMessage.attachments.length === 0) ? (
+              {!attachmentsMessage.attachments || attachmentsMessage.attachments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-gray-400 text-center gap-2">
                   <FileText size={32} className="text-gray-300" />
                   <p className="text-sm font-semibold text-gray-500">ยังไม่มีเอกสารแนบ</p>
@@ -541,14 +564,14 @@ export default function AdminContactMessagesPage() {
                 attachmentsMessage.attachments.map((url, idx) => {
                   let isPdf = false;
                   try {
-                    isPdf = new URL(url).pathname.toLowerCase().endsWith('.pdf');
+                    isPdf = new URL(url).pathname.toLowerCase().endsWith(".pdf");
                   } catch {
-                    isPdf = url.toLowerCase().includes('.pdf');
+                    isPdf = url.toLowerCase().includes(".pdf");
                   }
 
                   return (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
                       className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors group"
                     >
@@ -557,9 +580,7 @@ export default function AdminContactMessagesPage() {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">
-                          {isPdf ? "เอกสาร PDF" : "รูปภาพร้านค้า"}
-                        </p>
+                        <p className="text-sm font-medium text-gray-800 truncate">{isPdf ? "เอกสาร PDF" : "รูปภาพแนบ"}</p>
                         <p className="text-xs text-gray-500">ไฟล์แนบ {idx + 1}</p>
                       </div>
 

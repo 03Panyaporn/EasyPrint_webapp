@@ -16,13 +16,14 @@ import {
   Home,
   MessageCircle,
   Phone,
+  PhoneCall,
 } from "lucide-react";
 import { getMe, logout as logoutApi, type PublicUser } from "@/lib/api/auth";
 
-// nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท/ติดต่อเรา) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
+// nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
 const NAV_LINKS: { label: string; href: string; match?: (pathname: string) => boolean }[] = [
   { label: "แชท", href: "/chat" },
-  { label: "ติดต่อเรา", href: "/contact" },
+  { label: "ติดต่อแอดมิน", href: "/contact-admin", match: (p) => p.startsWith("/contact-admin") },
 ];
 
 interface CustomerHeaderProps {
@@ -225,6 +226,20 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                         </div>
                         <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
                       </Link>
+
+                      <Link
+                        href="/contact-admin"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center group-hover:scale-110 transition">
+                            <PhoneCall size={15} />
+                          </div>
+                          <span>ติดต่อแอดมิน</span>
+                        </div>
+                        <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
+                      </Link>
                     </div>
 
                     {/* Divider & Logout Button */}
@@ -363,12 +378,12 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   </Link>
 
                   <Link
-                    href="/contact"
+                    href="/contact-admin"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
                   >
-                    <Phone className="w-5 h-5 text-orange-500 shrink-0" />
-                    <span>ติดต่อเรา</span>
+                    <PhoneCall className="w-5 h-5 text-orange-500 shrink-0" />
+                    <span>ติดต่อแอดมิน</span>
                   </Link>
 
                   <Link
