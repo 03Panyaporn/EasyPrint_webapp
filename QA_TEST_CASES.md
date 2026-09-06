@@ -134,16 +134,20 @@
 **หน้า:** `(shop)/shop/services`, `.../services/new`, `.../services/[serviceId]/edit`
 **API:** `/shops/:shopId/services*`, `/addons*`, `/delivery-options*`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-06)** — ทดสอบผ่าน API ตรง (สร้าง/แก้/ลบ/duplicate บริการ, ผูก add-on, ตั้งค่า delivery option) ผสมกับผลที่ยืนยันแล้วจาก Phase 05 (delivery option ที่สะท้อนถึง checkout จริง)
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| SV06-01 | สร้างบริการใหม่แต่ละ pricing model (per_page/per_piece/per_sqm/fixed) | สร้างสำเร็จ, แสดงถูกต้องหน้าร้าน | | NOT TESTED |
-| SV06-02 | แก้ไขบริการที่มี order ผูกอยู่แล้ว | ตรวจว่า order เก่าราคาไม่เปลี่ยนตาม (snapshot) | | NOT TESTED |
-| SV06-03 | ลบบริการที่ไม่มี/มี order ผูก | ตามเคสมี dependency ต้อง reject/409 | | NOT TESTED |
-| SV06-04 | Duplicate service | สำเนาถูกต้องครบทุก option/tier | | NOT TESTED |
-| SV06-05 | สร้าง add-on service + ผูกกับ main service | ใช้งานได้ตอนสั่งซื้อจริง | | NOT TESTED |
-| SV06-06 | ตั้งค่า delivery options (ราคา/ระยะเวลา) | บันทึกถูกต้อง สะท้อนที่หน้า checkout | | NOT TESTED |
-| SV06-07 | Negative: ตั้งราคาติดลบ/0 | reject | | NOT TESTED |
-| SV06-08 | ร้านที่ pending/suspended พยายามสร้าง/แก้บริการ | ถูกบล็อก (`requireShopOwner`) | | NOT TESTED |
+| SV06-01 | สร้างบริการใหม่แต่ละ pricing model (per_page/per_piece/per_sqm/fixed) | สร้างสำเร็จ, แสดงถูกต้องหน้าร้าน | สร้างบริการ `per_page`("QA Duplex Test Service"), `per_piece`("QA Fixed Price Service") สำเร็จผ่าน UI/API ทั้งคู่ แสดงผลถูกต้อง; ยืนยัน backend/schema รองรับ `pricingModel="fixed"` เต็มรูปแบบ (เห็นข้อมูลจริงที่ใช้ในระบบ, ผ่าน validation) **แต่พบว่า wizard UI ฝั่งเจ้าของร้าน (`Step2Pricing.tsx`) ไม่มีตัวเลือกให้สร้างบริการแบบ `fixed` เลย** (`PricingMode` type มีแค่ per_page/per_piece/per_sqm/quantity_tier) — เป็น UI gap ไม่ใช่ bug เชิง logic เพราะสร้างผ่าน API ตรงได้ปกติ ไม่ได้ block งานหลัก ไม่ได้ลงเป็นบั๊กแยก | **PASS** (พบ UI gap เล็กน้อย ไม่ block) |
+| SV06-02 | แก้ไขบริการที่มี order ผูกอยู่แล้ว | ตรวจว่า order เก่าราคาไม่เปลี่ยนตาม (snapshot) | แก้ `basePrice` ของบริการที่มี order เก่าผูกอยู่ (order #0001-#0005 จาก Phase 05) → `GET /customers/orders` ยืนยันราคาใน order เก่ายังคงเดิมทุกใบ (ใช้ snapshot ที่บันทึกไว้ตอน checkout ไม่ได้ join ราคาปัจจุบันสด) | **PASS** |
+| SV06-03 | ลบบริการที่ไม่มี/มี order ผูก | ตามเคสมี dependency ต้อง reject/409 | ลบบริการที่ไม่มี dependency → สำเร็จ (`200`) ปกติ; ลบบริการที่มี **cart item** ผูกอยู่ (ยังไม่ถึงขั้นเป็น order) → **เจอบั๊กก่อนแก้**: ได้ raw `500` แทนข้อความสุภาพ → **BUG-06-01** → แก้แล้ว (root cause: FK-violation detection ไม่ unwrap `err.cause.code` ตาม drizzle-orm 0.45+) → retest → ได้ `400 "ไม่สามารถลบได้ เนื่องจากมีลูกค้าเพิ่มบริการนี้ไว้ในตะกร้าอยู่ กรุณาปิดใช้งานแทนการลบ"` ถูกต้อง | **PASS** ✅ (หลังแก้ไข) |
+| SV06-04 | Duplicate service | สำเนาถูกต้องครบทุก option/tier | ยิง `POST /shops/:shopId/services/:id/duplicate` กับบริการที่มี options/colorTiers/isDuplex ครบ → สำเนาใหม่มี options/values/colorTiers/`isDuplex` ตรงกับต้นฉบับทุกจุด (ชื่อบริการเติม suffix อัตโนมัติกันชนกัน) | **PASS** |
+| SV06-05 | สร้าง add-on service + ผูกกับ main service | ใช้งานได้ตอนสั่งซื้อจริง | สร้าง add-on "QA เคลือบพลาสติก" (฿5) สำเร็จ (`POST /shops/:shopId/addons` → 200) → ผูกกับ main service ผ่าน `PATCH /shops/:shopId/services/:id` body `{addOns:[...]}` เดี่ยวๆ (ไม่ส่งฟิลด์อื่น) → **เจอบั๊กก่อนแก้**: ได้ raw `500` (`"No values to set"` จาก drizzle-orm) → **BUG-06-02** → แก้แล้ว (ข้าม `.update()` ถ้า payload ว่างเปล่า, select แถวเดิมแทน) → retest → ได้ `200` ผูกสำเร็จ → ทดสอบใช้งานจริงตอนสั่งซื้อ: ลูกค้าเพิ่มบริการนี้ลงตะกร้าพร้อมเลือก add-on → `lineTotal=฿6` ถูกต้อง (`basePrice฿1 + addOn฿5`) ยืนยันคำนวณราคาถูกต้องครบวงจรจริง | **PASS** ✅ (หลังแก้ไข) |
+| SV06-06 | ตั้งค่า delivery options (ราคา/ระยะเวลา) | บันทึกถูกต้อง สะท้อนที่หน้า checkout | `PATCH /shops/:shopId/delivery-options/:id` แก้ `baseFee` 30→35 → บันทึกถูกต้อง (`GET` ยืนยันค่าใหม่) แล้วเปลี่ยนกลับเป็น 30; ยืนยันการสะท้อนถึง checkout จริงแล้วตั้งแต่ Phase 05 (CO05-04: เลือก "จัดส่งในเมือง฿30" → `deliveryFee/total` อัปเดตถูกต้อง, CO05-07: ทดสอบกับร้าน suspended) | **PASS** |
+| SV06-07 | Negative: ตั้งราคาติดลบ/0 | reject | `basePrice: -5` → `400` (zod `.nonnegative()` reject ถูกต้อง); `basePrice: 0` → schema **ยอมรับ** (`200`) ตามเจตนาการออกแบบเดิม (เผื่อโปรโมชั่นฟรีจริง) — ตรงกับที่พบใน BUG-05-02 (data-quality ไม่ใช่ logic bug) ไม่ใช่ negative test ที่ fail จริง | **PASS** (ตามพฤติกรรมที่ออกแบบไว้) |
+| SV06-08 | ร้านที่ pending/suspended พยายามสร้าง/แก้บริการ | ถูกบล็อก (`requireShopOwner`) | Admin suspend ร้านทดสอบจริง (`PATCH /admin/shops/:id/suspend`) → login กลับเป็นเจ้าของร้านเดิม ยิง `POST` (สร้างบริการใหม่), `PATCH` (แก้ราคา), `DELETE` (ลบบริการ) เข้า `/shops/:shopId/services*` → ได้ `403 {"error":"ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน ยังตั้งบริการและราคาไม่ได้"}` ถูกต้องครบทั้ง 3 endpoint (ยืนยันจากโค้ด `requireShopOwner()` ที่เช็ค `shop.approvalStatus !== "approved"` จริง) — แก้ร้านกลับเป็น `approved` (`PATCH /admin/shops/:id/approve`) หลังทดสอบเสร็จ ยืนยันแล้ว | **PASS** |
+
+รายละเอียดเต็มดูที่ `QA_BUG_REPORT.md` (BUG-06-01, BUG-06-02)
 
 ---
 

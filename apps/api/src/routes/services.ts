@@ -21,18 +21,11 @@ import {
   shops,
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
-
-// Postgres unique_violation — ใช้เช็คเวลา insert/update ชน service_options_category_unique (race กับ Zod ที่เช็คมาแล้วในคำขอเดียวกัน)
-const POSTGRES_UNIQUE_VIOLATION = "23505";
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && (err as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
-}
-
-// Postgres foreign_key_violation — เช็คตอนลบ addon ที่ยังถูกอ้างอิงอยู่ใน cart_item_addons (ไม่มี ON DELETE CASCADE ตั้งใจไว้ เพราะไม่อยากลบของในตะกร้าลูกค้าแบบเงียบๆ)
-const POSTGRES_FOREIGN_KEY_VIOLATION = "23503";
-function isForeignKeyViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && (err as { code?: string }).code === POSTGRES_FOREIGN_KEY_VIOLATION;
-}
+// เดิมไฟล์นี้มี isUniqueViolation/isForeignKeyViolation ของตัวเองที่เช็คแค่ err.code ตรงๆ ไม่ unwrap
+// err.cause — ใช้ไม่ได้กับ drizzle-orm 0.45+ ที่ห่อ error จริงไว้ใน DrizzleQueryError.cause เสมอ ทำให้
+// การลบ service/addon ที่มีคนใช้อยู่ในตะกร้า ได้ raw 500 แทน 400/409 ที่ตั้งใจไว้ (ยืนยันบั๊กจริงจาก QA
+// Phase 06 — BUG-06-01) ย้ายมาใช้ shared utility ตัวเดียวกับ admin.ts (ซึ่งเช็คถูกต้องอยู่แล้ว) แทน
+import { isUniqueViolation, isForeignKeyViolation } from "../utils/validation";
 
 // เช็คว่า request มี JWT ที่ login เป็น shop_owner ของร้าน :shopId นี้จริง ก่อนให้แก้ไข/ลบข้อมูล
 // คืน { error } object ถ้าไม่ผ่าน (พร้อมตั้ง set.status ให้แล้ว) หรือ null ถ้าผ่าน — ตรวจสอบสิทธิ์แบบเดียวกับที่ /auth/me ใช้อ่าน cookie
@@ -498,16 +491,26 @@ export const servicesRoutes = new Elysia()
 
     const { addOns, options, colorTiers, quantityTiers, basePrice, minArea, areaRoundingIncrement, ...rest } = parsed.data;
 
-    const [service] = await db
-      .update(mainServices)
-      .set({
-        ...rest,
-        ...(basePrice !== undefined ? { basePrice: basePrice.toFixed(2) } : {}),
-        ...(minArea !== undefined ? { minArea: minArea?.toFixed(2) } : {}),
-        ...(areaRoundingIncrement !== undefined ? { areaRoundingIncrement: areaRoundingIncrement.toFixed(2) } : {}),
-      })
-      .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
-      .returning();
+    const updateData = {
+      ...rest,
+      ...(basePrice !== undefined ? { basePrice: basePrice.toFixed(2) } : {}),
+      ...(minArea !== undefined ? { minArea: minArea?.toFixed(2) } : {}),
+      ...(areaRoundingIncrement !== undefined ? { areaRoundingIncrement: areaRoundingIncrement.toFixed(2) } : {}),
+    };
+
+    // ถ้า body ส่งมาแค่ addOns/options/colorTiers/quantityTiers (ไม่มีคอลัมน์ระดับ main_services เลย)
+    // updateData จะว่างเปล่า — drizzle .set({}) throw "No values to set" ให้ข้าม update แล้ว select แถวเดิมแทน
+    const [service] =
+      Object.keys(updateData).length > 0
+        ? await db
+            .update(mainServices)
+            .set(updateData)
+            .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)))
+            .returning()
+        : await db
+            .select()
+            .from(mainServices)
+            .where(and(eq(mainServices.id, params.id), eq(mainServices.shopId, params.shopId)));
 
     if (!service) {
       set.status = 404;

@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-06
+> อัปเดตล่าสุด: 2026-09-06 (Phase 06 เสร็จสมบูรณ์ — พบ+แก้ BUG-06-01, BUG-06-02)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -225,6 +225,36 @@
 - **Possible Cause:** endpoint อ่าน cart + cartItems, คำนวณราคา, insert order, แล้วค่อยลบ cart ทีหลัง — ไม่มี lock ใดๆ กันไม่ให้หลาย request อ่าน/ประมวลผลตะกร้าเดียวกันพร้อมกัน (race condition แบบคลาสสิก: read-then-write โดยไม่ atomic) ทุก request ที่ยิงมาก่อนตะกร้าจะถูกลบ จะเห็นตะกร้ายังอยู่เหมือนกันหมด จึงสร้าง order สำเร็จซ้ำกันได้ไม่จำกัดจำนวนครั้ง
 - **Fix Applied (2026-09-06):** ห่อทั้ง flow (หาตะกร้า → คำนวณราคา → สร้าง order → ลบตะกร้า) ด้วย `db.transaction()` เดียว พร้อม `.for("update")` (`SELECT ... FOR UPDATE`) ล็อกแถวตะกร้าไว้ตั้งแต่ต้น — request ที่มาทีหลังต้องรอ request แรก commit (ลบตะกร้าสำเร็จ) ก่อน แล้วจะเห็นว่าไม่มีตะกร้าแล้วจริงๆ จึงคืน `404` แทนที่จะสร้าง order ซ้ำ ส่วน retry-loop เดิมสำหรับ order code ชนกัน (unique constraint) ย้ายไปอยู่ใน nested `tx.transaction()` (savepoint) แยกต่างหาก กัน error จากการชนกันของเลข order ทำให้ transaction ชั้นนอกที่ถือ lock ตะกร้าอยู่พังไปด้วย และย้าย logic แจ้งเตือน (email/notification) ให้ wrap ด้วย try/catch ของตัวเองไม่ให้ error ตรงนั้นไปกระตุ้น retry ซ้ำหลัง order ถูกสร้างสำเร็จแล้วจริง
 - **Verification:** ยิง `POST checkout` พร้อมกัน 5 requests บนตะกร้าเดียวกัน (มี 1 รายการ) → สำเร็จแค่ 1 request (สร้าง order #0005) อีก 4 requests ได้ `404 "ไม่มีตะกร้าของร้านนี้ กรุณาเพิ่มสินค้าก่อน"` ถูกต้องครบทุกครั้ง — ตรวจ `GET /customers/orders` ยืนยันมี order ใหม่แค่ 1 ใบจริง (ก่อนหน้านั้นมี 4 ใบจากบั๊ก/retest เดิม รวมเป็น 5 ใบพอดี ไม่มีใบเกิน)
+- **Status: FIXED ✅**
+
+### BUG-06-01: ลบบริการที่มี cart item ผูกอยู่ได้ raw `500` แทนที่จะเป็นข้อความสุภาพ
+- **Phase:** 06 — Shop Service Management (SV06-03)
+- **Page/Endpoint:** `apps/api/src/routes/services.ts` — `DELETE /shops/:shopId/services/:id`
+- **Severity:** 🟡 Medium (raw error รั่ว ไม่ใช่ security breach — endpoint มี catch block ที่ตั้งใจจะจับ FK violation แล้วตอบข้อความสุภาพอยู่แล้ว แต่ detection พังจึงหลุดไปเป็น 500 แทน)
+- **Steps to Reproduce:**
+  1. สร้างบริการทดสอบ แล้วเพิ่มลงตะกร้าของลูกค้า (ให้เกิด `cart_items` ที่อ้างอิง `main_service_id` นี้)
+  2. Login เป็นเจ้าของร้าน ยิง `DELETE /shops/:shopId/services/:id` ลบบริการนั้นตรงๆ (ไม่ผ่านการปิดใช้งานก่อน)
+- **Expected Result:** `400` พร้อมข้อความ "ไม่สามารถลบได้ เนื่องจากมีลูกค้าเพิ่มบริการนี้ไว้ในตะกร้าอยู่ กรุณาปิดใช้งานแทนการลบ" (catch block ในโค้ดตั้งใจไว้แบบนี้อยู่แล้ว)
+- **Actual Result:** ได้ raw `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}` แทน — ยืนยันจาก server log เห็น `PostgresError: update or delete on table "main_services" violates foreign key constraint "cart_items_main_service_id_main_services_id_fk"` (`code: "23503"`) หลุดขึ้นมาเป็น unhandled error
+- **Evidence:** server log แสดง error จริงเป็น `DrizzleQueryError` ห่อ Postgres error ไว้ใน `.cause` (`err.cause.code === "23503"`) แต่ `err.code` ของตัว wrapper เองเป็น `undefined` เสมอ
+- **Possible Cause:** ฟังก์ชัน `isForeignKeyViolation()`/`isUniqueViolation()` ที่นิยามไว้ในไฟล์ `services.ts` เช็คแค่ `err.code` ตรงๆ (ไม่ unwrap `.cause`) — ต่างจาก `apps/api/src/routes/admin.ts` ที่มีฟังก์ชันเดียวกันแต่เช็คถูกต้องอยู่แล้ว (`e.code === ... || e.cause?.code === ...`) พิสูจน์ว่าเป็น drizzle-orm 0.45+ เปลี่ยนวิธีห่อ error แล้วโค้ดเก่าใน services.ts ไม่ได้ตามอัปเดต
+- **Fix Applied (2026-09-06):** เพิ่ม `pgErrorCode()`/`isUniqueViolation()`/`isForeignKeyViolation()` เวอร์ชันถูกต้อง (unwrap ทั้ง `err.code` และ `err.cause?.code`) ไว้เป็น shared utility ใน [`apps/api/src/utils/validation.ts`](apps/api/src/utils/validation.ts) แล้วแก้ [`apps/api/src/routes/services.ts`](apps/api/src/routes/services.ts) ให้ลบฟังก์ชัน local เดิมที่พังออก เปลี่ยนเป็น `import { isUniqueViolation, isForeignKeyViolation } from "../utils/validation"` แทน
+- **Verification:** ยิง `DELETE /shops/74dc56d2-.../services/051e9cbb-...` (บริการที่มี cart item ค้างอยู่จริงจากการทดสอบก่อนหน้า) ซ้ำหลังแก้ → ได้ `400 {"error":"ไม่สามารถลบได้ เนื่องจากมีลูกค้าเพิ่มบริการนี้ไว้ในตะกร้าอยู่ กรุณาปิดใช้งานแทนการลบ"}` ถูกต้อง (จากเดิม `500`) ตรวจ server log ยืนยันไม่มี unhandled error หลุดออกมาอีก และไม่มี compile error จากการ import ใหม่
+- **Status: FIXED ✅**
+
+### BUG-06-02: `PATCH` แก้เฉพาะ `addOns` (ไม่แตะฟิลด์อื่นของบริการเลย) ได้ raw `500`
+- **Phase:** 06 — Shop Service Management (SV06-05, พบระหว่างทดสอบผูก add-on กับ main service)
+- **Page/Endpoint:** `apps/api/src/routes/services.ts` — `PATCH /shops/:shopId/services/:id`
+- **Severity:** 🟡 Medium (raw error รั่ว ไม่ใช่ security breach แต่บล็อกการใช้งานจริง — เจ้าของร้านจะเจอบั๊กนี้ทันทีที่พยายามผูก/แก้ add-on ของบริการที่มีอยู่แล้วโดยไม่ได้แก้ฟิลด์อื่นไปด้วย ซึ่งเป็น use case ปกติมาก)
+- **Steps to Reproduce:**
+  1. Login เป็นเจ้าของร้าน มีบริการหลักอยู่แล้ว 1 รายการ และมี add-on service อย่างน้อย 1 รายการ
+  2. ยิง `PATCH /shops/:shopId/services/:id` ด้วย body ที่มีแค่ `{ "addOns": [{ "addOnId": "...", "extraPrice": 5 }] }` (ไม่ส่งฟิลด์อื่นของบริการหลักเลย เช่น name/basePrice/description)
+- **Expected Result:** `200` พร้อม `service.availableAddOns` อัปเดตตามที่ส่งไป
+- **Actual Result:** `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}` — server log แสดง `error: No values to set` จาก drizzle-orm `mapUpdateSet` ที่ `services.ts:496`
+- **Evidence:** `Error: No values to set` ที่ `drizzle-orm/utils.js:92` เรียกจาก `update.js:31` เรียกจาก `services.ts:496` (`.set({...rest, ...})`)
+- **Possible Cause:** โค้ด destructure `addOns/options/colorTiers/quantityTiers/basePrice/minArea/areaRoundingIncrement` ออกจาก `parsed.data` แล้วเอาที่เหลือ (`...rest`) ไปเป็น payload ของ `db.update(mainServices).set(...)` เสมอ — ถ้า client ส่งมาแค่ `addOns` (หรือ `options`/`colorTiers`/`quantityTiers` เดี่ยวๆ) `rest` จะกลายเป็น object ว่างเปล่า และ drizzle-orm 0.45+ ไม่ยอมรับ `.set({})` (throw `"No values to set"` ตรงๆ แทนที่จะ no-op เงียบๆ)
+- **Fix Applied (2026-09-06):** [`apps/api/src/routes/services.ts`](apps/api/src/routes/services.ts) — เช็ค `Object.keys(updateData).length > 0` ก่อนเรียก `db.update(mainServices).set(...)`; ถ้า payload ที่จะ set ว่างเปล่าจริง (ผู้ใช้ตั้งใจแก้แค่ addOns/options/colorTiers/quantityTiers) ให้ `db.select()` แถวเดิมมาใช้แทน ไม่เรียก `.update()` เลย (กัน error โดยไม่กระทบพฤติกรรมตอนมีฟิลด์จริงให้ set)
+- **Verification:** ยิง `PATCH` ซ้ำด้วย body เดิม (`{addOns:[...]}` อย่างเดียว) → ได้ `200` พร้อม `availableAddOns` ตรงตามที่ส่งไป (จากเดิม `500`); ทดสอบต่อว่า add-on ที่ผูกแล้วใช้งานได้จริงตอนสั่งซื้อ — ลูกค้าเพิ่มบริการนี้ลงตะกร้าพร้อมเลือก add-on "QA เคลือบพลาสติก" (฿5) → `lineTotal = ฿6` ถูกต้อง (`basePrice ฿1 + addOn ฿5`) ยืนยันว่า add-on ที่ผูกผ่าน endpoint นี้ใช้งานได้จริงครบวงจร ไม่ใช่แค่บันทึกลง DB เฉยๆ
 - **Status: FIXED ✅**
 
 <!--
