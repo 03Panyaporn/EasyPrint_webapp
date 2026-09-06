@@ -195,14 +195,16 @@
 **หน้า:** `OrderReviewSection`, `ShopReviewsContainer`, public shop page, `admin/reviews`
 **API:** `/orders/:id/review`, `/shops/:shopId/reviews`, `/shops/:shopId/reviews/:id/reply`, `/reviews/:id`, `/admin/reviews`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-06)** — ทดสอบผ่าน API ตรงบน order completed จริง (#0001, #0003) จาก Phase 07 — **ไม่พบบั๊กใหม่เลย**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| R09-01 | รีวิว order ที่ completed (rating 1-5 + comment) | สำเร็จ แสดงหน้าร้านทันที | | NOT TESTED |
-| R09-02 | รีวิวซ้ำ order เดิม | reject 409 | | NOT TESTED |
-| R09-03 | rating นอกช่วง 1-5 | reject | | NOT TESTED |
-| R09-04 | ร้านตอบกลับรีวิว (ครั้งแรก + ตอบซ้ำทับ) | ตรวจว่ามี audit trail ไหม | | NOT TESTED |
-| R09-05 | Admin ลบรีวิวใดๆ | สำเร็จ | | NOT TESTED |
-| R09-06 | customer/shop อื่นลบรีวิวที่ไม่ใช่ของตัวเอง | 403 | | NOT TESTED |
+| R09-01 | รีวิว order ที่ completed (rating 1-5 + comment) | สำเร็จ แสดงหน้าร้านทันที | `POST /orders/:id/review` (order #0001, completed) rating 5 + comment → `200`; `GET /shops/:shopId/reviews` (public ไม่ต้อง login) เห็นรีวิวทันที พร้อม `summary.avgRating=5`; ชื่อลูกค้าถูก mask เหลือแค่ชื่อ+อักษรย่อนามสกุล ("QA C.") กันข้อมูลรั่ว | **PASS** |
+| R09-02 | รีวิวซ้ำ order เดิม | reject 409 | รีวิว order #0001 ซ้ำอีกครั้ง → `409 "ออเดอร์นี้ถูกรีวิวไปแล้ว รีวิวได้ครั้งเดียวต่อออเดอร์"` | **PASS** |
+| R09-03 | rating นอกช่วง 1-5 | reject | `rating:0` → `400`; `rating:6` → `400` (ทั้งคู่ reject ที่ Zod ก่อนถึง DB); ทดสอบเพิ่ม: รีวิว order ที่ยังไม่ completed (`pending_review`) → `400 "รีวิวได้เฉพาะออเดอร์ที่เสร็จสิ้นแล้วเท่านั้น"` | **PASS** |
+| R09-04 | ร้านตอบกลับรีวิว (ครั้งแรก + ตอบซ้ำทับ) | ตรวจว่ามี audit trail ไหม | ตอบครั้งแรก → `200` บันทึก `shopReply`+`shopRepliedAt`; ตอบซ้ำทับ → `200` ค่าใหม่แทนที่ค่าเดิมทั้งหมด — **ยืนยันว่าไม่มี audit trail จริง** (ตรงกับที่บันทึกไว้ในหัวข้อ "จุดที่ควรเพ่งเล็งพิเศษ" ของ `QA_BUG_REPORT.md` อยู่แล้ว) เป็น design gap ที่ทราบอยู่แล้ว ไม่ใช่บั๊กใหม่ ไม่ได้แก้ในรอบนี้ (การเพิ่ม audit trail เป็น feature ใหม่ ไม่ใช่การแก้บั๊ก) | **PASS** (พบ design gap ที่ทราบอยู่แล้ว ไม่ใช่บั๊กใหม่) |
+| R09-05 | Admin ลบรีวิวใดๆ | สำเร็จ | รีวิวปรากฏใน `GET /admin/reviews` (moderation list) ถูกต้อง → `DELETE /reviews/:id` โดย admin → `200`; ยืนยัน `GET /shops/:shopId/reviews` หลังลบ ไม่เห็นรีวิวนี้อีกแล้ว | **PASS** |
+| R09-06 | customer/shop อื่นลบรีวิวที่ไม่ใช่ของตัวเอง | 403 | เจ้าของร้าน**คนละร้าน**พยายามตอบกลับรีวิวที่ไม่ใช่ของร้านตัวเอง → `403 "คุณไม่มีสิทธิ์จัดการร้านนี้"`; ลูกค้า**คนละคน**พยายามลบรีวิวที่ไม่ใช่ของตัวเอง → `403 "ไม่มีสิทธิ์ลบรีวิวนี้"` — ทดสอบเปรียบเทียบ: เจ้าของรีวิวตัวเองลบเอง → `200` สำเร็จปกติ (ยืนยันว่า block เฉพาะกรณีไม่ใช่เจ้าของจริงๆ) | **PASS** |
 
 ---
 

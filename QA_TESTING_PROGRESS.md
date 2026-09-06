@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-06 (Phase 08 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-06 (Phase 09 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -35,7 +35,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 06 | Shop Service Management (CRUD services/add-ons/delivery options/duplicate) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-06) | พบบั๊ก 3 จุด (1 Critical, 2 Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
-| 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ⬜ NOT STARTED | ต้องมี order สถานะ completed จาก 07 |
+| 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05; ไฟล์ถูกเขียนใหม่ล่าสุด ความเสี่ยงสูง |
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ⬜ NOT STARTED | |
 | 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ⬜ NOT STARTED | ไม่มี baseline เลย ต้องเทสละเอียด |
@@ -54,17 +54,18 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 09 — Reviews
+Current Phase: 10 — Chat/Messaging
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 08): 5/5 — ALL PASS ✅ (หลังแก้บั๊ก 3 จุด: BUG-08-01, BUG-08-02, BUG-08-03)
-Last Completed Test: SS08-05 (ร้าน suspended พยายาม PUT /shops/me → ยืนยัน 403 ถูกบล็อกจริง, approve กลับแล้ว regression ผ่าน)
+Test Cases Completed (Phase 09): 6/6 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
+Last Completed Test: R09-06 (cross-account: shop คนละร้าน/customer คนละคน ลบ/ตอบรีวิวที่ไม่ใช่ของตัวเอง → 403 ทั้งคู่; เจ้าของจริงลบเองสำเร็จ)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 09 (Reviews) — customer add/view review, shop reply, admin moderate/delete
+NEXT ACTION: เริ่ม Phase 10 (Chat/Messaging) — rooms, send/read, file attach (เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้ — ความเสี่ยงสูง ไม่มี baseline)
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
-  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed, #0002 pending_review,
-    #0003 completed, #0004 cancelled, #0005 cancelled, #0006 pending_review (SS08-02 test), #0007 pending_review (SS08-02 test)
-    — มี order completed แล้ว 2 ใบ (#0001, #0003) พร้อมใช้ทดสอบ Phase 09 Reviews ได้เลย)
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed (ไม่มีรีวิวแล้ว —
+    ลบทดสอบ R09-05 ไปแล้ว), #0002 pending_review, #0003 completed (ไม่มีรีวิวแล้ว — ลบทดสอบ R09-06 self-delete ไปแล้ว),
+    #0004 cancelled, #0005 cancelled, #0006 pending_review, #0007 pending_review — มี order completed 2 ใบพร้อมใช้ทดสอบ
+    review เพิ่มได้อีกถ้า phase ถัดไปต้องการ)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
@@ -74,8 +75,11 @@ NEXT ACTION: เริ่ม Phase 09 (Reviews) — customer add/view review, sh
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
   ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
-    `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
+    `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่, shopId=35e7e93a-0811-4a63-b532-a08ba0f7ed53) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
 Important Notes:
+- ✅ **Phase 09 ไม่พบบั๊กใหม่เลย** — ทดสอบครบทั้ง create/duplicate-reject/rating-boundary/reply-overwrite/admin-delete/cross-account-block
+  ยืนยันซ้ำว่า reply ร้านไม่มี audit trail จริง (ทราบอยู่แล้วจากหัวข้อ "จุดที่ควรเพ่งเล็งพิเศษ" — เป็น design gap ไม่ใช่บั๊กใหม่ ไม่ได้แก้เพราะเป็นการเพิ่ม feature ไม่ใช่แก้บั๊ก)
+  ชื่อลูกค้าถูก mask ถูกต้องในหน้ารีวิวสาธารณะ (กันข้อมูลรั่ว)
 - ✅ **Phase 08 พบบั๊ก 3 จุดและแก้ไขครบแล้ว**:
   - **BUG-08-01 (Critical): `DELETE /auth/me` ได้ raw 500 สำหรับแทบทุกบัญชีที่ใช้งานจริง** (shop owner มีร้านผูกอยู่ FK `shops_owner_id_users_id_fk`,
     หรือลูกค้าที่เคยสั่งซื้อแล้ว FK `orders_customer_id_users_id_fk` — กว้างกว่าที่คาดไว้เดิมว่ากระทบแค่เจ้าของร้าน) → FIXED (เช็ค dependency
