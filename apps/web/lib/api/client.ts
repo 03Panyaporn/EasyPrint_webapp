@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function doFetch<T>(path: string, options: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: "include", // ส่ง/รับ JWT httpOnly cookie ข้าม origin (web:3000 -> api:3001)
@@ -29,4 +29,28 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
 
   return data as T;
+}
+
+// GET request ที่กำลังยิงอยู่ตอนนี้ (key = path) — ใช้ dedupe ไม่ให้หลาย component ที่ mount พร้อมกัน
+// (เช่น sidebar/topbar/dashboard การ์ดต่างๆ ที่ต่างคนต่างเรียก getMe()/getShopMe() เอง) ยิง network request
+// ซ้ำๆ กันแบบไม่จำเป็นตอนโหลดหน้าเดียวกัน (ยืนยันบั๊กจริงจาก QA Phase 01 — BUG-01-03, `/shops/me` ยิงซ้ำ 8 ครั้ง)
+// ไม่ dedupe POST/PATCH/PUT/DELETE เพราะ mutation ต้องยิงจริงทุกครั้งตามที่ผู้ใช้สั่ง
+const inflightGetRequests = new Map<string, Promise<unknown>>();
+
+export function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    return doFetch<T>(path, options);
+  }
+
+  const existing = inflightGetRequests.get(path);
+  if (existing) {
+    return existing as Promise<T>;
+  }
+
+  const promise = doFetch<T>(path, options).finally(() => {
+    inflightGetRequests.delete(path);
+  });
+  inflightGetRequests.set(path, promise);
+  return promise as Promise<T>;
 }

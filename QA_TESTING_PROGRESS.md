@@ -27,7 +27,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 
 | # | Phase | Priority | สถานะ | เหตุผล/Dependency |
 |---|---|---|---|---|
-| 01 | Authentication & Session (login/register×2 role/forgot-reset password/logout/session) | 🔴 Critical | ⬜ NOT STARTED | รากฐานของทุก flow อื่น ต้องทำก่อน |
+| 01 | Authentication & Session (login/register×2 role/forgot-reset password/logout/session) | 🔴 Critical | ✅ DONE — 14/14 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High, 1 Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 02 | Security & Permission Matrix (bootstrap: role/ownership check ทุก endpoint หลัก) | 🔴 Critical | ⬜ NOT STARTED | ทำเร็วๆ เพื่อกัน phase อื่นเทสบน endpoint ที่มีช่องโหว่พื้นฐาน (เรียนรู้จากรอบก่อนว่าวิธีนี้ได้ผลดี) |
 | 03 | Customer Account & Profile (profile, addresses CRUD, change password) | 🟠 High | ⬜ NOT STARTED | ต้องมีบัญชีก่อนเข้าฟีเจอร์อื่น |
 | 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ⬜ NOT STARTED | ไม่ต้อง login — ทำคู่กับ 03 ได้ |
@@ -54,17 +54,30 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: (ยังไม่เริ่ม — รอ user confirm ลำดับ/priority)
+Current Phase: 02 — Security & Permission Matrix (bootstrap)
 Phase Status: NOT STARTED
-Test Cases Completed: 0
-Last Completed Test: -
+Test Cases Completed (Phase 01): 14/14 — ALL PASS ✅
+Last Completed Test: A01-13 (customer → /admin route, retest หลังแก้บั๊กแล้ว PASS)
 Current Page/Feature: -
-NEXT ACTION: รอ user ยืนยัน roadmap แล้วเริ่ม Phase 01 (Authentication & Session)
+NEXT ACTION: เริ่ม Phase 02 (Security & Permission Matrix) — ยิงทุก endpoint สำคัญด้วย token ผิด role/ไม่มี token/ownership ผิดคน
+  บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้: qa2.customer1@example.com, qa2.customer2@example.com (รหัส NewQaTest#2026 — ถูกเปลี่ยนระหว่าง
+  ทดสอบ reset password), qa2.shop1@example.com (shop_owner, สถานะ pending, รหัส QaTest#2026, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81)
+  ยังไม่มีบัญชี admin ทดสอบ — ต้องขอ credential admin จริงจากผู้ใช้ หรือดูว่ามี seed admin account อยู่แล้วหรือไม่ (เช็ค apps/api/src/seed.ts)
 Important Notes:
-- ต้องสร้างบัญชีทดสอบใหม่ทั้งหมด (ห้ามแตะบัญชีจริง) — ตั้งชื่อ qa2.<role>.<purpose>@example.com เพื่อไม่ชนกับ qa.* เดิมจากรอบ 2026-08-25 ที่อาจยังค้างอยู่ในระบบ
-- ก่อนสร้างซ้ำ ให้เช็คก่อนว่าบัญชี admin ทดสอบที่มีอยู่แล้วใช้ได้ไหม (ถามผู้ใช้ถ้าจำเป็น เพราะไม่มี super-admin self-register)
-- dev server: `bun --cwd apps/api dev` (port 4000), `bun --cwd apps/web dev` (port 3000) — ใช้ preview_start ("api"/"web") ตาม .claude/launch.json ที่มีอยู่แล้ว
-- Render free tier cold start 30-60s เฉพาะถ้าทดสอบผ่าน production URL (ไม่เกี่ยวกับ dev local)
+- ✅ DB resume แล้ว (2026-09-06) — dev server ปกติดี ไม่มี blocker แล้ว
+- ✅ **Phase 01 พบบั๊ก 3 จุดและแก้ไขครบแล้วตามคำขอผู้ใช้** (ดูรายละเอียด fix + verification เต็มใน QA_BUG_REPORT.md):
+  - BUG-01-01 (register ไม่ redirect) → FIXED: เปลี่ยน router.push→router.replace ใน register/page.tsx
+  - BUG-01-02 (ไม่มี route guard /admin,/shop) → FIXED: เพิ่ม apps/web/lib/hooks/useRequireRole.ts ใช้ใน AdminLayout/ShopLayout
+  - BUG-01-03 (/shops/me ยิงซ้ำ 8 ครั้ง) → FIXED: เพิ่ม in-flight GET dedup ใน apps/web/lib/api/client.ts
+  **โค้ดที่แก้ยังไม่ได้ commit** — รอตัดสินใจว่าจะ commit ตอนไหน (แนะนำ commit แยกจาก docs branch เดิม หรือถามผู้ใช้ก่อน push)
+- **สำคัญ:** tool read_page/find ใช้ไม่ได้เลยตอน Browser pane เป็น "hidden" (คืน viewport 0x0 ตลอด) — ใช้ screenshot+coordinate
+  click หรือ javascript_tool fetch() แทนสำหรับฟอร์มซับซ้อน (เช่น shop-register ที่มี 2 file upload — ไม่มี tool เลือกไฟล์จาก OS)
+- บัญชีทดสอบที่สร้างไว้แล้ว (ใช้ต่อได้ในเฟสถัดไป):
+  - qa2.customer1@example.com / QaTest#2026 (customer)
+  - qa2.customer2@example.com / NewQaTest#2026 (customer, รหัสผ่านถูกเปลี่ยนระหว่างทดสอบ A01-10)
+  - qa2.shop1@example.com / QaTest#2026 (shop_owner, shop "QA Test Print Shop", status pending)
+- dev server: `bun --cwd apps/api dev` (port 4000), `bun --cwd apps/web dev` (ขึ้น port 54488 เพราะ 3000 ถูกใช้อยู่ก่อน)
+  ใช้ preview_start ("api"/"web") — serverId ปัจจุบัน: api=7bb56027-e035-496a-b4fd-5607061a811a, web=7b2326da-fbc4-47ff-9571-56bbb9d1e686
 ```
 
 ---

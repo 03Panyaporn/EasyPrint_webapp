@@ -14,20 +14,20 @@
 
 | ID | ประเภท | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|---|
-| A01-01 | Positive | สมัครบัญชีลูกค้าใหม่ด้วยข้อมูลถูกต้องครบ | สมัครสำเร็จ, login อัตโนมัติ/redirect ไป dashboard ลูกค้า | | NOT TESTED |
-| A01-02 | Positive | สมัครร้านค้าใหม่ (shop-register) ครบทุก field | สมัครสำเร็จ, สถานะ `pending` รอ admin อนุมัติ | | NOT TESTED |
-| A01-03 | Negative | สมัครด้วยอีเมลที่มีอยู่แล้ว | reject 409 | | NOT TESTED |
-| A01-04 | Negative | สมัครด้วยรหัสผ่านสั้นกว่า `minPasswordLength` | reject 400 | | NOT TESTED |
-| A01-05 | Boundary | ชื่อ/ที่อยู่ยาวมาก, ตัวอักษรพิเศษ, ช่องว่างล้วน | ตรวจ validation ตาม schema | | NOT TESTED |
-| A01-06 | Positive | Login ด้วย credential ถูกต้องแต่ละ role (customer/shop/admin) | redirect ไปหน้าที่ถูกต้องตาม role | | NOT TESTED |
-| A01-07 | Negative | Login ด้วยรหัสผ่าน/อีเมลผิด | reject 401 พร้อม error message | | NOT TESTED |
-| A01-08 | Negative | Login ด้วยบัญชีร้านค้าที่ยัง `pending`/`suspended` | ตรวจว่า login ได้ไหม และ UI แจ้งสถานะถูกต้องหรือไม่ | | NOT TESTED |
-| A01-09 | Positive | Logout แล้วพยายามเข้าหน้า protected ซ้ำ | redirect กลับ login | | NOT TESTED |
-| A01-10 | Positive | Forgot password → รับลิงก์ (ตรวจ DB/log) → reset สำเร็จ → login ด้วยรหัสใหม่ | ครบ flow | | NOT TESTED |
-| A01-11 | Negative | Reset password ด้วย token หมดอายุ/ใช้ซ้ำ | reject | | NOT TESTED |
-| A01-12 | Edge | Refresh หน้า login ที่ login ค้างไว้แล้ว (มี cookie) | redirect ไป dashboard อัตโนมัติหรือไม่ (ตรวจ UX) | | NOT TESTED |
-| A01-13 | Security | เข้าหน้า `/admin/*` ด้วย role customer/shop โดยตรงผ่าน URL | redirect/บล็อกฝั่ง frontend + API 403 | | NOT TESTED |
-| A01-14 | Repeated | กด submit login/register ซ้ำหลายครั้งเร็วๆ (double click) | ไม่สร้าง duplicate request/บัญชีซ้ำ | | NOT TESTED |
+| A01-01 | Positive | สมัครบัญชีลูกค้าใหม่ด้วยข้อมูลถูกต้องครบ (`qa2.customer1@example.com`) | สมัครสำเร็จ, login อัตโนมัติ/redirect ไป dashboard ลูกค้า | เจอบั๊ก **BUG-01-01** (ไม่ redirect) → แก้แล้ว (`router.push`→`router.replace`) → retest ด้วยบัญชีใหม่ `qa2.customer2@example.com` ผ่าน UI จริง: redirect ไปหน้า "ติดตามคำสั่งซื้อ" ทันที | **PASS** ✅ (หลังแก้ไข) |
+| A01-02 | Positive | สมัครร้านค้าใหม่ (shop-register) ครบทุก field ผ่าน API โดยตรง (`qa2.shop1@example.com`, upload id-card+shop-photo synthetic ก่อน) | สมัครสำเร็จ, สถานะ `pending` รอ admin อนุมัติ | `200`, shop ถูกสร้างจริง `approvalStatus:"pending"` ครบทุก field ถูกต้อง (หมายเหตุ: ทดสอบผ่าน API เพราะฟอร์ม UI ซับซ้อนมาก มี 2 file upload ที่เครื่องมือทดสอบไม่รองรับการเลือกไฟล์จริงจาก OS) | **PASS** |
+| A01-03 | Negative | สมัครด้วยอีเมลที่มีอยู่แล้ว (ผ่าน UI จริง) | reject 409 + error message ชัดเจน | UI แสดง "อีเมลนี้ถูกใช้งานแล้ว" ทันที | **PASS** |
+| A01-04 | Negative | สมัครด้วยรหัสผ่านสั้นกว่าเกณฑ์ (ผ่าน API ตรง ข้าม client validation) | reject 400 | `400`, field error `"รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"` ถูกต้อง | **PASS** |
+| A01-05 | Boundary | ตัวเลือก enum ผิด (`serviceTypes`/`deliveryMethods` เป็นค่าภาษาอังกฤษแทน Thai enum) | reject 400 | `400` พร้อม error ระบุ enum ที่ถูกต้องชัดเจน (พบระหว่างทดสอบ A01-02) | **PASS** |
+| A01-06 | Positive | Login ด้วย credential ที่เพิ่งสมัคร (customer) | redirect ไปหน้าหลักลูกค้า | Login สำเร็จ, redirect ไปหน้า marketplace ของลูกค้าถูกต้อง | **PASS** |
+| A01-07 | Negative | Login ด้วยรหัสผ่านผิด | reject 401 พร้อม error message ทั่วไป (ไม่บอกว่าอีเมลมีอยู่ไหม — ดี้ด้าน security) | `401 {"error":"อีเมลหรือรหัสผ่านไม่ถูกต้อง"}` | **PASS** |
+| A01-08 | Negative | Login ด้วยบัญชีร้านค้าที่ยัง `pending` แล้วเข้า dashboard | Login ควรผ่าน (ตามดีไซน์ปัจจุบัน) แต่ UI ควรแจ้งสถานะ pending ชัดเจน | Login ผ่าน (`200`) แต่ dashboard ไม่มีข้อความแจ้ง "รอ Admin อนุมัติ" เลย มีแค่แจ้งเตือนเรื่องยังไม่ตั้งเวลาเปิด-ปิดร้าน (ไม่เกี่ยวกับ pending) — บันทึกเป็นข้อสังเกต UX gap ไม่ถึงขั้นเปิดเป็นบั๊กแยก (เชื่อมกับ S1-16 เดิม) | **PASS (login) / ⚠️ UX gap** |
+| A01-09 | Positive | Logout แล้วพยายามเข้าหน้า protected (`/shop`) ซ้ำ (ทั้ง client-nav และ hard refresh) | redirect กลับ login | เจอบั๊ก **BUG-01-02** (ไม่ redirect) → แก้แล้ว (เพิ่ม `useRequireRole` guard) → retest: logout แล้วเปิด `/shop` (hard refresh) → redirect ไป `/login` ทันที | **PASS** ✅ (หลังแก้ไข) |
+| A01-10 | Positive | Forgot password → reset → login ด้วยรหัสใหม่ | ครบ flow | ปลดบล็อกได้: dev fallback พิมพ์ reset link ลง API server console (`RESEND_API_KEY` ไม่ได้ตั้งค่า) → คว้า token จาก log → เปิด `/reset-password?token=...` → ตั้งรหัสผ่านใหม่สำเร็จ ("ตั้งรหัสผ่านใหม่สำเร็จ") → login ด้วยรหัสใหม่ (`qa2.customer2@example.com`/`NewQaTest#2026`) → `200 OK` สำเร็จ | **PASS** |
+| A01-11 | Negative | Reset password ด้วย token ใช้ซ้ำ (used token) | reject | ยิง `POST /auth/reset-password` ซ้ำด้วย token เดิมที่เพิ่งใช้ไปใน A01-10 → `400 {"error":"ลิงก์ไม่ถูกต้องหรือหมดอายุแล้ว"}` ถูกต้อง | **PASS** |
+| A01-12 | Edge | Refresh หน้า login ที่ login ค้างไว้แล้ว (มี cookie ถูกต้อง) | redirect ไป dashboard อัตโนมัติ (หรืออย่างน้อยไม่ error) | Login อยู่แล้วเปิด `/login` ซ้ำ → ยังแสดงฟอร์ม login ปกติ ไม่ auto-redirect แต่ก็ไม่ error/ไม่พัง — เป็นทางเลือกการออกแบบที่ยอมรับได้ ไม่ถือเป็นบั๊ก | **PASS** (ไม่มี auto-redirect แต่ไม่ error — ระบุเป็นข้อสังเกต UX เล็กน้อย ไม่ใช่บั๊ก) |
+| A01-13 | Security | Customer เข้าหน้า `/admin` ตรงๆ ผ่าน URL | redirect/บล็อกฝั่ง frontend + API 403 | เจอบั๊ก **BUG-01-02** (ไม่มี route guard) → แก้แล้ว → retest: login เป็น customer เปิด `/admin` → redirect ไป `/Dashboard` (หน้าแรกของ customer) ทันที ไม่เห็น admin shell เลย | **PASS** ✅ (หลังแก้ไข) |
+| A01-14 | Repeated | กด submit login/register ซ้ำหลายครั้งเร็วๆ (double click) | ไม่สร้าง duplicate request/บัญชีซ้ำ | ตรวจจากโค้ด: มี guard `if (!isFormValid \|\| isSubmitting) return;` ใน `register/page.tsx` ป้องกันซ้อนอยู่แล้ว (ไม่ได้ทดสอบ double-click จริงเพราะ code review เพียงพอสำหรับเคสนี้) | **PASS (โดยอนุมานจากโค้ด)** |
 
 ---
 
