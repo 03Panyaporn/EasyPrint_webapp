@@ -611,273 +611,301 @@ export const cartRoutes = new Elysia()
       return shopError;
     }
 
-    // หาตะกร้าของร้านนี้
-    const [cart] = await db
-      .select()
-      .from(carts)
-      .where(and(eq(carts.customerId, auth.userId), eq(carts.shopId, params.shopId)));
-    if (!cart) {
-      set.status = 404;
-      return { error: "ไม่มีตะกร้าของร้านนี้ กรุณาเพิ่มสินค้าก่อน" };
-    }
+    // ⚠️ ทั้งบล็อกนี้ (หาตะกร้า → คำนวณราคา → สร้าง order → ลบตะกร้า) ต้องอยู่ใน transaction เดียวกัน
+    // พร้อม lock แถวตะกร้าด้วย .for("update") เสมอ — กันบั๊กที่ยืนยันแล้วจริงจาก QA Phase 05 (CO05-09):
+    // ถ้ายิง checkout พร้อมกันหลาย request (กดปุ่มซ้ำเร็วๆ/double-click/retry จาก network) โดยไม่ lock,
+    // ทุก request จะอ่านตะกร้าเดิมเห็นว่ายังไม่ถูกลบพร้อมกันหมด แล้วสร้าง order ซ้ำกันหลายใบจากตะกร้าใบเดียว
+    // (ยืนยันจริง: ยิง 3 requests พร้อมกัน → ได้ order แยกกัน 3 ใบ) — การ lock แถวทำให้ request ที่ 2/3 ต้องรอ
+    // request แรก commit (ลบตะกร้า) ก่อน แล้วจะเห็นว่าไม่มีตะกร้าแล้ว จึงคืน 404 แทนที่จะสร้าง order ซ้ำ
+    try {
+      const result = await db.transaction(async (tx) => {
+        // หาตะกร้าของร้านนี้ — ล็อกแถวไว้กันคำขอ checkout อื่นที่ตะกร้าเดียวกันแทรกเข้ามาระหว่างนี้
+        const [cart] = await tx
+          .select()
+          .from(carts)
+          .where(and(eq(carts.customerId, auth.userId), eq(carts.shopId, params.shopId)))
+          .for("update");
+        if (!cart) {
+          set.status = 404;
+          return { error: "ไม่มีตะกร้าของร้านนี้ กรุณาเพิ่มสินค้าก่อน" };
+        }
 
-    const rows = await db.select().from(cartItems).where(eq(cartItems.cartId, cart.id));
-    if (rows.length === 0) {
-      set.status = 400;
-      return { error: "ตะกร้าว่างอยู่ กรุณาเพิ่มสินค้าก่อนเช็คเอาต์" };
-    }
+        const rows = await tx.select().from(cartItems).where(eq(cartItems.cartId, cart.id));
+        if (rows.length === 0) {
+          set.status = 400;
+          return { error: "ตะกร้าว่างอยู่ กรุณาเพิ่มสินค้าก่อนเช็คเอาต์" };
+        }
 
-    // คำนวณราคาทุก item ใหม่อีกครั้ง server-side — ไม่เชื่อตัวเลขใดๆ จาก client
-    type SnapshotItem = {
-      orderId: string;
-      serviceNameSnapshot: string;
-      pricingTypeSnapshot: string;
-      basePriceSnapshot: string;
-      colorTierLabelSnapshot: string | null;
-      colorTierPriceSnapshot: string | null;
-      quantity: number;
-      pageCount: number | null;
-      widthCmSnapshot: string | null;
-      heightCmSnapshot: string | null;
-      noteSnapshot: string | null;
-      optionsSnapshotJson: object[];
-      additionalServicesSnapshotJson: object[];
-      itemTotalPrice: string;
-      fileUrl: string | null;
-      fileName: string | null;
-    };
-    const snapshots: Omit<SnapshotItem, "orderId">[] = [];
-    let subtotal = 0;
+        // คำนวณราคาทุก item ใหม่อีกครั้ง server-side — ไม่เชื่อตัวเลขใดๆ จาก client
+        type SnapshotItem = {
+          orderId: string;
+          serviceNameSnapshot: string;
+          pricingTypeSnapshot: string;
+          basePriceSnapshot: string;
+          colorTierLabelSnapshot: string | null;
+          colorTierPriceSnapshot: string | null;
+          quantity: number;
+          pageCount: number | null;
+          widthCmSnapshot: string | null;
+          heightCmSnapshot: string | null;
+          noteSnapshot: string | null;
+          optionsSnapshotJson: object[];
+          additionalServicesSnapshotJson: object[];
+          itemTotalPrice: string;
+          fileUrl: string | null;
+          fileName: string | null;
+        };
+        const snapshots: Omit<SnapshotItem, "orderId">[] = [];
+        let subtotal = 0;
 
-    for (const row of rows) {
-      const [mainService] = await db.select().from(mainServices).where(eq(mainServices.id, row.mainServiceId));
-      if (!mainService || !mainService.isActive) {
-        set.status = 400;
-        return { error: `บริการ "${mainService?.name ?? row.mainServiceId}" ถูกปิดหรือลบไปแล้ว กรุณาลบออกจากตะกร้าแล้วสั่งใหม่` };
-      }
+        for (const row of rows) {
+          const [mainService] = await tx.select().from(mainServices).where(eq(mainServices.id, row.mainServiceId));
+          if (!mainService || !mainService.isActive) {
+            set.status = 400;
+            return { error: `บริการ "${mainService?.name ?? row.mainServiceId}" ถูกปิดหรือลบไปแล้ว กรุณาลบออกจากตะกร้าแล้วสั่งใหม่` };
+          }
 
-      // ดึง color tier
-      let colorTier: { label: string; pricePerUnit: number } | undefined;
-      if (row.colorTierId) {
-        const [tier] = await db.select().from(serviceColorTiers).where(eq(serviceColorTiers.id, row.colorTierId));
-        if (tier) colorTier = { label: tier.label, pricePerUnit: Number(tier.pricePerUnit) };
-      }
+          // ดึง color tier
+          let colorTier: { label: string; pricePerUnit: number } | undefined;
+          if (row.colorTierId) {
+            const [tier] = await tx.select().from(serviceColorTiers).where(eq(serviceColorTiers.id, row.colorTierId));
+            if (tier) colorTier = { label: tier.label, pricePerUnit: Number(tier.pricePerUnit) };
+          }
 
-      // ดึง quantity tiers (per_piece)
-      const quantityTierRows = mainService.pricingModel === "per_piece"
-        ? await db.select().from(serviceQuantityTiers).where(eq(serviceQuantityTiers.mainServiceId, row.mainServiceId))
-        : [];
-      const quantityTiers = quantityTierRows.map((t) => ({ minQty: t.minQty, maxQty: t.maxQty, unitPrice: Number(t.unitPrice) }));
+          // ดึง quantity tiers (per_piece)
+          const quantityTierRows = mainService.pricingModel === "per_piece"
+            ? await tx.select().from(serviceQuantityTiers).where(eq(serviceQuantityTiers.mainServiceId, row.mainServiceId))
+            : [];
+          const quantityTiers = quantityTierRows.map((t) => ({ minQty: t.minQty, maxQty: t.maxQty, unitPrice: Number(t.unitPrice) }));
 
-      // ดึง option selections พร้อมราคา
-      const selectionRows = await db.select().from(cartItemOptionSelections).where(eq(cartItemOptionSelections.cartItemId, row.id));
-      const optionDeltas: ScopedAmount[] = [];
-      const optionsSnapshot: object[] = [];
-      // ดู comment เต็มที่จุดเดียวกันใน GET cart ด้านบนของไฟล์นี้ — ต้อง duplicate logic นี้ที่นี่ด้วย
-      // เพราะ checkout คำนวณราคาสุดท้าย server-side แยกจาก GET cart (คนละ query/loop) ต้องยืนยันผลตรงกันเป๊ะ
-      let printingSideDuplex: boolean | undefined;
+          // ดึง option selections พร้อมราคา
+          const selectionRows = await tx.select().from(cartItemOptionSelections).where(eq(cartItemOptionSelections.cartItemId, row.id));
+          const optionDeltas: ScopedAmount[] = [];
+          const optionsSnapshot: object[] = [];
+          // ดู comment เต็มที่จุดเดียวกันใน GET cart ด้านบนของไฟล์นี้ — ต้อง duplicate logic นี้ที่นี่ด้วย
+          // เพราะ checkout คำนวณราคาสุดท้าย server-side แยกจาก GET cart (คนละ query/loop) ต้องยืนยันผลตรงกันเป๊ะ
+          let printingSideDuplex: boolean | undefined;
 
-      for (const sel of selectionRows) {
-        const [option] = await db.select().from(serviceOptions).where(eq(serviceOptions.id, sel.optionId));
-        let valueName: string | undefined;
-        let extraPrice = 0;
-        let priceScope: string = "per_item";
+          for (const sel of selectionRows) {
+            const [option] = await tx.select().from(serviceOptions).where(eq(serviceOptions.id, sel.optionId));
+            let valueName: string | undefined;
+            let extraPrice = 0;
+            let priceScope: string = "per_item";
 
-        if (sel.valueId) {
-          const [value] = await db.select().from(serviceOptionValues).where(eq(serviceOptionValues.id, sel.valueId));
-          if (value) {
-            valueName = value.name;
-            extraPrice = Number(value.extraPrice);
-            priceScope = value.priceScope;
-            optionDeltas.push({ scope: value.priceScope, amount: extraPrice });
-            if (option?.priceCategory === "printing_side") printingSideDuplex = value.isDuplex;
+            if (sel.valueId) {
+              const [value] = await tx.select().from(serviceOptionValues).where(eq(serviceOptionValues.id, sel.valueId));
+              if (value) {
+                valueName = value.name;
+                extraPrice = Number(value.extraPrice);
+                priceScope = value.priceScope;
+                optionDeltas.push({ scope: value.priceScope, amount: extraPrice });
+                if (option?.priceCategory === "printing_side") printingSideDuplex = value.isDuplex;
+              }
+            }
+            optionsSnapshot.push({
+              optionName: option?.name ?? "-",
+              valueName: valueName ?? sel.textValue ?? null,
+              textValue: sel.textValue ?? null,
+              extraPrice,
+              priceScope,
+            });
+          }
+
+          // นำ colorTier เข้าไปรวมใน optionsSnapshot ด้วย เพื่อไม่ให้ข้อมูลสูญหาย
+          if (colorTier) {
+            optionsSnapshot.unshift({
+              optionName: "สี",
+              valueName: colorTier.label,
+              textValue: null,
+              extraPrice: colorTier.pricePerUnit,
+              priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
+            });
+          } else if (!row.colorTierId) {
+            // ถ้าบริการนี้มี color tiers แต่ลูกค้าไม่ได้เลือก tier ใด = เลือก "ขาวดำ" (ราคาพื้นฐาน)
+            const [hasColorTier] = await tx
+              .select({ id: serviceColorTiers.id })
+              .from(serviceColorTiers)
+              .where(eq(serviceColorTiers.mainServiceId, row.mainServiceId))
+              .limit(1);
+            if (hasColorTier) {
+              optionsSnapshot.unshift({
+                optionName: "สี",
+                valueName: "ขาวดำ",
+                textValue: null,
+                extraPrice: 0,
+                priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
+              });
+            }
+          }
+
+          // ดึง add-on services
+          const addOnBindings = await tx.select().from(cartItemAddOns).where(eq(cartItemAddOns.cartItemId, row.id));
+          const addOnCharges: ScopedAmount[] = [];
+          const addOnsSnapshot: object[] = [];
+
+          for (const b of addOnBindings) {
+            const [binding] = await tx.select().from(mainServiceAddOns).where(
+              and(eq(mainServiceAddOns.mainServiceId, row.mainServiceId), eq(mainServiceAddOns.addOnServiceId, b.addOnServiceId))
+            );
+            const [addOnService] = await tx.select().from(addOnServices).where(eq(addOnServices.id, b.addOnServiceId));
+            const extraPrice = binding ? Number(binding.extraPrice) : 0;
+            if (addOnService) {
+              addOnCharges.push({ scope: addOnService.scope, amount: extraPrice });
+              addOnsSnapshot.push({ name: addOnService.name, extraPrice, scope: addOnService.scope });
+            }
+          }
+
+          // คำนวณ line total server-side
+          const calc = calculateLineItem({
+            pricingModel: mainService.pricingModel,
+            basePrice: Number(mainService.basePrice),
+            colorTierPricePerUnit: colorTier?.pricePerUnit,
+            quantity: row.quantity,
+            pageCountingMode: printingSideDuplex === undefined ? mainService.pageCountingMode : printingSideDuplex ? "by_sheet" : "by_file_page",
+            rawPageCount: row.pageCount ?? 0,
+            widthCm: row.widthCm ? Number(row.widthCm) : undefined,
+            heightCm: row.heightCm ? Number(row.heightCm) : undefined,
+            minArea: mainService.minArea != null ? Number(mainService.minArea) : undefined,
+            areaRoundingIncrement: Number(mainService.areaRoundingIncrement),
+            quantityTiers,
+            optionDeltas,
+            addOnCharges,
+          });
+
+          subtotal += calc.lineTotal;
+          snapshots.push({
+            serviceNameSnapshot: mainService.name,
+            pricingTypeSnapshot: mainService.pricingModel,
+            basePriceSnapshot: calc.baseUnitRate.toFixed(2),
+            colorTierLabelSnapshot: colorTier?.label ?? null,
+            colorTierPriceSnapshot: colorTier?.pricePerUnit != null ? colorTier.pricePerUnit.toFixed(2) : null,
+            quantity: row.quantity,
+            pageCount: row.pageCount ?? null,
+            widthCmSnapshot: row.widthCm ?? null,
+            heightCmSnapshot: row.heightCm ?? null,
+            noteSnapshot: row.note ?? null,
+            optionsSnapshotJson: optionsSnapshot,
+            additionalServicesSnapshotJson: addOnsSnapshot,
+            itemTotalPrice: calc.lineTotal.toFixed(2),
+            fileUrl: row.fileUrl ?? null,
+            fileName: row.fileName ?? null,
+          });
+        }
+
+        // คำนวณค่าจัดส่ง
+        let shippingFee = 0;
+        if (cart.deliveryOptionId) {
+          const [opt] = await tx.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
+          if (opt) {
+            const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
+            shippingFee = threshold != null && subtotal >= threshold ? 0 : Number(opt.baseFee);
           }
         }
-        optionsSnapshot.push({
-          optionName: option?.name ?? "-",
-          valueName: valueName ?? sel.textValue ?? null,
-          textValue: sel.textValue ?? null,
-          extraPrice,
-          priceScope,
-        });
-      }
 
-      // นำ colorTier เข้าไปรวมใน optionsSnapshot ด้วย เพื่อไม่ให้ข้อมูลสูญหาย
-      if (colorTier) {
-        optionsSnapshot.unshift({
-          optionName: "สี",
-          valueName: colorTier.label,
-          textValue: null,
-          extraPrice: colorTier.pricePerUnit,
-          priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
-        });
-      } else if (!row.colorTierId) {
-        // ถ้าบริการนี้มี color tiers แต่ลูกค้าไม่ได้เลือก tier ใด = เลือก "ขาวดำ" (ราคาพื้นฐาน)
-        const [hasColorTier] = await db
-          .select({ id: serviceColorTiers.id })
-          .from(serviceColorTiers)
-          .where(eq(serviceColorTiers.mainServiceId, row.mainServiceId))
-          .limit(1);
-        if (hasColorTier) {
-          optionsSnapshot.unshift({
-            optionName: "สี",
-            valueName: "ขาวดำ",
-            textValue: null,
-            extraPrice: 0,
-            priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
-          });
+        const totalPrice = subtotal + shippingFee;
+        const deliveryMethod = cart.deliveryOptionId ? "shop_delivery" : "self_pickup";
+
+        // สร้าง order code แล้ว insert order+items — ใช้ savepoint (nested transaction) แยกต่างหาก
+        // เพราะถ้าเลข order code ชนกัน (unique constraint) ต้อง retry ได้โดยไม่ทำให้ transaction ชั้นนอก
+        // (ที่ถือ lock ตะกร้าอยู่) เสียหายไปด้วย — Postgres จะ abort ทั้ง transaction ทันทีถ้ามี statement
+        // ใดพังโดยไม่มี savepoint กันไว้
+        let lastError: unknown;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const orderResult = await tx.transaction(async (tx2) => {
+              // รันเลข order code
+              const [orderCountRow] = await tx2.select({ total: count() }).from(orders).where(eq(orders.shopId, params.shopId));
+              const orderCount = Number(orderCountRow?.total ?? 0);
+              const code = `#${String(orderCount + 1).padStart(4, "0")}`;
+              const now = new Date();
+              const y = now.getFullYear();
+              const m = String(now.getMonth() + 1).padStart(2, "0");
+              const d = String(now.getDate()).padStart(2, "0");
+              const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
+              const ref = `ORD-${y}${m}${d}-${rand}`;
+
+              const [order] = await tx2.insert(orders).values({
+                shopId: params.shopId,
+                customerId: auth.userId,
+                code,
+                ref,
+                // Schema v1 fields (ใส่ข้อมูลจาก item แรกเป็น fallback เผื่อ DB เดิมยังมี NOT NULL constraint)
+                serviceType: snapshots[0]?.serviceNameSnapshot ?? "สั่งพิมพ์งาน",
+                pages: snapshots[0]?.pageCount ?? 1,
+                copies: snapshots[0]?.quantity ?? 1,
+                colorMode: snapshots[0]?.colorTierLabelSnapshot ? "color" : "bw",
+                paperSize: "-",
+                binding: false,
+                lamination: false,
+                fileUrl: snapshots[0]?.fileUrl ?? null,
+                // Schema v2 fields
+                subtotal: subtotal.toFixed(2),
+                shippingFeeSnapshot: shippingFee.toFixed(2),
+                totalPrice: Math.round(totalPrice),
+                slipUrl: parsed.data.slipUrl,
+                slipUploadedAt: new Date(),
+                deliveryMethod,
+                deliveryAddress: parsed.data.deliveryAddress,
+              }).returning();
+
+              // เพิ่ม order_items (snapshot)
+              await tx2.insert(orderItems).values(
+                snapshots.map((s) => ({ ...s, orderId: order.id }))
+              );
+
+              // ลบตะกร้าหลัง checkout สำเร็จ (cascade ลบ items/addons/option_selections ให้อัตโนมัติ)
+              await tx2.delete(carts).where(eq(carts.id, cart.id));
+
+              return order;
+            });
+
+            // แจ้งเตือนลูกค้าทางอีเมล + ร้านค้า เป็น best-effort ล้วนๆ — ห้ามให้ error ตรงนี้ไปโดน catch
+            // ของ retry loop ด้านบน เพราะ order ถูกสร้างสำเร็จแล้วจริง (commit ไปแล้ว) ไม่ควร retry ซ้ำ
+            try {
+              const [customer] = await tx
+                .select({ email: users.email, firstname: users.firstname, lastname: users.lastname })
+                .from(users)
+                .where(eq(users.id, auth.userId));
+              if (customer) {
+                notifyOrderCreated({
+                  to: customer.email,
+                  orderCode: orderResult.code,
+                  totalPrice: Number(orderResult.totalPrice ?? 0),
+                }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
+              }
+
+              const [shopInfo] = await tx.select({ ownerId: shops.ownerId }).from(shops).where(eq(shops.id, params.shopId));
+              if (shopInfo) {
+                const customerName = customer ? `${customer.firstname} ${customer.lastname}`.trim() : "ลูกค้า";
+                await createNotification({
+                  userId: shopInfo.ownerId,
+                  typeId: 1, // 1 = ออเดอร์ใหม่
+                  title: `ออเดอร์ใหม่ ${orderResult.code}`,
+                  message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
+                  category: "general",
+                  link: `/shop/orders/${orderResult.id}`,
+                });
+              }
+            } catch (notifyErr) {
+              console.error("แจ้งเตือนหลังสร้างออเดอร์ไม่สำเร็จ (ไม่กระทบออเดอร์ที่สร้างแล้ว):", notifyErr);
+            }
+
+            return { order: { id: orderResult.id, code: orderResult.code, ref: orderResult.ref, totalPrice: Number(orderResult.totalPrice) } };
+          } catch (err) {
+            lastError = err;
+          }
         }
-      }
 
-      // ดึง add-on services
-      const addOnBindings = await db.select().from(cartItemAddOns).where(eq(cartItemAddOns.cartItemId, row.id));
-      const addOnCharges: ScopedAmount[] = [];
-      const addOnsSnapshot: object[] = [];
-
-      for (const b of addOnBindings) {
-        const [binding] = await db.select().from(mainServiceAddOns).where(
-          and(eq(mainServiceAddOns.mainServiceId, row.mainServiceId), eq(mainServiceAddOns.addOnServiceId, b.addOnServiceId))
-        );
-        const [addOnService] = await db.select().from(addOnServices).where(eq(addOnServices.id, b.addOnServiceId));
-        const extraPrice = binding ? Number(binding.extraPrice) : 0;
-        if (addOnService) {
-          addOnCharges.push({ scope: addOnService.scope, amount: extraPrice });
-          addOnsSnapshot.push({ name: addOnService.name, extraPrice, scope: addOnService.scope });
-        }
-      }
-
-      // คำนวณ line total server-side
-      const calc = calculateLineItem({
-        pricingModel: mainService.pricingModel,
-        basePrice: Number(mainService.basePrice),
-        colorTierPricePerUnit: colorTier?.pricePerUnit,
-        quantity: row.quantity,
-        pageCountingMode: printingSideDuplex === undefined ? mainService.pageCountingMode : printingSideDuplex ? "by_sheet" : "by_file_page",
-        rawPageCount: row.pageCount ?? 0,
-        widthCm: row.widthCm ? Number(row.widthCm) : undefined,
-        heightCm: row.heightCm ? Number(row.heightCm) : undefined,
-        minArea: mainService.minArea != null ? Number(mainService.minArea) : undefined,
-        areaRoundingIncrement: Number(mainService.areaRoundingIncrement),
-        quantityTiers,
-        optionDeltas,
-        addOnCharges,
+        console.error("สร้าง order ไม่สำเร็จหลังลองใหม่ 3 ครั้ง:", lastError);
+        set.status = 500;
+        return { error: "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
       });
 
-      subtotal += calc.lineTotal;
-      snapshots.push({
-        serviceNameSnapshot: mainService.name,
-        pricingTypeSnapshot: mainService.pricingModel,
-        basePriceSnapshot: calc.baseUnitRate.toFixed(2),
-        colorTierLabelSnapshot: colorTier?.label ?? null,
-        colorTierPriceSnapshot: colorTier?.pricePerUnit != null ? colorTier.pricePerUnit.toFixed(2) : null,
-        quantity: row.quantity,
-        pageCount: row.pageCount ?? null,
-        widthCmSnapshot: row.widthCm ?? null,
-        heightCmSnapshot: row.heightCm ?? null,
-        noteSnapshot: row.note ?? null,
-        optionsSnapshotJson: optionsSnapshot,
-        additionalServicesSnapshotJson: addOnsSnapshot,
-        itemTotalPrice: calc.lineTotal.toFixed(2),
-        fileUrl: row.fileUrl ?? null,
-        fileName: row.fileName ?? null,
-      });
+      return result;
+    } catch (err) {
+      console.error("Checkout transaction ล้มเหลวโดยไม่คาดคิด:", err);
+      set.status = 500;
+      return { error: "เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง" };
     }
-
-    // คำนวณค่าจัดส่ง
-    let shippingFee = 0;
-    if (cart.deliveryOptionId) {
-      const [opt] = await db.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
-      if (opt) {
-        const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
-        shippingFee = threshold != null && subtotal >= threshold ? 0 : Number(opt.baseFee);
-      }
-    }
-
-    const totalPrice = subtotal + shippingFee;
-    const deliveryMethod = cart.deliveryOptionId ? "shop_delivery" : "self_pickup";
-
-    // สร้าง Order + OrderItems ใน transaction เดียว
-    let lastError: unknown;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        // รันเลข order code
-        const [orderCountRow] = await db.select({ total: count() }).from(orders).where(eq(orders.shopId, params.shopId));
-        const orderCount = Number(orderCountRow?.total ?? 0);
-        const code = `#${String(orderCount + 1).padStart(4, "0")}`;
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, "0");
-        const d = String(now.getDate()).padStart(2, "0");
-        const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
-        const ref = `ORD-${y}${m}${d}-${rand}`;
-
-        const [order] = await db.insert(orders).values({
-          shopId: params.shopId,
-          customerId: auth.userId,
-          code,
-          ref,
-          // Schema v1 fields (ใส่ข้อมูลจาก item แรกเป็น fallback เผื่อ DB เดิมยังมี NOT NULL constraint)
-          serviceType: snapshots[0]?.serviceNameSnapshot ?? "สั่งพิมพ์งาน",
-          pages: snapshots[0]?.pageCount ?? 1,
-          copies: snapshots[0]?.quantity ?? 1,
-          colorMode: snapshots[0]?.colorTierLabelSnapshot ? "color" : "bw",
-          paperSize: "-",
-          binding: false,
-          lamination: false,
-          fileUrl: snapshots[0]?.fileUrl ?? null,
-          // Schema v2 fields
-          subtotal: subtotal.toFixed(2),
-          shippingFeeSnapshot: shippingFee.toFixed(2),
-          totalPrice: Math.round(totalPrice),
-          slipUrl: parsed.data.slipUrl,
-          slipUploadedAt: new Date(),
-          deliveryMethod,
-          deliveryAddress: parsed.data.deliveryAddress,
-        }).returning();
-
-        // เพิ่ม order_items (snapshot)
-        await db.insert(orderItems).values(
-          snapshots.map((s) => ({ ...s, orderId: order.id }))
-        );
-
-        // ลบตะกร้าหลัง checkout สำเร็จ (cascade ลบ items/addons/option_selections ให้อัตโนมัติ)
-        await db.delete(carts).where(eq(carts.id, cart.id));
-
-        // แจ้งเตือนลูกค้าทางอีเมลว่าสั่งซื้อสำเร็จแบบ best-effort
-        const [customer] = await db
-          .select({ email: users.email, firstname: users.firstname, lastname: users.lastname })
-          .from(users)
-          .where(eq(users.id, auth.userId));
-        if (customer) {
-          notifyOrderCreated({
-            to: customer.email,
-            orderCode: order.code,
-            totalPrice: Number(order.totalPrice ?? 0),
-          }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
-        }
-
-        // แจ้งเตือนร้านค้า (Bell Notification)
-        const [shopInfo] = await db.select({ ownerId: shops.ownerId }).from(shops).where(eq(shops.id, params.shopId));
-        if (shopInfo) {
-          const customerName = customer ? `${customer.firstname} ${customer.lastname}`.trim() : "ลูกค้า";
-          await createNotification({
-            userId: shopInfo.ownerId,
-            typeId: 1, // 1 = ออเดอร์ใหม่
-            title: `ออเดอร์ใหม่ ${order.code}`,
-            message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
-            category: "general",
-            link: `/shop/orders/${order.id}`,
-          });
-        }
-
-        return { order: { id: order.id, code: order.code, ref: order.ref, totalPrice: Number(order.totalPrice) } };
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    console.error("สร้าง order ไม่สำเร็จหลังลองใหม่ 3 ครั้ง:", lastError);
-    set.status = 500;
-    return { error: "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   });
 

@@ -213,6 +213,20 @@
 - **หมายเหตุ:** เป็นการแก้ "ข้อมูลตัวอย่าง" 2 รายการที่พบระหว่างตรวจสอบเท่านั้น ไม่ได้ scan ทุกบริการในระบบว่ามีราคา ฿0 ที่อื่นอีกหรือไม่ (ยังไม่ได้ทำ full audit ทุก service ทุกร้าน) และไม่ได้เปลี่ยน business rule ของระบบ (`basePrice=0` ยังคงเป็นค่าที่ยอมรับได้ตาม schema เดิม)
 - **Status: FIXED ✅ (data-only, ยังไม่ได้เพิ่ม validation บังคับ > 0)**
 
+### BUG-05-03: ยิง checkout ซ้ำพร้อมกัน (double-click/retry) สร้าง Order ซ้ำหลายใบจากตะกร้าเดียวกัน
+- **Phase:** 05 — Cart & Checkout (CO05-09)
+- **Page/Endpoint:** `apps/api/src/routes/cart.ts` — `POST /shops/:shopId/cart/checkout`
+- **Severity:** 🔴 Critical (กระทบเงินจริง/ธุรกิจโดยตรง — ลูกค้าอาจถูกสร้างออเดอร์ซ้ำหลายใบโดยไม่ตั้งใจจากการกดปุ่มซ้ำ, double-click, หรือ network retry ทำให้ร้านค้าเห็นออเดอร์ปลอมซ้ำ/ลูกค้าสับสนว่าสั่งไปกี่ครั้งกันแน่)
+- **Steps to Reproduce:**
+  1. เพิ่มสินค้าลงตะกร้า 1 รายการ
+  2. ยิง `POST /shops/:shopId/cart/checkout` พร้อมกันหลาย request ในเวลาไล่เลี่ยกัน (จำลองการกดปุ่ม "ยืนยันคำสั่งซื้อ" ซ้ำเร็วๆ หรือ network ส่ง request ซ้ำ) — ทดสอบด้วย `Promise.all` ยิง 3 requests พร้อมกัน
+- **Expected Result:** ควรสร้าง order สำเร็จแค่ 1 ใบ ส่วน request ที่เหลือควรได้ error (เช่น "ตะกร้านี้ถูกดำเนินการไปแล้ว" หรือ 404 เพราะตะกร้าถูกลบไปแล้ว)
+- **Actual Result:** **ทั้ง 3 requests สำเร็จหมด (`200`) และสร้าง order แยกกัน 3 ใบ** (code #0002, #0003, #0004 คนละ id กันชัดเจน) จากตะกร้าใบเดียวกันที่มีสินค้าแค่ 1 รายการ — ยืนยันด้วย `GET /customers/orders` เห็นครบทั้ง 3 ใบจริงในประวัติคำสั่งซื้อ
+- **Possible Cause:** endpoint อ่าน cart + cartItems, คำนวณราคา, insert order, แล้วค่อยลบ cart ทีหลัง — ไม่มี lock ใดๆ กันไม่ให้หลาย request อ่าน/ประมวลผลตะกร้าเดียวกันพร้อมกัน (race condition แบบคลาสสิก: read-then-write โดยไม่ atomic) ทุก request ที่ยิงมาก่อนตะกร้าจะถูกลบ จะเห็นตะกร้ายังอยู่เหมือนกันหมด จึงสร้าง order สำเร็จซ้ำกันได้ไม่จำกัดจำนวนครั้ง
+- **Fix Applied (2026-09-06):** ห่อทั้ง flow (หาตะกร้า → คำนวณราคา → สร้าง order → ลบตะกร้า) ด้วย `db.transaction()` เดียว พร้อม `.for("update")` (`SELECT ... FOR UPDATE`) ล็อกแถวตะกร้าไว้ตั้งแต่ต้น — request ที่มาทีหลังต้องรอ request แรก commit (ลบตะกร้าสำเร็จ) ก่อน แล้วจะเห็นว่าไม่มีตะกร้าแล้วจริงๆ จึงคืน `404` แทนที่จะสร้าง order ซ้ำ ส่วน retry-loop เดิมสำหรับ order code ชนกัน (unique constraint) ย้ายไปอยู่ใน nested `tx.transaction()` (savepoint) แยกต่างหาก กัน error จากการชนกันของเลข order ทำให้ transaction ชั้นนอกที่ถือ lock ตะกร้าอยู่พังไปด้วย และย้าย logic แจ้งเตือน (email/notification) ให้ wrap ด้วย try/catch ของตัวเองไม่ให้ error ตรงนั้นไปกระตุ้น retry ซ้ำหลัง order ถูกสร้างสำเร็จแล้วจริง
+- **Verification:** ยิง `POST checkout` พร้อมกัน 5 requests บนตะกร้าเดียวกัน (มี 1 รายการ) → สำเร็จแค่ 1 request (สร้าง order #0005) อีก 4 requests ได้ `404 "ไม่มีตะกร้าของร้านนี้ กรุณาเพิ่มสินค้าก่อน"` ถูกต้องครบทุกครั้ง — ตรวจ `GET /customers/orders` ยืนยันมี order ใหม่แค่ 1 ใบจริง (ก่อนหน้านั้นมี 4 ใบจากบั๊ก/retest เดิม รวมเป็น 5 ใบพอดี ไม่มีใบเกิน)
+- **Status: FIXED ✅**
+
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
 

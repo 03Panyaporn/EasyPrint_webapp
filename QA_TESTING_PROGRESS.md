@@ -31,7 +31,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 02 | Security & Permission Matrix (bootstrap: role/ownership check ทุก endpoint หลัก) | 🔴 Critical | ✅ DONE — 10/10 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 03 | Customer Account & Profile (profile, addresses CRUD, change password) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย — เคส "ลบบัญชีที่มี order ผูก" รอ Phase 05 มี order จริงก่อน |
 | 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-06) | พบบั๊ก 2 จุด (1 Critical, 1 Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
-| 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | 🔄 IN PROGRESS (2026-09-06) | Pricing Engine Audit เสร็จแล้ว (พบ+แก้ 2 บั๊ก: BUG-05-01 duplex auto-link, BUG-05-02 ราคา ฿0) — เหลือ CO05-01~09 (cart/checkout functional test) ที่ยังไม่เริ่ม |
+| 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High/Critical pricing, **1 Critical checkout race condition**) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 06 | Shop Service Management (CRUD services/add-ons/delivery options/duplicate) | 🔴 Critical | ⬜ NOT STARTED | ต้องมีร้าน approved ก่อน (dependency: 01) — ทำก่อน 05 |
 | 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05 ก่อน |
 | 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ⬜ NOT STARTED | |
@@ -54,22 +54,27 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 05 — Cart & Checkout (functional test ยังเหลือ CO05-01~09)
-Phase Status: IN PROGRESS — Pricing Engine Audit เสร็จแล้ว, cart/checkout functional test ยังไม่เริ่ม
-Test Cases Completed (Phase 04): 5/5 — ALL PASS ✅ (หลังแก้บั๊กแล้ว)
-Last Completed Test: PE05-02 (แก้ราคา ฿0 ของ TONFAH PRINTER เป็นราคาสมเหตุสมผล — verify แล้วใน DB)
+Current Phase: 06 — Shop Service Management
+Phase Status: NOT STARTED
+Test Cases Completed (Phase 05): 11/11 — ALL PASS ✅ (2 pricing audit items + 9 cart/checkout, ทั้งหมดหลังแก้บั๊ก)
+Last Completed Test: CO05-09 (checkout race condition retest หลังแก้ — 5 concurrent requests สำเร็จแค่ 1 ใบถูกต้อง)
 Current Page/Feature: -
-NEXT ACTION: ทำ CO05-01 ถึง CO05-09 (cart/checkout functional test ตามปกติ) — มีบริการทดสอบพร้อมใช้แล้ว:
-  "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0) ที่ shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81
-  (per_page, colorTier ขาวดำ id=cede5cd0-bc4a-4c4c-b4b5-97cf6b391e41, option "รูปแบบการพิมพ์" id=3cf1bf3f-c0d3-4678-b92e-7353c7793193
-  มีค่า "หน้าเดียว"/"หน้าหลัง (2 ด้าน)") — ตะกร้าถูกล้างแล้วหลัง verify BUG-05-01 (ว่างเปล่าพร้อมทดสอบใหม่)
+NEXT ACTION: เริ่ม Phase 06 (Shop Service Management) — CRUD services/add-ons/delivery options/duplicate
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
-  - qa2.customer1@example.com / QaTest#2026 (customer, **ไม่มี address แล้ว** — ถูกลบทดสอบ C03-05)
-  - qa2.customer2@example.com / **FreshPass#2026** (customer, ชื่อ "QA Customer2Updated", เบอร์ 0899999999)
-  - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved แล้ว** — เปลี่ยนจาก pending ระหว่าง verify BUG-05-01 เพื่อให้สร้างบริการทดสอบได้)
+  - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 5 ใบจากการทดสอบ Phase 05: #0001-#0005)
+  - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
+    มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page) และ delivery option
+    "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — ใช้ต่อได้ใน Phase 06)
   - test-admin@easyprint.test / QaAdmin#2026 (admin)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
+Important Notes:
+- ✅ **Phase 05 พบบั๊ก 3 จุดและแก้ไขครบแล้ว**:
+  - BUG-05-01 (High): duplex printing ไม่ auto-link กับการนับแผ่นกระดาษ → FIXED (เพิ่ม is_duplex column + auto-override logic)
+  - BUG-05-02 (Medium, data-only): ราคา ฿0 ของ TONFAH PRINTER → FIXED (ปรับเป็น ฿1/฿50)
+  - **BUG-05-03 (Critical): ยิง checkout พร้อมกันสร้าง order ซ้ำหลายใบ** → FIXED (wrap ด้วย db.transaction + SELECT...FOR UPDATE row lock)
+- **สำคัญ (dev/deploy note):** `drizzle-kit push` และ `generate` ทั้งคู่พังในสภาพแวดล้อมนี้ (bug ของเครื่องมือเอง ไม่เกี่ยวกับโค้ดเรา — push พัง introspect CHECK constraint เดิม, generate ต้องการ TTY prompt) — ต้อง apply migration ผ่าน script ตรงแทน ถ้า push ยังพังอยู่ในรอบถัดไป ให้ทำแบบเดียวกัน (เขียน .sql migration file ตาม convention เดิม + apply ผ่าน script bun ที่ import db แล้ว sql.unsafe())
 Important Notes:
 - ✅ DB resume แล้ว (2026-09-06) — dev server ปกติดี ไม่มี blocker แล้ว
 - ✅ **Phase 01 พบบั๊ก 3 จุดและแก้ไขครบแล้ว** (commit `bc8c77a`): BUG-01-01 (register ไม่ redirect), BUG-01-02 (ไม่มี route guard /admin,/shop), BUG-01-03 (/shops/me ยิงซ้ำ 8 ครั้ง) — ทั้งหมด FIXED ✅
