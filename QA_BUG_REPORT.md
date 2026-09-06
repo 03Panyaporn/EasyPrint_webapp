@@ -106,6 +106,30 @@
 - **Verification:** เปิด `/shop` dashboard อีกครั้งหลังแก้ (ทั้งตอน authenticated และหลัง logout) → เหลือแค่ **1 request** ต่อ `GET /shops/me` ต่อการโหลดหน้า (จากเดิม 8 ครั้ง) ยืนยันจาก network log
 - **Status: FIXED ✅**
 
+### BUG-02-01: `DELETE /addresses/:id` และ `PATCH /addresses/:id/default` คืน success ปลอมเมื่อไม่ใช่เจ้าของ
+- **Phase:** 02 — Security & Permission Matrix (SEC02-07)
+- **Page/Endpoint:** `apps/api/src/routes/addresses.ts` — `DELETE /:id`, `PATCH /:id/default`
+- **Severity:** 🟡 Medium (ไม่ใช่ data breach — ข้อมูลปลอดภัยจริง แต่ error handling ผิดพลาดสร้างความสับสน)
+- **Steps to Reproduce:**
+  1. Login เป็น customerA สร้างที่อยู่ 1 รายการ (เก็บ `addressId`)
+  2. Logout แล้ว login เป็น customerB (คนละบัญชี ไม่เกี่ยวข้องกับที่อยู่นี้)
+  3. ยิง `DELETE /addresses/:addressId` และ `PATCH /addresses/:addressId/default` ด้วย token ของ customerB
+- **Expected Result:** ควรได้ `403`/`404` เหมือนกับ `PUT /addresses/:id` ที่ทำถูกต้องอยู่แล้ว
+- **Actual Result:** ทั้งสอง endpoint คืน **`200 {"ok":true}`** ทั้งที่ address นั้นไม่ใช่ของ customerB — ตรวจสอบยืนยันว่า **ที่อยู่ของ customerA ไม่ได้ถูกลบ/เปลี่ยนแปลงจริง** (login กลับมาเป็น customerA แล้ว `GET /addresses` ยืนยันข้อมูลยังอยู่ครบ `isDefault:false` เหมือนเดิม) — สาเหตุคือ SQL `WHERE` clause กรอง `userId` ถูกต้อง (ทำให้ query ไม่กระทบ row ใดเลย) แต่โค้ดไม่เช็คผลลัพธ์ก่อนตอบกลับ จึงตอบ `{ok:true}` เสมอไม่ว่าจะมี row ถูกกระทบจริงหรือไม่
+- **Evidence:** `crossDelete: {"status":200,"body":{"ok":true}}`, `crossSetDefault: 200` แต่ `GET /addresses` (ในฐานะเจ้าของจริง) หลังจากนั้นยืนยันข้อมูลไม่เปลี่ยน
+- **Possible Cause:** `.delete("/:id", ...)` และ `.patch("/:id/default", ...)` ไม่ตรวจสอบ return value ของ `db.delete()/db.update()` (drizzle คืนจำนวน row ที่ถูกกระทบได้) ก่อนตอบ `{ok:true}` ต่างจาก `.put("/:id", ...)` ที่เช็ค `if (!address) { set.status = 404; ... }` ถูกต้อง
+- **Status: OPEN**
+
+### BUG-02-02: ส่ง `:id` ที่ไม่ใช่ UUID เข้า `/addresses/:id` ทำให้ได้ raw `500` แทน `400`
+- **Phase:** 02 — Security & Permission Matrix (พบระหว่างทดสอบ SEC02-07)
+- **Page/Endpoint:** `apps/api/src/routes/addresses.ts` — `PUT /:id` (น่าจะกระทบ `DELETE`/`PATCH .../default` ด้วยเช่นกันเพราะ pattern เดียวกัน)
+- **Severity:** 🟡 Medium (raw error รั่วเล็กน้อย + DX ไม่ดี ไม่ใช่ security breach)
+- **Steps to Reproduce:** ยิง `PUT /addresses/not-a-uuid` ด้วย body ที่ valid
+- **Expected Result:** `400` พร้อมข้อความ "รูปแบบ id ไม่ถูกต้อง" หรือ `404`
+- **Actual Result:** `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}` — Postgres reject ค่าที่ไม่ใช่ UUID ก่อนถึง WHERE clause แล้วโยน error ที่ไม่ถูกจับ
+- **Possible Cause:** ไม่มีการ validate รูปแบบ UUID ของ `params.id` ก่อนส่งเข้า query — เป็น pattern เดียวกับที่เคยพบใน `POST /uploads` body ว่าง (SEC9-05c รอบก่อน) คือ error ที่ควรเป็น `400` หลุดไปเป็น `500` แทน
+- **Status: OPEN**
+
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
 

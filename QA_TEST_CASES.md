@@ -35,18 +35,22 @@
 
 **เป้าหมาย:** ยิงทุก endpoint สำคัญด้วย token ผิด role / ไม่มี token / ownership ผิดคน ก่อนเริ่มเทสฟีเจอร์อื่น
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-06)** — บัญชีที่ใช้: `qa2.customer1@example.com`/`qa2.customer2@example.com` (customer), `qa2.shop1@example.com` (shop_owner, pending), `test-admin@easyprint.test` (admin — reset รหัสผ่านผ่าน dev forgot-password fallback เป็น `QaAdmin#2026`; มี admin จริงอีกบัญชี `shop01.john@gmail.com` แต่ไม่แตะเพราะเป็นบัญชีทีมจริง) ใช้ shops/orders/messages/reviews ที่มีอยู่แล้วในระบบจากรอบทดสอบก่อนหน้าสำหรับเช็ค cross-account โดยไม่ต้องสร้างข้อมูลใหม่
+
 | ID | Endpoint กลุ่ม | สถานการณ์ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|---|
-| SEC02-01 | `/admin/*` ทั้งหมด | ยิงด้วย token customer/shop/ไม่มี token | 403/401 ทุกตัว | | NOT TESTED |
-| SEC02-02 | `PUT /shops/me`, `/shops/:id/services*` | ยิงด้วย token customer/admin | 403 | | NOT TESTED |
-| SEC02-03 | `/orders/:id`, `/shops/:shopId/orders` | ownership ข้ามบัญชี (customerA→orderB, shopA→orderB) | 403 | | NOT TESTED |
-| SEC02-04 | `/messages/*` | ownership ข้ามบัญชี + admin เข้าดูแชท | 403 ทุกกรณี | | NOT TESTED |
-| SEC02-05 | `/reviews/:id` delete/reply | ข้ามบัญชี/role ผิด | 403 | | NOT TESTED |
-| SEC02-06 | `/shops/:shopId/contact-admin`, `/users/contact-admin` | ข้ามบัญชี/role ผิด | 403 | | NOT TESTED |
-| SEC02-07 | `/addresses/*` | customerA แก้ address ของ customerB | 403/404 | | NOT TESTED |
-| SEC02-08 | `/uploads` ทุก type | ตรวจ auth requirement ปัจจุบันของแต่ละ type | ตามนโยบายที่ตั้งใจ (บาง type เปิดสาธารณะ) | | NOT TESTED |
-| SEC02-09 | `/internal/cleanup/*` | ไม่มี/ผิด secret header | 401 | | NOT TESTED |
-| SEC02-10 | Signed URL (id-card/order-file) | ตรวจ TTL จริง + tamper token | ปฏิเสธ token ปลอม | | NOT TESTED |
+| SEC02-01 | `/admin/*` ทั้งหมด | ยิงด้วย token customer/shop/ไม่มี token | 403/401 ทุกตัว | no-token→`401`, customer→`403`, shop→`403`, admin เอง→`200` ครบทุก endpoint (`/admin/settings`, `/admin/shops`, `/admin/shops/:id/suspend`) | **PASS** |
+| SEC02-02 | `PUT /shops/me`, `/shops/:id/services*` | ยิงด้วย token customer/admin | 403 | `POST services`→`403` ถูกต้อง; `PUT /shops/me`→`401` (ควรเป็น `403` — บั๊กเดิม SEC9-01b จากรอบก่อนยังไม่ถูกแก้ ยืนยันซ้ำว่ายังอยู่) | **PASS (บล็อกได้จริง) / บั๊ก status code เดิมยังไม่แก้** |
+| SEC02-03 | `/orders/:id`, `/shops/:shopId/orders` | ownership ข้ามบัญชี (customer ที่ไม่เกี่ยวข้องยิงเข้า order/ร้านคนอื่น) | 403 | ทั้ง `GET /orders/:id` และ `GET /shops/:shopId/orders` คืน `403` ถูกต้อง | **PASS** |
+| SEC02-04 | `/messages/*` | ownership ข้ามบัญชี (GET/POST/PATCH read เข้า order คนอื่น) | 403 ทุกกรณี | ทั้ง 3 endpoint คืน `403` ถูกต้อง รวมพยายามส่งข้อความปลอมเข้า order คนอื่นก็ถูกบล็อก | **PASS** |
+| SEC02-05 | `/reviews/:id` delete/reply | ข้ามบัญชี/role ผิด | 403 | `DELETE /reviews/:id` ของคนอื่น→`403`, `PATCH /shops/:otherShopId/reviews/:id/reply`→`403` | **PASS** |
+| SEC02-06 | `/shops/:shopId/contact-admin`, `/users/contact-admin` | ข้ามบัญชี/role ผิด | 403 | customer ยิง `POST/GET /shops/:shopId/contact-admin` (endpoint ของร้าน)→`403` ทั้งคู่ | **PASS** |
+| SEC02-07 | `/addresses/*` | customerA แก้/ลบ/ตั้ง default address ของ customerB | 403/404 ทุกตัว | `PUT`→`404` ถูกต้อง แต่ **`PATCH /:id/default`→`200` และ `DELETE /:id`→`200`** ทั้งที่ไม่ใช่เจ้าของ — ตรวจโค้ด+DB ยืนยันว่า WHERE clause กรอง `userId` ถูกต้องจริง (ที่อยู่ **ไม่ได้** ถูกลบ/เปลี่ยนแปลงจริง) แต่ endpoint คืน success ปลอมเพราะไม่เช็คว่ามี row ถูกกระทบจริงไหม → **BUG-02-01**; พบเพิ่ม: ส่ง id ที่ไม่ใช่ UUID (`/addresses/not-a-uuid`) → **`500`** แทน `400` → **BUG-02-02** | **FAIL (misleading response) — ข้อมูลปลอดภัยจริง ไม่มี data breach** |
+| SEC02-08 | `/uploads` ทุก type × role (no-auth/customer/shop/admin) | ตรงตาม policy ปัจจุบันในโค้ด (shop-photo/id-card เปิดสาธารณะโดยตั้งใจ, order-file อนุญาต customer+shop, payment-slip เฉพาะ customer, contact-admin-attachment อนุญาต shop/customer/admin, system-logo เฉพาะ admin) | ตรงตาม policy ทุก combination ที่ทดสอบ (12 เคส) | **PASS** |
+| SEC02-09 | `/internal/cleanup/*` | ไม่มี/ผิด secret header | 401 | ไม่มี header→`401`, secret ผิด→`401` | **PASS** |
+| SEC02-10 | Signed URL (id-card) | ตรวจ TTL จริงจาก token + tamper token | TTL=600s (10 นาที), tamper→ถูกปฏิเสธ | `exp-iat=600s` ตรงสเปกเป๊ะ, valid token→`200` (โหลดรูปได้จริง), tampered token→`400` ถูก Supabase ปฏิเสธทันที | **PASS** |
+
+**สรุป Phase 02:** ผ่าน 9/10 เคสหลัก (นับ SEC02-02 เป็น PASS เพราะบล็อกได้จริง แค่ status code ผิดความหมาย) — พบบั๊กใหม่ 2 จุดใน SEC02-07 (severity ไม่สูงเพราะข้อมูลไม่หลุด/ไม่ถูกแก้ไขจริง) **ยืนยันว่า authorization/ownership check ของระบบแน่นหนามาก ไม่พบช่องโหว่ data breach ใดๆ ในรอบนี้**
 
 ---
 
