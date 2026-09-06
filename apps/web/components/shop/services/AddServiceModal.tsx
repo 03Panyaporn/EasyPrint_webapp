@@ -60,8 +60,9 @@ const SERVICE_TEMPLATES = [
           type: "radio" as ServiceOptionType,
           priceCategory: "printing_side" as OptionPriceCategory,
           values: [
-            { name: "พิมพ์หน้าเดียว", extraPrice: 0, priceScope: "per_page" as PriceScope },
-            { name: "พิมพ์ 2 หน้า (หน้า-หลัง)", extraPrice: 0, priceScope: "per_page" as PriceScope },
+            { name: "พิมพ์หน้าเดียว", extraPrice: 0, priceScope: "per_page" as PriceScope, isDuplex: false },
+            // isDuplex: true — บอกระบบว่าค่านี้แทน "พิมพ์สองหน้า" เพื่อ auto-override วิธีนับหน้าเป็น "นับตามแผ่น" ตอนคำนวณราคาจริง
+            { name: "พิมพ์ 2 หน้า (หน้า-หลัง)", extraPrice: 0, priceScope: "per_page" as PriceScope, isDuplex: true },
           ],
         },
       ],
@@ -235,6 +236,12 @@ function OptionEditor({
     onChange({ ...option, values: option.values.map((v, i) => (i === index ? { ...v, priceScope } : v)) });
   };
 
+  // ตั้งค่าใดค่าหนึ่งเป็น "พิมพ์สองหน้า" (isDuplex) แบบ radio ในตัว — เลือกค่านี้แล้วปิดค่าอื่นในหัวข้อเดียวกันทั้งหมด
+  // (schema บังคับว่าต่อหัวข้อ printing_side มีค่า isDuplex=true ได้แค่ 1 ค่าเท่านั้น)
+  const updateValueDuplex = (index: number, checked: boolean) => {
+    onChange({ ...option, values: option.values.map((v, i) => ({ ...v, isDuplex: i === index ? checked : false })) });
+  };
+
   return (
     <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
@@ -349,6 +356,20 @@ function OptionEditor({
                         </option>
                       ))}
                     </select>
+                    {option.priceCategory === "printing_side" && (
+                      <label
+                        title="ติ๊กถ้าค่านี้แทน 'พิมพ์สองหน้า' — ระบบจะคิดค่ากระดาษ/แผ่นเป็นครึ่งหนึ่งอัตโนมัติเมื่อลูกค้าเลือกค่านี้ (เลือกได้แค่ 1 ค่าต่อหัวข้อ)"
+                        className="flex items-center gap-1 text-[10px] text-gray-500 whitespace-nowrap cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={v.isDuplex ?? false}
+                          onChange={(e) => updateValueDuplex(i, e.target.checked)}
+                          className="accent-orange-500"
+                        />
+                        2 หน้า
+                      </label>
+                    )}
                     <span className="font-bold text-orange-600">
                       {v.extraPrice > 0 ? `+฿${v.extraPrice.toLocaleString()}` : "+฿0"}
                     </span>

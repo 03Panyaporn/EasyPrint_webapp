@@ -179,6 +179,40 @@
 - **หมายเหตุ:** แก้เฉพาะ `GET /shops/:shopId` ซึ่งเป็นจุดที่ยืนยันบั๊กจริง — ยังไม่ได้ไล่แก้ทุก route ที่รับ `:id`/`:shopId` ทั่วทั้ง API (เช่น orders, reviews, services) เพราะยังไม่ได้ทดสอบแต่ละจุด ควรถือเป็นแนวทาง (utility พร้อมใช้แล้ว) ให้ทยอยแก้เมื่อเจอจริงในแต่ละ phase ถัดไป
 - **Status: FIXED ✅ (เฉพาะจุดที่ยืนยันบั๊ก — ดูหมายเหตุ)**
 
+### BUG-05-01: จำนวนแผ่นกระดาษที่คิดเงินไม่ผูกกับตัวเลือก "หน้าเดียว/หน้าหลัง" ที่ลูกค้าเลือกจริง
+- **Phase:** 05 — Pricing Engine Audit (PE05-01, ตามคำขอผู้ใช้ให้ตรวจสอบ pricing logic ก่อนเริ่ม Cart & Checkout)
+- **Page/Endpoint:** `packages/shared/src/pricing/engine.ts` (`calculateLineItem`), เรียกจาก `apps/api/src/routes/cart.ts` (2 จุด: GET cart + checkout), ใช้ preview ที่ `apps/web/components/shop/services/wizard/Step6Preview.tsx` และ **`apps/web/app/shops/[shopId]/order/[serviceId]/page.tsx`** (หน้าสั่งซื้อจริงของลูกค้า — จุดที่กระทบมากที่สุด)
+- **Severity:** 🔴 High (คิดเงินผิดจริงสำหรับบริการ per_page ที่เปิดให้ลูกค้าเลือกพิมพ์หน้าเดียว/สองหน้าเอง — กระทบรายได้ร้านค้าและความถูกต้องของราคาที่ลูกค้าเห็นโดยตรง)
+- **Steps to Reproduce:**
+  1. สร้างบริการ `per_page` ที่มีตัวเลือกหมวด "รูปแบบการพิมพ์" ให้ลูกค้าเลือกหน้าเดียว/หน้าหลังเอง (ค่า `page_counting_mode` ของบริการตั้งเป็น `by_file_page`)
+  2. ลูกค้าอัปโหลดไฟล์ PDF 10 หน้า แล้วเลือกตัวเลือก "หน้าหลัง (2 ด้าน)"
+- **Expected Result:** จำนวน "แผ่น" ที่คิดค่ากระดาษ/ตัวเลือกควรลดลงเหลือ 5 แผ่น (ปัดขึ้นครึ่งหนึ่งของ 10 หน้า) เพราะพิมพ์ 2 หน้าต่อ 1 แผ่นจริง
+- **Actual Result:** ระบบยังคิดค่ากระดาษที่ 10 แผ่นเท่าเดิม (เพราะ `page_counting_mode` เป็นค่าคงที่ระดับบริการที่ตั้งไว้ล่วงหน้า ไม่ใช่ค่าที่ผูกกับตัวเลือกที่ลูกค้าเพิ่งเลือกในออเดอร์นี้) — ยิ่งไปกว่านั้น พบว่าหน้าสั่งซื้อจริงของลูกค้า (`shops/[shopId]/order/[serviceId]/page.tsx`) **ไม่ได้ส่ง `pageCountingMode` เข้า `calculateLineItem` เลยด้วยซ้ำ** ทำให้ default เป็น `by_file_page` เสมอไม่ว่า service จะตั้งค่าอะไรไว้ก็ตาม
+- **Possible Cause:** ไม่มีความเชื่อมโยงเชิงโครงสร้างระหว่างตัวเลือกหมวด `printing_side` กับฟิลด์ `page_counting_mode` — เป็นคนละจุดตั้งค่าที่ไม่ auto-sync กัน
+- **Fix Applied (2026-09-06) — ตามที่ผู้ใช้ยืนยันให้แก้:**
+  1. เพิ่มคอลัมน์ `is_duplex boolean default false` ใน `service_option_values` (migration `0017_add_option_value_is_duplex.sql`) — มีความหมายเฉพาะตอน option แม่เป็นหมวด `printing_side`: `true` = ค่านี้แทน "พิมพ์สองหน้า"
+  2. Zod schema (`packages/shared/src/schemas/service.ts`): เพิ่ม `isDuplex` ในสคีมาค่าตัวเลือก + refinement ใหม่ `refineIsDuplexOnlyForPrintingSide` (ห้ามตั้ง `true` นอกหมวด printing_side, ห้ามตั้ง `true` เกิน 1 ค่าต่อหัวข้อ)
+  3. `apps/api/src/routes/services.ts`: ส่งผ่าน/serialize `isDuplex` ครบทุก endpoint (create/update/duplicate/get)
+  4. `apps/api/src/routes/cart.ts` (ทั้ง GET cart และ checkout): เพิ่ม logic ตรวจตัวเลือก `printing_side` ที่ลูกค้าเลือกจริง — ถ้ามีค่า `isDuplex=true` → **override `pageCountingMode` เป็น `by_sheet` เสมอ**, ถ้าเลือกค่า `isDuplex=false` → override เป็น `by_file_page` เสมอ, ถ้าบริการไม่มีตัวเลือกนี้เลย → fallback ใช้ค่าคงที่ระดับบริการเหมือนเดิม
+  5. UI shop owner: `Step3Options.tsx` และ `AddServiceModal.tsx` เพิ่ม checkbox "พิมพ์ 2 หน้า" ให้ตั้งค่า `isDuplex` ได้ (ทำงานแบบ radio ในตัว เลือกได้ 1 ค่า/หัวข้อ) + default preset ตั้ง `isDuplex:true` ให้ค่า "หน้าหลัง (2 ด้าน)" อัตโนมัติ
+  6. UI preview: `Step6Preview.tsx` (shop owner preview) และ **`shops/[shopId]/order/[serviceId]/page.tsx` (หน้าสั่งซื้อจริงของลูกค้า)** เพิ่ม logic คำนวณ `effectivePageCountingMode` แบบเดียวกับ backend ให้ preview ตรงกับราคาจริงที่จะเกิดตอน checkout เป๊ะ
+  7. อัปเดต `docs/erd.md` ให้ตรงกับ schema ใหม่
+- **Verification (ทดสอบจริงผ่าน API end-to-end):** สร้างบริการทดสอบ `per_page` (`pageCountingMode` ตั้งเป็น `by_file_page` โดยตั้งใจ) พร้อมตัวเลือก "หน้าเดียว" (`isDuplex:false`) / "หน้าหลัง 2 ด้าน" (`isDuplex:true`) → อัปโหลดไฟล์ PDF จริง 10 หน้า → เพิ่มลงตะกร้า:
+  - เลือก "หน้าหลัง (2 ด้าน)" → `unitBreakdown.pageCount = 5` ✅ (ลดลงครึ่งหนึ่งถูกต้อง), ราคารวม `฿20` (ค่าหมึก 10×1 + ค่ากระดาษ 5×2)
+  - เลือก "หน้าเดียว" → `unitBreakdown.pageCount = 10` ✅ (ไม่ลด), ราคารวม `฿10` (ค่าหมึก 10×1 + ค่ากระดาษ 0)
+  - ทั้งสองกรณีคำนวณถูกต้องตรงตามสูตร ไม่มี regression
+- **Status: FIXED ✅**
+
+### BUG-05-02: ข้อมูลราคาบริการจริงในระบบตั้งไว้ที่ ฿0 (ไม่สมเหตุสมผลทางธุรกิจ แม้ผ่าน validation)
+- **Phase:** 05 — Pricing Engine Audit (PE05-02)
+- **Page/Endpoint:** ข้อมูล (ไม่ใช่โค้ด) — ร้าน "TONFAH PRINTER" (`shopId=348d48ad-fc9c-43f8-b8f3-c3f92537d74d`)
+- **Severity:** 🟡 Medium (data-quality issue ไม่ใช่ security/logic bug — schema `basePrice.nonnegative()` อนุญาต 0 ตามเจตนาการออกแบบเดิม เผื่อ use case โปรโมชั่นฟรีจริงๆ)
+- **Actual Result (ก่อนแก้):** บริการ "ถ่ายเอกสารขาวดำ" และ "โปสเตอร์" (ทั้งคู่ `pricingModel=fixed`) ตั้ง `basePrice=0.00` — ลูกค้าสั่งพิมพ์ได้ฟรีจริง ซึ่งไม่สมเหตุสมผลสำหรับบริการหลักของร้านถ่ายเอกสาร (น่าจะเป็นข้อมูลตั้งต้น/seed ที่ยังไม่ได้กรอกราคาจริง)
+- **Fix Applied (2026-09-06) — ตามที่ผู้ใช้ยืนยันให้แก้ข้อมูลตัวอย่าง (ไม่แก้ schema validation):** อัปเดตตรงใน DB: "ถ่ายเอกสารขาวดำ" ฿0.00 → **฿1.00** (สอดคล้องกับราคาตลาดจริงของร้านถ่ายเอกสารใกล้มหาวิทยาลัยและตรงกับ colorTier ขาวดำของบริการ per_page อื่นในระบบที่ตั้งไว้ที่ ฿1 อยู่แล้ว), "โปสเตอร์" ฿0.00 → **฿50.00** (baseline สำหรับโปสเตอร์ขนาดเล็ก-กลางแบบเหมาจ่าย)
+- **Verification:** ตรวจสอบค่าใน DB หลังอัปเดตแล้วถูกต้องตรงตามที่ตั้งใจ
+- **หมายเหตุ:** เป็นการแก้ "ข้อมูลตัวอย่าง" 2 รายการที่พบระหว่างตรวจสอบเท่านั้น ไม่ได้ scan ทุกบริการในระบบว่ามีราคา ฿0 ที่อื่นอีกหรือไม่ (ยังไม่ได้ทำ full audit ทุก service ทุกร้าน) และไม่ได้เปลี่ยน business rule ของระบบ (`basePrice=0` ยังคงเป็นค่าที่ยอมรับได้ตาม schema เดิม)
+- **Status: FIXED ✅ (data-only, ยังไม่ได้เพิ่ม validation บังคับ > 0)**
+
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
 

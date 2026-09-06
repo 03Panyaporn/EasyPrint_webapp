@@ -161,6 +161,7 @@
 | option_id | uuid (FK → service_options.id, ON DELETE CASCADE) | |
 | name | text | เช่น "A4", "กระดาษ 80 แกรม", "ขาวดำ" |
 | extra_price | numeric(10,2) | default 0 — **ห้ามติดลบ** (บังคับที่ Zod) |
+| is_duplex | boolean | default false — มีความหมายเฉพาะตอน option ของแม่ (`service_options.price_category`) เป็น `printing_side` เท่านั้น: `true` = ค่านี้แทน "พิมพ์สองหน้า" ใช้ auto-override `main_services.page_counting_mode` เป็น `by_sheet` ตอนคำนวณราคาจริงถ้าลูกค้าเลือกค่านี้ (เพิ่มเมื่อ 2026-09-06 แก้บั๊ก QA: เดิมเลือก "หน้าหลัง" แล้วจำนวนแผ่นกระดาษที่คิดเงินไม่ลดลงเลย เพราะ page_counting_mode เป็นค่าคงที่ระดับบริการ ไม่ผูกกับตัวเลือกที่ลูกค้าเพิ่งเลือก) |
 | sort_order | integer | default 0 |
 | created_at | timestamp | |
 

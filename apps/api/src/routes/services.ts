@@ -87,7 +87,7 @@ async function canViewShopPublicly(
   return payload?.role === "shop_owner" && payload.userId === shop.ownerId;
 }
 
-type SerializedOptionValue = { id: string; name: string; extraPrice: number; priceScope: string };
+type SerializedOptionValue = { id: string; name: string; extraPrice: number; priceScope: string; isDuplex: boolean };
 type SerializedOption = { id: string; name: string; type: string; priceCategory: string; values: SerializedOptionValue[] };
 type SerializedColorTier = { id: string; label: string; pricePerUnit: number };
 type SerializedQuantityTier = { id: string; minQty: number; maxQty: number | null; unitPrice: number };
@@ -176,7 +176,7 @@ async function fetchOptions(mainServiceId: string): Promise<SerializedOption[]> 
         name: opt.name,
         type: opt.type,
         priceCategory: opt.priceCategory,
-        values: valueRows.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice), priceScope: v.priceScope })),
+        values: valueRows.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice), priceScope: v.priceScope, isDuplex: v.isDuplex })),
       };
     })
   );
@@ -189,7 +189,7 @@ async function writeOptions(
     name: string;
     type: "dropdown" | "radio" | "checkbox" | "number" | "text";
     priceCategory: "paper" | "printing_side" | "size" | "other";
-    values: { name: string; extraPrice: number; priceScope: "per_item" | "per_page" | "per_piece" | "per_sqm" }[];
+    values: { name: string; extraPrice: number; priceScope: "per_item" | "per_page" | "per_piece" | "per_sqm"; isDuplex?: boolean }[];
   }[]
 ): Promise<SerializedOption[]> {
   await db.delete(serviceOptions).where(eq(serviceOptions.mainServiceId, mainServiceId));
@@ -213,11 +213,12 @@ async function writeOptions(
             name: v.name,
             extraPrice: v.extraPrice.toFixed(2),
             priceScope: v.priceScope,
+            isDuplex: v.isDuplex ?? false,
             sortOrder: vi,
           }))
         )
         .returning();
-      values = insertedValues.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice), priceScope: v.priceScope }));
+      values = insertedValues.map((v) => ({ id: v.id, name: v.name, extraPrice: Number(v.extraPrice), priceScope: v.priceScope, isDuplex: v.isDuplex }));
     }
     result.push({ id: inserted.id, name: inserted.name, type: inserted.type, priceCategory: inserted.priceCategory, values });
   }
@@ -437,6 +438,7 @@ export const servicesRoutes = new Elysia()
           name: v.name,
           extraPrice: v.extraPrice,
           priceScope: v.priceScope as "per_item" | "per_page" | "per_piece" | "per_sqm",
+          isDuplex: v.isDuplex,
         })),
       }))
     );

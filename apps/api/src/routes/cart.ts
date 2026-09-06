@@ -147,6 +147,10 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         .where(eq(cartItemOptionSelections.cartItemId, row.id));
 
       const optionDeltas: ScopedAmount[] = [];
+      // undefined = ลูกค้าไม่ได้เลือกตัวเลือกหมวด "printing_side" เลย (บริการนี้อาจไม่มีตัวเลือกนี้) → ใช้
+      // page_counting_mode ของบริการตามเดิม; true/false = ลูกค้าเลือกค่าที่เป็น/ไม่เป็นพิมพ์สองหน้า → override เสมอ
+      // (แก้บั๊ก QA Phase 05: เดิมนับแผ่นกระดาษจากค่าคงที่ระดับบริการ ไม่ผูกกับตัวเลือกที่ลูกค้าเพิ่งเลือกในออเดอร์นี้เลย)
+      let printingSideDuplex: boolean | undefined;
       const optionSelections = await Promise.all(
         selectionRows.map(async (sel) => {
           const [option] = await db.select().from(serviceOptions).where(eq(serviceOptions.id, sel.optionId));
@@ -158,6 +162,7 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
               valueName = value.name;
               extraPrice = Number(value.extraPrice);
               optionDeltas.push({ scope: value.priceScope, amount: extraPrice });
+              if (option?.priceCategory === "printing_side") printingSideDuplex = value.isDuplex;
             }
           }
           return {
@@ -170,6 +175,8 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
           };
         })
       );
+      const effectivePageCountingMode =
+        printingSideDuplex === undefined ? mainService?.pageCountingMode : printingSideDuplex ? "by_sheet" : "by_file_page";
 
       let colorTier: { id: string; label: string; pricePerUnit: number } | undefined;
       if (row.colorTierId) {
@@ -208,7 +215,7 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         basePrice: mainService ? Number(mainService.basePrice) : 0,
         colorTierPricePerUnit: colorTier?.pricePerUnit,
         quantity: row.quantity,
-        pageCountingMode: mainService?.pageCountingMode,
+        pageCountingMode: effectivePageCountingMode,
         rawPageCount: row.pageCount ?? 0,
         widthCm: row.widthCm ? Number(row.widthCm) : undefined,
         heightCm: row.heightCm ? Number(row.heightCm) : undefined,
@@ -666,6 +673,9 @@ export const cartRoutes = new Elysia()
       const selectionRows = await db.select().from(cartItemOptionSelections).where(eq(cartItemOptionSelections.cartItemId, row.id));
       const optionDeltas: ScopedAmount[] = [];
       const optionsSnapshot: object[] = [];
+      // ดู comment เต็มที่จุดเดียวกันใน GET cart ด้านบนของไฟล์นี้ — ต้อง duplicate logic นี้ที่นี่ด้วย
+      // เพราะ checkout คำนวณราคาสุดท้าย server-side แยกจาก GET cart (คนละ query/loop) ต้องยืนยันผลตรงกันเป๊ะ
+      let printingSideDuplex: boolean | undefined;
 
       for (const sel of selectionRows) {
         const [option] = await db.select().from(serviceOptions).where(eq(serviceOptions.id, sel.optionId));
@@ -680,6 +690,7 @@ export const cartRoutes = new Elysia()
             extraPrice = Number(value.extraPrice);
             priceScope = value.priceScope;
             optionDeltas.push({ scope: value.priceScope, amount: extraPrice });
+            if (option?.priceCategory === "printing_side") printingSideDuplex = value.isDuplex;
           }
         }
         optionsSnapshot.push({
@@ -741,7 +752,7 @@ export const cartRoutes = new Elysia()
         basePrice: Number(mainService.basePrice),
         colorTierPricePerUnit: colorTier?.pricePerUnit,
         quantity: row.quantity,
-        pageCountingMode: mainService.pageCountingMode,
+        pageCountingMode: printingSideDuplex === undefined ? mainService.pageCountingMode : printingSideDuplex ? "by_sheet" : "by_file_page",
         rawPageCount: row.pageCount ?? 0,
         widthCm: row.widthCm ? Number(row.widthCm) : undefined,
         heightCm: row.heightCm ? Number(row.heightCm) : undefined,

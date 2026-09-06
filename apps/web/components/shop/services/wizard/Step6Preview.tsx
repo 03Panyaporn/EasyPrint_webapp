@@ -144,13 +144,24 @@ export default function Step6Preview({
       })
       .filter((d): d is ScopedAmount => d !== null);
 
+    // ตัวเลือกหมวด "รูปแบบการพิมพ์" ที่กำลังทดลองเลือกอยู่ ถ้ามีค่า isDuplex ต้อง override วิธีนับหน้าเหมือนที่
+    // ลูกค้าจริงจะเจอตอน checkout (ดู logic เดียวกันใน apps/api/src/routes/cart.ts) ไม่งั้น preview จะโชว์ราคาไม่ตรงกับของจริง
+    const printingSideOption = data.step3.options.find((opt) => opt.priceCategory === "printing_side");
+    const selectedPrintingSideValue = printingSideOption?.values.find((v) => v.name === selections[printingSideOption.name]);
+    const effectivePageCountingMode =
+      selectedPrintingSideValue == null
+        ? data.step2.pageCountingMode
+        : selectedPrintingSideValue.isDuplex
+          ? "by_sheet"
+          : "by_file_page";
+
     return buildLineItemBreakdown(
       {
         pricingModel,
         basePrice,
         colorTierPricePerUnit: selectedColorTier?.pricePerUnit,
         quantity,
-        pageCountingMode: data.step2.pageCountingMode,
+        pageCountingMode: effectivePageCountingMode,
         rawPageCount,
         widthCm: typeof widthCm === "number" ? widthCm : 0,
         heightCm: typeof heightCm === "number" ? heightCm : 0,

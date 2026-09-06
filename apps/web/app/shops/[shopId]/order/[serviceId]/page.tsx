@@ -412,11 +412,25 @@ function OrderBuilderForm({
     return charges;
   }, [selectedAddOnIds, mainService.availableAddOns, allAddOnServices]);
 
+  // ตัวเลือกหมวด "รูปแบบการพิมพ์" (printing_side) ที่ลูกค้ากำลังเลือกอยู่ตอนนี้ — ถ้าเลือกค่าที่ isDuplex=true
+  // ("หน้าหลัง 2 ด้าน") ต้อง override วิธีนับหน้าเป็น "by_sheet" เสมอ ไม่ว่า service จะตั้ง pageCountingMode
+  // default ไว้เป็นอะไร ไม่งั้นค่ากระดาษ/แผ่นจะไม่ลดลงเลยตอนลูกค้าเลือกพิมพ์สองหน้า (ยืนยันบั๊กจริงจาก QA Phase 05
+  // — เดิม endpoint นี้ไม่ได้ส่ง pageCountingMode เข้า calculateLineItem เลยด้วยซ้ำ default เป็น by_file_page เสมอ)
+  const effectivePageCountingMode = useMemo(() => {
+    const printingSideOption = mainService.options.find((opt) => opt.priceCategory === "printing_side");
+    if (!printingSideOption?.id) return mainService.pageCountingMode;
+    const selectedValueId = optionState[printingSideOption.id];
+    const selectedValue = printingSideOption.values.find((v) => v.id === selectedValueId);
+    if (!selectedValue) return mainService.pageCountingMode;
+    return selectedValue.isDuplex ? "by_sheet" : "by_file_page";
+  }, [mainService.options, mainService.pageCountingMode, optionState]);
+
   const lineItemResult = useMemo(() => {
     return calculateLineItem({
       pricingModel,
       basePrice: selectedColorTier ? selectedColorTier.pricePerUnit : mainService.basePrice,
       quantity: quantity === "" ? 0 : Number(quantity),
+      pageCountingMode: effectivePageCountingMode,
       rawPageCount: pdfPageCount,
       widthCm: widthCm === "" ? 0 : Number(widthCm),
       heightCm: heightCm === "" ? 0 : Number(heightCm),
@@ -426,7 +440,7 @@ function OrderBuilderForm({
       optionDeltas,
       addOnCharges,
     });
-  }, [pricingModel, mainService, selectedColorTier, quantity, pdfPageCount, widthCm, heightCm, optionDeltas, addOnCharges]);
+  }, [pricingModel, mainService, selectedColorTier, quantity, effectivePageCountingMode, pdfPageCount, widthCm, heightCm, optionDeltas, addOnCharges]);
 
   const previewTotal = lineItemResult.lineTotal;
 
