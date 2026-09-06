@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { addressInputSchema, addressUpdateSchema } from "@easyprint/shared";
 
 import { db } from "../db";
@@ -22,6 +22,13 @@ function getUserId(cookie: any) {
     }
 
     return payload.userId;
+}
+
+// UUID v4-ish format check (ยอมรับทุก version ของ UUID ไม่ใช่แค่ v4 เพราะ Postgres uuid ทั่วไปพอ)
+// ป้องกัน raw 500 จาก Postgres ตอนส่ง :id ที่ไม่ใช่ UUID เข้าไป (เดิมเคยหลุดเป็น 500 แทน 400 — ยืนยันบั๊กจริงจาก QA Phase 02 BUG-02-02)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUUID(id: string) {
+    return UUID_RE.test(id);
 }
 
 
@@ -134,6 +141,11 @@ export const addressRoutes = new Elysia({
             };
         }
 
+        if (!isValidUUID(params.id)) {
+            set.status = 400;
+            return { error: "รูปแบบ id ไม่ถูกต้อง" };
+        }
+
         const parsed = addressUpdateSchema.safeParse(body);
         if (!parsed.success) {
             set.status = 400;
@@ -200,18 +212,28 @@ export const addressRoutes = new Elysia({
 
         }
 
+        if (!isValidUUID(params.id)) {
+            set.status = 400;
+            return { error: "รูปแบบ id ไม่ถูกต้อง" };
+        }
 
-
-        await db
+        // ต้อง .returning() แล้วเช็คว่ามี row ถูกลบจริงไหม — เดิมไม่เช็คเลย ทำให้ยิง id ของคนอื่น
+        // (ไม่ match WHERE เพราะ userId ไม่ตรง จึงไม่มี row ถูกลบจริง) แต่ยังได้ 200 {ok:true} กลับไปเหมือนสำเร็จ
+        // เข้าใจผิดว่าลบสำเร็จทั้งที่ไม่ใช่เจ้าของ (ยืนยันบั๊กจริงจาก QA Phase 02 — BUG-02-01)
+        const [deleted] = await db
             .delete(addresses)
             .where(
                 and(
                     eq(addresses.id, params.id),
                     eq(addresses.userId, userId)
                 )
-            );
+            )
+            .returning();
 
-
+        if (!deleted) {
+            set.status = 404;
+            return { error: "ไม่พบที่อยู่นี้" };
+        }
 
         return {
             ok: true
@@ -238,33 +260,41 @@ export const addressRoutes = new Elysia({
             };
         }
 
+        if (!isValidUUID(params.id)) {
+            set.status = 400;
+            return { error: "รูปแบบ id ไม่ถูกต้อง" };
+        }
 
-        // ปิด default เดิมก่อน
-
-        await db
+        // เช็ค+ตั้ง default ให้ address เป้าหมายก่อน (ต้องเป็นของ userId เท่านั้น) ด้วย .returning()
+        // ถ้าไม่ใช่เจ้าของ/ไม่พบ ให้ 404 ทันที ไม่ไปแตะ address อื่นของ user เลย (เดิมโค้ดจะไปปิด default
+        // ของ address อื่นๆ ของ user ไปก่อนโดยไม่เช็คว่า target ที่ระบุมามีอยู่จริง/เป็นของตัวเองไหม —
+        // ยืนยันบั๊กจริงจาก QA Phase 02 — BUG-02-01: คนอื่นยิง id ที่ไม่ใช่ของตัวเองได้ 200 {ok:true} ปลอม)
+        const [target] = await db
             .update(addresses)
-            .set({
-                isDefault: false
-            })
-            .where(
-                eq(addresses.userId, userId)
-            );
-
-
-
-        await db
-            .update(addresses)
-            .set({
-                isDefault: true
-            })
+            .set({ isDefault: true })
             .where(
                 and(
                     eq(addresses.id, params.id),
                     eq(addresses.userId, userId)
                 )
+            )
+            .returning();
+
+        if (!target) {
+            set.status = 404;
+            return { error: "ไม่พบที่อยู่นี้" };
+        }
+
+        // ยืนยันว่า target เป็นของ user จริงแล้ว ค่อยปิด default ของที่อยู่อื่นๆ (ไม่รวม target) ของ user คนนี้
+        await db
+            .update(addresses)
+            .set({ isDefault: false })
+            .where(
+                and(
+                    eq(addresses.userId, userId),
+                    ne(addresses.id, params.id)
+                )
             );
-
-
 
         return {
             ok: true

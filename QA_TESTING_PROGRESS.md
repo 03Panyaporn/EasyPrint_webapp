@@ -28,7 +28,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | # | Phase | Priority | สถานะ | เหตุผล/Dependency |
 |---|---|---|---|---|
 | 01 | Authentication & Session (login/register×2 role/forgot-reset password/logout/session) | 🔴 Critical | ✅ DONE — 14/14 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High, 1 Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
-| 02 | Security & Permission Matrix (bootstrap: role/ownership check ทุก endpoint หลัก) | 🔴 Critical | ✅ DONE — 9/10 PASS (2026-09-06) | พบบั๊กใหม่ 2 จุด (Medium, ไม่มี data breach) — ยืนยัน authorization/ownership แน่นหนามาก |
+| 02 | Security & Permission Matrix (bootstrap: role/ownership check ทุก endpoint หลัก) | 🔴 Critical | ✅ DONE — 10/10 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 03 | Customer Account & Profile (profile, addresses CRUD, change password) | 🟠 High | ⬜ NOT STARTED | ต้องมีบัญชีก่อนเข้าฟีเจอร์อื่น |
 | 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ⬜ NOT STARTED | ไม่ต้อง login — ทำคู่กับ 03 ได้ |
 | 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | ⬜ NOT STARTED | ธุรกิจหลักของระบบ ต้องมี service จาก shop ก่อน (dependency: 06) |
@@ -56,25 +56,23 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ```
 Current Phase: 03 — Customer Account & Profile
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 02): 10/10 — 9 PASS, 1 FAIL (misleading response, ไม่มี data breach)
-Last Completed Test: SEC02-10 (signed URL TTL + tamper token)
+Test Cases Completed (Phase 02): 10/10 — ALL PASS ✅ (หลังแก้บั๊กแล้ว)
+Last Completed Test: SEC02-07 retest (address ownership + garbage UUID, PASS หลังแก้ไข)
 Current Page/Feature: -
 NEXT ACTION: เริ่ม Phase 03 (Customer Account & Profile) — profile edit, addresses CRUD (positive cases), change password
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
-  - qa2.customer1@example.com / QaTest#2026 (customer, มี address 1 รายการ id=0d114e63-a6eb-4ebd-b0d1-1330ac347060)
+  - qa2.customer1@example.com / QaTest#2026 (customer, มี address 1 รายการ id=3eecf757-b42c-4c67-9afd-5de10a20095f "ที่ทำงาน" isDefault=true — address เดิม "บ้าน" ถูกลบไปแล้วระหว่างทดสอบ regression ของ BUG-02-01 fix)
   - qa2.customer2@example.com / NewQaTest#2026 (customer)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, สถานะ pending, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81)
   - test-admin@easyprint.test / QaAdmin#2026 (admin — reset รหัสผ่านจากบัญชีทดสอบเดิมที่มีอยู่แล้ว)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
 Important Notes:
 - ✅ DB resume แล้ว (2026-09-06) — dev server ปกติดี ไม่มี blocker แล้ว
-- ✅ **Phase 01 พบบั๊ก 3 จุดและแก้ไขครบแล้วตามคำขอผู้ใช้** (commit `bc8c77a` บน branch นี้แล้ว — ดูรายละเอียดใน QA_BUG_REPORT.md):
-  BUG-01-01 (register ไม่ redirect), BUG-01-02 (ไม่มี route guard /admin,/shop), BUG-01-03 (/shops/me ยิงซ้ำ 8 ครั้ง) — ทั้งหมด FIXED ✅
-- ✅ **Phase 02 พบบั๊กใหม่ 2 จุด (ยังไม่ได้แก้ — รอ user สั่งให้แก้เหมือน Phase 01 หรือไม่)**:
-  - BUG-02-01 (Medium): `DELETE /addresses/:id`, `PATCH /addresses/:id/default` คืน `{ok:true}` ปลอมเมื่อไม่ใช่เจ้าของ (ข้อมูลไม่หลุดจริง แค่ response ผิด)
-  - BUG-02-02 (Medium): ส่ง `:id` ที่ไม่ใช่ UUID เข้า `/addresses/:id` ได้ raw `500` แทน `400`
-  ทั้งสองจุดยืนยันว่า **authorization/ownership check หลักของระบบแน่นหนามาก ไม่มี data breach** — เป็นแค่ error-handling ไม่สมบูรณ์
-  บั๊กเก่าที่ยืนยันซ้ำว่ายังไม่ถูกแก้: `PUT /shops/me` คืน 401 แทน 403 เมื่อ role ผิด (SEC9-01b เดิม)
+- ✅ **Phase 01 พบบั๊ก 3 จุดและแก้ไขครบแล้ว** (commit `bc8c77a`): BUG-01-01 (register ไม่ redirect), BUG-01-02 (ไม่มี route guard /admin,/shop), BUG-01-03 (/shops/me ยิงซ้ำ 8 ครั้ง) — ทั้งหมด FIXED ✅
+- ✅ **Phase 02 พบบั๊ก 2 จุดและแก้ไขครบแล้ว** (commit ถัดไปหลังนี้) ใน `apps/api/src/routes/addresses.ts`:
+  - BUG-02-01 → FIXED: `DELETE`/`PATCH .../default` เพิ่ม `.returning()` เช็คว่ามี row ถูกกระทบจริงก่อนตอบ 200/404
+  - BUG-02-02 → FIXED: เพิ่ม `isValidUUID()` validate `params.id` ก่อน query คืน 400 แทน 500
+  บั๊กเก่าที่ยืนยันซ้ำว่ายังไม่ถูกแก้ (ยังไม่ได้ขอให้แก้): `PUT /shops/me` คืน 401 แทน 403 เมื่อ role ผิด (SEC9-01b เดิม)
 - **สำคัญ:** tool read_page/find ใช้ไม่ได้เลยตอน Browser pane เป็น "hidden" (คืน viewport 0x0 ตลอด) — ใช้ screenshot+coordinate
   click หรือ javascript_tool fetch() แทนสำหรับฟอร์มซับซ้อน (เช่น shop-register ที่มี 2 file upload — ไม่มี tool เลือกไฟล์จาก OS)
 - session/preview อาจถูกปิดเองระหว่าง session ยาวๆ (เจอ 1 ครั้งแล้วตอนเริ่ม Phase 02) — ถ้า preview_list ว่างเปล่าให้ preview_start ("api"/"web") ใหม่ทันที (port web อาจเปลี่ยนไปเพราะ 3000 ถูกใช้อยู่ก่อน — เช็ค serverId/port ใหม่ทุกครั้งที่ restart)

@@ -45,12 +45,12 @@
 | SEC02-04 | `/messages/*` | ownership ข้ามบัญชี (GET/POST/PATCH read เข้า order คนอื่น) | 403 ทุกกรณี | ทั้ง 3 endpoint คืน `403` ถูกต้อง รวมพยายามส่งข้อความปลอมเข้า order คนอื่นก็ถูกบล็อก | **PASS** |
 | SEC02-05 | `/reviews/:id` delete/reply | ข้ามบัญชี/role ผิด | 403 | `DELETE /reviews/:id` ของคนอื่น→`403`, `PATCH /shops/:otherShopId/reviews/:id/reply`→`403` | **PASS** |
 | SEC02-06 | `/shops/:shopId/contact-admin`, `/users/contact-admin` | ข้ามบัญชี/role ผิด | 403 | customer ยิง `POST/GET /shops/:shopId/contact-admin` (endpoint ของร้าน)→`403` ทั้งคู่ | **PASS** |
-| SEC02-07 | `/addresses/*` | customerA แก้/ลบ/ตั้ง default address ของ customerB | 403/404 ทุกตัว | `PUT`→`404` ถูกต้อง แต่ **`PATCH /:id/default`→`200` และ `DELETE /:id`→`200`** ทั้งที่ไม่ใช่เจ้าของ — ตรวจโค้ด+DB ยืนยันว่า WHERE clause กรอง `userId` ถูกต้องจริง (ที่อยู่ **ไม่ได้** ถูกลบ/เปลี่ยนแปลงจริง) แต่ endpoint คืน success ปลอมเพราะไม่เช็คว่ามี row ถูกกระทบจริงไหม → **BUG-02-01**; พบเพิ่ม: ส่ง id ที่ไม่ใช่ UUID (`/addresses/not-a-uuid`) → **`500`** แทน `400` → **BUG-02-02** | **FAIL (misleading response) — ข้อมูลปลอดภัยจริง ไม่มี data breach** |
+| SEC02-07 | `/addresses/*` | customerA แก้/ลบ/ตั้ง default address ของ customerB | 403/404 ทุกตัว | เจอบั๊ก **BUG-02-01** (`PATCH .../default`/`DELETE` คืน `200` ปลอมข้ามบัญชี) + **BUG-02-02** (garbage id → `500`) → **แก้ทั้งคู่แล้ว** → retest: `DELETE`/`PATCH .../default` ข้ามบัญชี → `404` ทั้งคู่ (จากเดิม `200`); garbage id (`/addresses/not-a-uuid`) → `400` ทั้ง 3 endpoint (จากเดิม `500`); regression check: self-operation ปกติ (สร้าง/ตั้ง default/ลบ address ของตัวเอง) ยังทำงานถูกต้องครบ ไม่กระทบ | **PASS** ✅ (หลังแก้ไข) |
 | SEC02-08 | `/uploads` ทุก type × role (no-auth/customer/shop/admin) | ตรงตาม policy ปัจจุบันในโค้ด (shop-photo/id-card เปิดสาธารณะโดยตั้งใจ, order-file อนุญาต customer+shop, payment-slip เฉพาะ customer, contact-admin-attachment อนุญาต shop/customer/admin, system-logo เฉพาะ admin) | ตรงตาม policy ทุก combination ที่ทดสอบ (12 เคส) | **PASS** |
 | SEC02-09 | `/internal/cleanup/*` | ไม่มี/ผิด secret header | 401 | ไม่มี header→`401`, secret ผิด→`401` | **PASS** |
 | SEC02-10 | Signed URL (id-card) | ตรวจ TTL จริงจาก token + tamper token | TTL=600s (10 นาที), tamper→ถูกปฏิเสธ | `exp-iat=600s` ตรงสเปกเป๊ะ, valid token→`200` (โหลดรูปได้จริง), tampered token→`400` ถูก Supabase ปฏิเสธทันที | **PASS** |
 
-**สรุป Phase 02:** ผ่าน 9/10 เคสหลัก (นับ SEC02-02 เป็น PASS เพราะบล็อกได้จริง แค่ status code ผิดความหมาย) — พบบั๊กใหม่ 2 จุดใน SEC02-07 (severity ไม่สูงเพราะข้อมูลไม่หลุด/ไม่ถูกแก้ไขจริง) **ยืนยันว่า authorization/ownership check ของระบบแน่นหนามาก ไม่พบช่องโหว่ data breach ใดๆ ในรอบนี้**
+**สรุป Phase 02:** **10/10 PASS ✅** (หลังแก้ไข BUG-02-01/02-02 แล้ว) — นับ SEC02-02 เป็น PASS เพราะบล็อกได้จริง แค่ status code ผิดความหมาย (บั๊กเดิมจากรอบก่อน ยังไม่ถูกแก้ตามคำขอผู้ใช้รอบนี้) **ยืนยันว่า authorization/ownership check ของระบบแน่นหนามาก ไม่พบช่องโหว่ data breach ใดๆ ในรอบนี้**
 
 ---
 

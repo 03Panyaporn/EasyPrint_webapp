@@ -118,7 +118,11 @@
 - **Actual Result:** ทั้งสอง endpoint คืน **`200 {"ok":true}`** ทั้งที่ address นั้นไม่ใช่ของ customerB — ตรวจสอบยืนยันว่า **ที่อยู่ของ customerA ไม่ได้ถูกลบ/เปลี่ยนแปลงจริง** (login กลับมาเป็น customerA แล้ว `GET /addresses` ยืนยันข้อมูลยังอยู่ครบ `isDefault:false` เหมือนเดิม) — สาเหตุคือ SQL `WHERE` clause กรอง `userId` ถูกต้อง (ทำให้ query ไม่กระทบ row ใดเลย) แต่โค้ดไม่เช็คผลลัพธ์ก่อนตอบกลับ จึงตอบ `{ok:true}` เสมอไม่ว่าจะมี row ถูกกระทบจริงหรือไม่
 - **Evidence:** `crossDelete: {"status":200,"body":{"ok":true}}`, `crossSetDefault: 200` แต่ `GET /addresses` (ในฐานะเจ้าของจริง) หลังจากนั้นยืนยันข้อมูลไม่เปลี่ยน
 - **Possible Cause:** `.delete("/:id", ...)` และ `.patch("/:id/default", ...)` ไม่ตรวจสอบ return value ของ `db.delete()/db.update()` (drizzle คืนจำนวน row ที่ถูกกระทบได้) ก่อนตอบ `{ok:true}` ต่างจาก `.put("/:id", ...)` ที่เช็ค `if (!address) { set.status = 404; ... }` ถูกต้อง
-- **Status: OPEN**
+- **Fix Applied (2026-09-06):** [`apps/api/src/routes/addresses.ts`](apps/api/src/routes/addresses.ts):
+  - `DELETE /:id` เพิ่ม `.returning()` แล้วเช็ค `if (!deleted) → 404`
+  - `PATCH /:id/default` เปลี่ยนลำดับ: ตั้ง `isDefault:true` ให้ target ก่อน (พร้อม `.returning()` เช็ค 404 ถ้าไม่ใช่เจ้าของ/ไม่พบ) **ก่อน** จะไปปิด default ของ address อื่นๆ ของ user คนนั้น (ใช้ `ne(addresses.id, params.id)` กันไม่ให้แตะ target ซ้ำ) — แก้ผลข้างเคียงเดิมที่โค้ดจะไปปิด default ของ address อื่นของผู้เรียกก่อนเช็คว่า target ถูกต้องหรือไม่
+- **Verification:** customer2 ยิง `DELETE`/`PATCH .../default` เข้า address ของ customer1 ซ้ำ → ได้ `404 {"error":"ไม่พบที่อยู่นี้"}` ทั้งคู่ (จากเดิม `200`); ยืนยัน address ของ customer1 ยังอยู่ครบไม่เปลี่ยนแปลง; ทดสอบ regression ว่า self-operation ปกติยังทำงานถูกต้อง — customer1 สร้าง address ที่ 2, ตั้งเป็น default (address แรก isDefault ถูกปิดอัตโนมัติถูกต้อง), ลบ address แรกสำเร็จ (`200`) เหลือแค่ address ที่ยังไม่ถูกลบ — ครบทุก flow ปกติ
+- **Status: FIXED ✅**
 
 ### BUG-02-02: ส่ง `:id` ที่ไม่ใช่ UUID เข้า `/addresses/:id` ทำให้ได้ raw `500` แทน `400`
 - **Phase:** 02 — Security & Permission Matrix (พบระหว่างทดสอบ SEC02-07)
@@ -128,7 +132,9 @@
 - **Expected Result:** `400` พร้อมข้อความ "รูปแบบ id ไม่ถูกต้อง" หรือ `404`
 - **Actual Result:** `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}` — Postgres reject ค่าที่ไม่ใช่ UUID ก่อนถึง WHERE clause แล้วโยน error ที่ไม่ถูกจับ
 - **Possible Cause:** ไม่มีการ validate รูปแบบ UUID ของ `params.id` ก่อนส่งเข้า query — เป็น pattern เดียวกับที่เคยพบใน `POST /uploads` body ว่าง (SEC9-05c รอบก่อน) คือ error ที่ควรเป็น `400` หลุดไปเป็น `500` แทน
-- **Status: OPEN**
+- **Fix Applied (2026-09-06):** เพิ่มฟังก์ชัน `isValidUUID()` (regex ตรวจรูปแบบ UUID) ใน [`apps/api/src/routes/addresses.ts`](apps/api/src/routes/addresses.ts) เช็คก่อนใช้ `params.id` ใน `PUT`, `DELETE`, `PATCH /default` ทั้ง 3 endpoint — คืน `400 "รูปแบบ id ไม่ถูกต้อง"` ถ้าไม่ผ่าน
+- **Verification:** `PUT/DELETE/PATCH .../default` ด้วย `/addresses/not-a-uuid` → ได้ `400 {"error":"รูปแบบ id ไม่ถูกต้อง"}` ทั้ง 3 endpoint (จากเดิม `500`)
+- **Status: FIXED ✅**
 
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
