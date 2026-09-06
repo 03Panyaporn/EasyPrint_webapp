@@ -29,7 +29,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 |---|---|---|---|---|
 | 01 | Authentication & Session (login/register×2 role/forgot-reset password/logout/session) | 🔴 Critical | ✅ DONE — 14/14 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High, 1 Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 02 | Security & Permission Matrix (bootstrap: role/ownership check ทุก endpoint หลัก) | 🔴 Critical | ✅ DONE — 10/10 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
-| 03 | Customer Account & Profile (profile, addresses CRUD, change password) | 🟠 High | ⬜ NOT STARTED | ต้องมีบัญชีก่อนเข้าฟีเจอร์อื่น |
+| 03 | Customer Account & Profile (profile, addresses CRUD, change password) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย — เคส "ลบบัญชีที่มี order ผูก" รอ Phase 05 มี order จริงก่อน |
 | 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ⬜ NOT STARTED | ไม่ต้อง login — ทำคู่กับ 03 ได้ |
 | 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | ⬜ NOT STARTED | ธุรกิจหลักของระบบ ต้องมี service จาก shop ก่อน (dependency: 06) |
 | 06 | Shop Service Management (CRUD services/add-ons/delivery options/duplicate) | 🔴 Critical | ⬜ NOT STARTED | ต้องมีร้าน approved ก่อน (dependency: 01) — ทำก่อน 05 |
@@ -54,17 +54,18 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 03 — Customer Account & Profile
+Current Phase: 04 — Shop Discovery & Browsing (Public)
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 02): 10/10 — ALL PASS ✅ (หลังแก้บั๊กแล้ว)
-Last Completed Test: SEC02-07 retest (address ownership + garbage UUID, PASS หลังแก้ไข)
+Test Cases Completed (Phase 03): 6/6 — ALL PASS ✅ (ไม่พบบั๊กใหม่)
+Last Completed Test: C03-06 (ลบบัญชีลูกค้าไม่มี order ผูก — PASS; เคสมี order ผูก รอ Phase 05)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 03 (Customer Account & Profile) — profile edit, addresses CRUD (positive cases), change password
-  บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
-  - qa2.customer1@example.com / QaTest#2026 (customer, มี address 1 รายการ id=3eecf757-b42c-4c67-9afd-5de10a20095f "ที่ทำงาน" isDefault=true — address เดิม "บ้าน" ถูกลบไปแล้วระหว่างทดสอบ regression ของ BUG-02-01 fix)
-  - qa2.customer2@example.com / NewQaTest#2026 (customer)
+NEXT ACTION: เริ่ม Phase 04 (Shop Discovery & Browsing) — ดูรายชื่อร้านสาธารณะ, หน้าร้าน, หน้าบริการ (ไม่ต้อง login)
+  บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้ (หลัง Phase 03):
+  - qa2.customer1@example.com / QaTest#2026 (customer, **ไม่มี address แล้ว** — ถูกลบทดสอบ C03-05, ต้องสร้างใหม่ถ้า Phase 05 ต้องใช้)
+  - qa2.customer2@example.com / **FreshPass#2026** (customer, รหัสผ่านเปลี่ยนระหว่างทดสอบ C03-02 — เดิมคือ NewQaTest#2026, ตอนนี้เปลี่ยนเป็น FreshPass#2026 แล้ว, firstname/lastname อัปเดตเป็น "QA Customer2Updated", เบอร์ 0899999999)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, สถานะ pending, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81)
-  - test-admin@easyprint.test / QaAdmin#2026 (admin — reset รหัสผ่านจากบัญชีทดสอบเดิมที่มีอยู่แล้ว)
+  - test-admin@easyprint.test / QaAdmin#2026 (admin)
+  - qa2.deleteme@example.com — **ถูกลบแล้ว ใช้ไม่ได้อีก** (ใช้ทดสอบ C03-06 เสร็จแล้ว)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
 Important Notes:
 - ✅ DB resume แล้ว (2026-09-06) — dev server ปกติดี ไม่มี blocker แล้ว
