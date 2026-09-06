@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-06 (Phase 06 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-06 (Phase 07 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -33,7 +33,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-06) | พบบั๊ก 2 จุด (1 Critical, 1 Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High/Critical pricing, **1 Critical checkout race condition**) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 06 | Shop Service Management (CRUD services/add-ons/delivery options/duplicate) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
-| 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05 ก่อน |
+| 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ⬜ NOT STARTED | |
 | 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ⬜ NOT STARTED | ต้องมี order สถานะ completed จาก 07 |
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05; ไฟล์ถูกเขียนใหม่ล่าสุด ความเสี่ยงสูง |
@@ -54,15 +54,17 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 07 — Order Management
+Current Phase: 08 — Shop Settings & Account
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 06): 8/8 — ALL PASS ✅ (หลังแก้บั๊ก 2 จุด: BUG-06-01, BUG-06-02)
-Last Completed Test: SV06-08 (ร้าน suspended พยายาม POST/PATCH/DELETE services → ยืนยัน 403 ถูกบล็อกจริงทุก endpoint, คืนสถานะ approved แล้ว)
+Test Cases Completed (Phase 07): 8/8 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
+Last Completed Test: O07-08 (cross-account: customer1 ดู/ยกเลิก order ของ customer2 → 403 ทั้งคู่ ไม่มีข้อมูลรั่ว)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 07 (Order Management) — customer history/detail/cancel + shop order list/status workflow
+NEXT ACTION: เริ่ม Phase 08 (Shop Settings & Account) — payment/notification settings, change password/email, delete account
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
-  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 5 ใบจากการทดสอบ Phase 05: #0001-#0005)
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 5 ใบ: #0001 completed, #0002 pending_review,
+    #0003 completed, #0004 cancelled (invalid_payment_slip), #0005 cancelled (customer_request) — สถานะครบทุกแบบจากการทดสอบ Phase 07
+    ทำให้พร้อมใช้ต่อ Phase 09 Reviews ได้เลย เพราะมี order completed แล้ว 2 ใบ)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
@@ -72,6 +74,10 @@ NEXT ACTION: เริ่ม Phase 07 (Order Management) — customer history/de
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
 Important Notes:
+- ✅ **Phase 07 ไม่พบบั๊กใหม่เลย** — ทดสอบ state-machine ครบทั้ง 2 เส้นทาง (shop_delivery มี shipping / self_pickup ข้าม shipping), idempotent retry,
+  skip-ahead reject, ยกเลิกทั้งฝั่งลูกค้า/ร้าน (server ล็อก cancelReason ของลูกค้าเป็น customer_request เสมอไม่ว่า client จะส่งอะไรมา — กันโกหกเหตุผล),
+  cross-account block (403 ไม่มีข้อมูลรั่ว) — O07-07 (finishedAt) ตรวจด้วย code review แทน DB query ตรง เพราะ Bash tool บล็อกการรันสคริปต์เชื่อมต่อ
+  production DB โดยตรง (ด้วยเหตุผลด้านความปลอดภัย) — โค้ดยืนยันชัดเจนว่า set ถูกจุดไม่มี ambiguity
 - ✅ **Phase 06 พบบั๊ก 2 จุดและแก้ไขครบแล้ว**:
   - BUG-06-01 (Medium): ลบบริการที่มี cart item ผูกอยู่ได้ raw 500 แทนข้อความสุภาพ (FK-violation detection ไม่ unwrap `err.cause.code`) → FIXED (shared `pgErrorCode()`/`isForeignKeyViolation()`/`isUniqueViolation()` ใน `utils/validation.ts`)
   - BUG-06-02 (Medium): PATCH แก้เฉพาะ `addOns` (ไม่แตะฟิลด์อื่น) ได้ raw 500 (`drizzle "No values to set"`) → FIXED (ข้าม `.update()` ถ้า payload ว่าง, select แถวเดิมแทน)

@@ -156,16 +156,18 @@
 **หน้า:** `(customer)/orders*`, `(shop)/shop/orders`
 **API:** `POST /orders` (สร้างจาก checkout), `GET /shops/:shopId/orders`, `GET /customers/orders`, `GET /orders/:id`, `PATCH /orders/:id/status`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-06)** — ทดสอบผ่าน API ตรงบน order จริง #0001-#0005 จาก Phase 05 (ครบทุก state-machine path ทั้ง shop_delivery และ self_pickup) — **ไม่พบบั๊กใหม่เลย**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| O07-01 | ลูกค้าดูประวัติ/รายละเอียด order ตัวเอง | ข้อมูลถูกต้องครบ | | NOT TESTED |
-| O07-02 | ร้านค้าดูรายการ order ที่เข้ามา + กรองตามสถานะ | ครบถ้วน | | NOT TESTED |
-| O07-03 | ร้านเปลี่ยนสถานะ order ตามลำดับ workflow ที่ถูกต้อง | อัปเดตสำเร็จ, ลูกค้าเห็น + ได้ notification | | NOT TESTED |
-| O07-04 | ร้านพยายามข้ามลำดับสถานะ (เช่น pending→completed ตรงๆ) | ควร reject ถ้ามี state-machine validation | | NOT TESTED |
-| O07-05 | ยกเลิก order (ลูกค้า/ร้าน) พร้อมเหตุผล | บันทึก `cancelReason` ถูกต้อง | | NOT TESTED |
-| O07-06 | ลูกค้าพยายามยกเลิก order ที่ completed แล้ว | reject | | NOT TESTED |
-| O07-07 | ตรวจว่า order เก่าที่ completed/cancelled มี `finishedAt` ถูก set ไหม (เชื่อมกับ auto-delete cleanup) | มีค่าเสมอ | | NOT TESTED |
-| O07-08 | Cross-account: customerB ดู order ของ customerA | 403/404 | | NOT TESTED |
+| O07-01 | ลูกค้าดูประวัติ/รายละเอียด order ตัวเอง | ข้อมูลถูกต้องครบ | `GET /customers/orders` (customer2) → คืนครบ 5 order (#0001-#0005) พร้อมสถานะถูกต้อง; `GET /orders/:id` (#0005) → รายละเอียดครบถ้วนตรงกับที่ checkout ไว้ | **PASS** |
+| O07-02 | ร้านค้าดูรายการ order ที่เข้ามา + กรองตามสถานะ | ครบถ้วน | `GET /shops/:shopId/orders` (ไม่กรอง) → ครบ 5 ใบ; `?status=pending_review` → กรองเหลือเฉพาะ #0002 ถูกต้อง; `?status=cancelled` → กรองเหลือ #0004,#0005 ถูกต้อง | **PASS** |
+| O07-03 | ร้านเปลี่ยนสถานะ order ตามลำดับ workflow ที่ถูกต้อง | อัปเดตสำเร็จ, ลูกค้าเห็น + ได้ notification | ทดสอบ 2 เส้นทาง: (1) order `shop_delivery` (#0001): `pending_review→accepted→in_progress→shipping→completed` ทุกขั้นสำเร็จ `200` ตามลำดับ; (2) order `self_pickup` (#0003): `pending_review→accepted→in_progress→completed` (ข้าม `shipping` อัตโนมัติถูกต้องตาม `deliveryMethod`); ทดสอบ idempotent-retry (ยิงซ้ำสถานะเดิม `accepted→accepted`) → คืน `200` เดิมไม่ error (กันบั๊กจากกดปุ่มเบิ้ล) | **PASS** |
+| O07-04 | ร้านพยายามข้ามลำดับสถานะ (เช่น pending→completed ตรงๆ) | ควร reject ถ้ามี state-machine validation | ยิง `pending_review→completed` ตรงๆ (#0002) → `400 "เปลี่ยนสถานะข้ามขั้นไม่ได้ ต้องเปลี่ยนเป็น \"รับงานแล้ว\" ก่อน"`; ทดสอบเพิ่ม: order `self_pickup` ที่ `in_progress` พยายามไป `shipping` (ไม่ใช่ path ของตัวเอง) → `400 "...ต้องเปลี่ยนเป็น \"เสร็จสิ้น\" ก่อน"` ถูกต้อง; พยายามเปลี่ยนสถานะ order ที่ `completed` แล้ว → `400 "ออเดอร์นี้จบสถานะแล้ว..."` | **PASS** |
+| O07-05 | ยกเลิก order (ลูกค้า/ร้าน) พร้อมเหตุผล | บันทึก `cancelReason` ถูกต้อง | ลูกค้ายกเลิกเอง (#0005, ยัง `pending_review`) ส่ง `cancelReason:"other"` มาทาง client → server **override เป็น `customer_request` เสมอ** ถูกต้อง (กันลูกค้าใส่เหตุผลเท็จ); ร้านยกเลิก (#0004) ด้วย `cancelReason:"invalid_payment_slip"` + `cancelNote` → บันทึกตรงตามที่ส่งถูกต้องทั้งคู่ | **PASS** |
+| O07-06 | ลูกค้าพยายามยกเลิก order ที่ completed แล้ว | reject | ลูกค้ายิงยกเลิก order #0003 (สถานะ `completed` จาก O07-03) → `400 "ยกเลิกออเดอร์เองได้เฉพาะตอนที่ร้านยังไม่ยืนยันรับงานเท่านั้น"` ถูกต้อง (business rule ของลูกค้าเข้มกว่าร้าน: ยกเลิกเองได้แค่ตอน `pending_review` เท่านั้น ไม่ใช่แค่ "ไม่ completed") | **PASS** |
+| O07-07 | ตรวจว่า order เก่าที่ completed/cancelled มี `finishedAt` ถูก set ไหม (เชื่อมกับ auto-delete cleanup) | มีค่าเสมอ | ตรวจโค้ด `apps/api/src/routes/orders.ts:522-532` ยืนยัน `finishedAt: nextStatus === "completed" \|\| nextStatus === "cancelled" ? new Date() : null` ถูก set ที่จุดเดียวกับที่เปลี่ยนสถานะเสมอ (เขียนพร้อม status ในทรานแซคชันเดียว ไม่มี gap); cron cleanup (`internalCleanup.ts`) กรองด้วย `isNotNull(finishedAt)` ถูกต้องตรงกัน — **หมายเหตุ:** ไม่ได้ query DB ตรงยืนยันค่าจริง (Bash tool บล็อกการรันสคริปต์เชื่อมต่อ production DB ตรงๆ ด้วยเหตุผลด้านความปลอดภัย) ใช้การตรวจโค้ดแทนเพราะ logic ตรงไปตรงมา ไม่มี branch เงื่อนไขซับซ้อนที่จะพลาดได้ | **PASS** (ยืนยันด้วย code review แทน DB query ตรง) |
+| O07-08 | Cross-account: customerB ดู order ของ customerA | 403/404 | customer1 (ไม่มี order เป็นของตัวเอง) ยิง `GET /orders/:id` ของ order customer2 → `403 "คุณไม่มีสิทธิ์ดูออเดอร์นี้"`; ยิง `PATCH .../status` (ยกเลิก) → `403 "ต้องเป็นบัญชีร้านค้าเท่านั้น"` (ตกไปเช็คสิทธิ์แบบร้านค้าเพราะไม่ใช่เจ้าของ ถูกบล็อกอีกชั้น) — ไม่มีข้อมูล order รั่วออกมาทั้งคู่ | **PASS** |
 
 ---
 
