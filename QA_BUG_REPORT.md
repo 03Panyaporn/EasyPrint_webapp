@@ -162,7 +162,9 @@
   ```
   `getMe()` คืน `401` เสมอสำหรับ guest (พฤติกรรมปกติของ endpoint นี้) — แต่โค้ด chain `getMe().then(...)` ทำให้ error จาก `getMe()` เอง (ไม่ใช่จาก `getShop()`/`getMainServices()`) หลุดไปเข้า `.catch()` เดียวกัน แล้วถูกตีความผิดว่า "โหลดร้านไม่สำเร็จเพราะไม่มีสิทธิ์" ทั้งที่จริงๆ แค่ guest ยังไม่ login เท่านั้น (ซึ่งเป็นเรื่องปกติ ไม่ใช่ error) — `getShop`/`getMainServices` เป็น public endpoint ที่ไม่เคยคืน 401 อยู่แล้วจากการทดสอบ API ตรงในเฟสนี้
 - **Possible Cause:** ควรแยก `getMe()` ออกจาก chain การโหลดร้าน — เรียก `getMe()` แบบ fire-and-forget (fail เงียบๆ ถ้าไม่ login โดยไม่ต้อง redirect) และให้เฉพาะ `getShop`/`getMainServices` เท่านั้นที่กำหนด error state ของหน้า (404 → "ไม่พบร้านค้านี้", อื่นๆ → "โหลดข้อมูลร้านค้าไม่สำเร็จ")
-- **Status: OPEN**
+- **Fix Applied (2026-09-06):** [`apps/web/app/shops/[shopId]/page.tsx`](apps/web/app/shops/[shopId]/page.tsx) — แยก `getMe()` ออกเป็น call อิสระ (fire-and-forget, catch เงียบๆ ไม่ redirect) ไม่ผูกกับ chain การโหลด `getShop`/`getMainServices` อีกต่อไป ลบ branch `router.replace("/login...")` ออกทั้งหมด (ไม่จำเป็นแล้วเพราะ endpoint เหล่านี้เป็น public ไม่เคยคืน 401 จริง)
+- **Verification:** Guest (logout แล้ว) เปิด `/shops/a7f2c08c-...` (Johan Printer, ร้าน approved ปกติ) → เห็นหน้าร้านเต็มรูปแบบทันที (ชื่อร้าน, รีวิว 5.0, รายการบริการ) ไม่ redirect ไป login เลย; เปิดร้าน pending (`/shops/74dc56d2-...`) → แสดง "ไม่พบร้านค้านี้" + ลิงก์ "กลับหน้าแรก" อย่างสวยงาม ไม่ redirect ไป login เช่นกัน
+- **Status: FIXED ✅**
 
 ### BUG-04-02: ส่ง `:id` ที่ไม่ใช่ UUID เข้า `/shops/:id` ทำให้ได้ raw `500` แทน `400`/`404`
 - **Phase:** 04 — Shop Discovery & Browsing (D04-05)
@@ -172,7 +174,10 @@
 - **Expected Result:** `400`/`404` เหมือนกับ id ที่เป็น UUID ถูกต้องแต่ไม่มีในระบบ (ซึ่งคืน `404` ถูกต้องแล้ว)
 - **Actual Result:** `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}`
 - **Possible Cause:** เหมือน BUG-02-02 เป๊ะ — ไม่มีการ validate รูปแบบ UUID ของ `params.shopId` ก่อนส่งเข้า query, Postgres reject ค่าที่ไม่ใช่ UUID ก่อนถึง WHERE clause แล้วโยน error ที่ไม่ถูกจับ — ยืนยันว่าเป็น**ปัญหาเชิงระบบ** (systemic pattern) ที่อาจกระทบหลาย route ทั่วทั้ง API ไม่ใช่แค่ 2 จุดที่เจอ ควรพิจารณาแก้แบบรวมศูนย์ (เช่น global validation middleware/hook สำหรับ path param ที่ควรเป็น UUID) แทนการแก้ทีละไฟล์
-- **Status: OPEN**
+- **Fix Applied (2026-09-06):** ย้าย `isValidUUID()` ไปเป็น shared utility ที่ [`apps/api/src/utils/validation.ts`](apps/api/src/utils/validation.ts) (ใช้ร่วมกันได้ทุก route ในอนาคต แทนการก็อปโค้ดซ้ำ) แล้วเรียกใช้ใน `GET /shops/:shopId` คืน `404 "ไม่พบร้านค้านี้"` ถ้า id ไม่ใช่รูปแบบ UUID — และ refactor `addresses.ts` (BUG-02-02) ให้ import จาก utility เดียวกันแทนโค้ดซ้ำเดิม
+- **Verification:** `GET /shops/not-a-uuid` → `404 {"error":"ไม่พบร้านค้านี้"}` (จากเดิม `500`); ยืนยันร้านปกติ (`a7f2c08c-...`) และร้าน pending (`74dc56d2-...`) ยังทำงานถูกต้องเหมือนเดิมไม่มี regression
+- **หมายเหตุ:** แก้เฉพาะ `GET /shops/:shopId` ซึ่งเป็นจุดที่ยืนยันบั๊กจริง — ยังไม่ได้ไล่แก้ทุก route ที่รับ `:id`/`:shopId` ทั่วทั้ง API (เช่น orders, reviews, services) เพราะยังไม่ได้ทดสอบแต่ละจุด ควรถือเป็นแนวทาง (utility พร้อมใช้แล้ว) ให้ทยอยแก้เมื่อเจอจริงในแต่ละ phase ถัดไป
+- **Status: FIXED ✅ (เฉพาะจุดที่ยืนยันบั๊ก — ดูหมายเหตุ)**
 
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:

@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { shops, reviews } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
+import { isValidUUID } from "../utils/validation";
 
 import { updateShopProfileSchema } from "@easyprint/shared";
 
@@ -115,6 +116,11 @@ export const shopsRoutes = new Elysia()
   // ใช้ชื่อ param ":shopId" (ไม่ใช่ ":id") เพราะ Elysia/memoirist บังคับให้ทุก route ที่ path prefix ตรงกันต้องใช้ชื่อ param เดียวกัน
   // ("/shops/:shopId/services" ในไฟล์อื่นประกาศไว้ก่อนแล้ว ถ้าใช้ชื่อไม่ตรงกันจะ error ตอน compile route ทันที)
   .get("/shops/:shopId", async ({ params, set }) => {
+    if (!isValidUUID(params.shopId)) {
+      set.status = 404;
+      return { error: "ไม่พบร้านค้านี้" };
+    }
+
     const [row] = await db
       .select({
         id: shops.id,

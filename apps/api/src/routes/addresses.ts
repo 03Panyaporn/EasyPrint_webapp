@@ -5,6 +5,7 @@ import { addressInputSchema, addressUpdateSchema } from "@easyprint/shared";
 import { db } from "../db";
 import { addresses } from "../../drizzle/schema";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "../auth/jwt";
+import { isValidUUID } from "../utils/validation";
 
 
 function getUserId(cookie: any) {
@@ -22,13 +23,6 @@ function getUserId(cookie: any) {
     }
 
     return payload.userId;
-}
-
-// UUID v4-ish format check (ยอมรับทุก version ของ UUID ไม่ใช่แค่ v4 เพราะ Postgres uuid ทั่วไปพอ)
-// ป้องกัน raw 500 จาก Postgres ตอนส่ง :id ที่ไม่ใช่ UUID เข้าไป (เดิมเคยหลุดเป็น 500 แทน 400 — ยืนยันบั๊กจริงจาก QA Phase 02 BUG-02-02)
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isValidUUID(id: string) {
-    return UUID_RE.test(id);
 }
 
 
