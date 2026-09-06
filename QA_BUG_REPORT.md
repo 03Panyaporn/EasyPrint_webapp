@@ -136,6 +136,44 @@
 - **Verification:** `PUT/DELETE/PATCH .../default` ด้วย `/addresses/not-a-uuid` → ได้ `400 {"error":"รูปแบบ id ไม่ถูกต้อง"}` ทั้ง 3 endpoint (จากเดิม `500`)
 - **Status: FIXED ✅**
 
+### BUG-04-01: Guest (ไม่ login) เข้าหน้าร้านค้าสาธารณะไม่ได้เลย ถูก redirect ไป /login ทุกครั้ง
+- **Phase:** 04 — Shop Discovery & Browsing (D04-03)
+- **Page/URL:** `http://localhost:53185/shops/[shopId]` — ทดสอบทั้งร้าน `pending` และ **ร้าน `approved` ปกติ**
+- **Severity:** 🔴 Critical (กระทบธุรกิจหลักโดยตรง — ลูกค้าใหม่ที่ยังไม่สมัครสมาชิกไม่สามารถดูหน้าร้าน/ราคาก่อนตัดสินใจสมัครได้เลย ขัดกับโมเดล marketplace ทั่วไปที่ต้องให้ browse ก่อน login)
+- **Steps to Reproduce:**
+  1. Logout ให้แน่ใจว่าไม่มี session ใดๆ (`GET /auth/me` ต้องคืน `401`)
+  2. เปิด URL `/shops/[shopId ของร้านที่ approved ปกติ]` ตรงๆ ผ่านเบราว์เซอร์ (ไม่ใช่ยิง API ตรง)
+- **Expected Result:** เห็นหน้าร้าน (ข้อมูลร้าน, บริการ, รีวิว) ตามปกติเหมือนหน้ารายชื่อร้านค้า (ซึ่งใช้งานได้ปกติสำหรับ guest)
+- **Actual Result:** ถูก `router.replace` ไปที่ `/login?redirect=%2Fshops%2F...` ทันที ไม่เห็นเนื้อหาร้านเลยแม้แต่วินาทีเดียว — ยืนยันด้วยทั้งร้านสถานะ `pending` และร้าน `approved` (ทดสอบ Johan Printer ซึ่งเป็นร้าน active ปกติ) ได้ผลเหมือนกันหมด
+- **Evidence:** `apps/web/app/shops/[shopId]/page.tsx` บรรทัด 144-164:
+  ```ts
+  getMe()
+    .then((meRes) => {
+      if (meRes?.user) setUser(meRes.user);
+      return Promise.all([getShop(params.shopId), getMainServices(params.shopId)])...
+    })
+    .catch((err) => {
+      if (err instanceof ApiError && err.status === 401) {
+        router.replace(`/login?redirect=...`);   // ← ตรงนี้
+        return;
+      }
+      setLoadError(...)
+    })
+  ```
+  `getMe()` คืน `401` เสมอสำหรับ guest (พฤติกรรมปกติของ endpoint นี้) — แต่โค้ด chain `getMe().then(...)` ทำให้ error จาก `getMe()` เอง (ไม่ใช่จาก `getShop()`/`getMainServices()`) หลุดไปเข้า `.catch()` เดียวกัน แล้วถูกตีความผิดว่า "โหลดร้านไม่สำเร็จเพราะไม่มีสิทธิ์" ทั้งที่จริงๆ แค่ guest ยังไม่ login เท่านั้น (ซึ่งเป็นเรื่องปกติ ไม่ใช่ error) — `getShop`/`getMainServices` เป็น public endpoint ที่ไม่เคยคืน 401 อยู่แล้วจากการทดสอบ API ตรงในเฟสนี้
+- **Possible Cause:** ควรแยก `getMe()` ออกจาก chain การโหลดร้าน — เรียก `getMe()` แบบ fire-and-forget (fail เงียบๆ ถ้าไม่ login โดยไม่ต้อง redirect) และให้เฉพาะ `getShop`/`getMainServices` เท่านั้นที่กำหนด error state ของหน้า (404 → "ไม่พบร้านค้านี้", อื่นๆ → "โหลดข้อมูลร้านค้าไม่สำเร็จ")
+- **Status: OPEN**
+
+### BUG-04-02: ส่ง `:id` ที่ไม่ใช่ UUID เข้า `/shops/:id` ทำให้ได้ raw `500` แทน `400`/`404`
+- **Phase:** 04 — Shop Discovery & Browsing (D04-05)
+- **Page/Endpoint:** `apps/api/src/routes/shops.ts` — `GET /:shopId` (อาจกระทบ endpoint อื่นที่รับ `:shopId`/`:id` ในไฟล์เดียวกันหรือไฟล์อื่นด้วย เช่น services/orders/reviews)
+- **Severity:** 🟡 Medium (raw error รั่วเล็กน้อย ไม่ใช่ security breach — เป็น pattern เดียวกับ BUG-02-02 ที่แก้ไปแล้วใน `addresses.ts`)
+- **Steps to Reproduce:** ยิง `GET /shops/not-a-uuid` (ไม่ต้อง login)
+- **Expected Result:** `400`/`404` เหมือนกับ id ที่เป็น UUID ถูกต้องแต่ไม่มีในระบบ (ซึ่งคืน `404` ถูกต้องแล้ว)
+- **Actual Result:** `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}`
+- **Possible Cause:** เหมือน BUG-02-02 เป๊ะ — ไม่มีการ validate รูปแบบ UUID ของ `params.shopId` ก่อนส่งเข้า query, Postgres reject ค่าที่ไม่ใช่ UUID ก่อนถึง WHERE clause แล้วโยน error ที่ไม่ถูกจับ — ยืนยันว่าเป็น**ปัญหาเชิงระบบ** (systemic pattern) ที่อาจกระทบหลาย route ทั่วทั้ง API ไม่ใช่แค่ 2 จุดที่เจอ ควรพิจารณาแก้แบบรวมศูนย์ (เช่น global validation middleware/hook สำหรับ path param ที่ควรเป็น UUID) แทนการแก้ทีละไฟล์
+- **Status: OPEN**
+
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
 

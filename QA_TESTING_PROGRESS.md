@@ -30,7 +30,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 01 | Authentication & Session (login/register×2 role/forgot-reset password/logout/session) | 🔴 Critical | ✅ DONE — 14/14 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High, 1 Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 02 | Security & Permission Matrix (bootstrap: role/ownership check ทุก endpoint หลัก) | 🔴 Critical | ✅ DONE — 10/10 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** ตามคำขอผู้ใช้ |
 | 03 | Customer Account & Profile (profile, addresses CRUD, change password) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย — เคส "ลบบัญชีที่มี order ผูก" รอ Phase 05 มี order จริงก่อน |
-| 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ⬜ NOT STARTED | ไม่ต้อง login — ทำคู่กับ 03 ได้ |
+| 04 | Shop Discovery & Browsing (public shop list/detail/service order page) | 🟠 High | ⚠️ DONE — 3/5 PASS (2026-09-06) | พบบั๊ก 2 จุดใหม่ (**1 Critical**: guest เข้าหน้าร้านไม่ได้เลย!, 1 Medium: garbage UUID→500) — รอตัดสินใจแก้ |
 | 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | ⬜ NOT STARTED | ธุรกิจหลักของระบบ ต้องมี service จาก shop ก่อน (dependency: 06) |
 | 06 | Shop Service Management (CRUD services/add-ons/delivery options/duplicate) | 🔴 Critical | ⬜ NOT STARTED | ต้องมีร้าน approved ก่อน (dependency: 01) — ทำก่อน 05 |
 | 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05 ก่อน |
