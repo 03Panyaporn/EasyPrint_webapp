@@ -18,19 +18,28 @@ async function getOrderWithShopOwner(orderId: string) {
   return row;
 }
 
-// ไฟล์แนบในแชทเก็บใน messages.content เป็น JSON string (ไม่มีคอลัมน์แยกสำหรับไฟล์) — { kind: "file", path, fileName }
+// ไฟล์แนบในแชทเก็บใน messages.content เป็น JSON string (ไม่มีคอลัมน์แยกเก็บ path/fileName) — { kind: "file", path, fileName }
 // path คือ storage path ใน bucket private "order-files" (อัปโหลดผ่าน POST /uploads type "order-file")
 type FileAttachment = { kind: "file"; path: string; fileName: string };
 
-function parseFileAttachment(content: string): FileAttachment | null {
-  if (!content.startsWith("{")) return null;
+// ยืนยันบั๊กจริงจาก QA Phase 10 (BUG-10-01, เดิม M10-04/C5-09): เดิมเช็คแค่ "content.startsWith('{')" แล้ว parse JSON
+// ตรงๆ เพื่อตัดสินว่าข้อความนี้เป็นไฟล์แนบหรือไม่ — ผู้ใช้ที่พิมพ์ข้อความธรรมดาที่บังเอิญ (หรือตั้งใจ) มีรูปแบบ
+// {"kind":"file","path":"...","fileName":"..."} จะถูกตีความเป็นไฟล์แนบจริงทันที ทั้งที่ไม่เคยอัปโหลดไฟล์ใดๆ เลย
+// (ใช้เป็นช่องทางหลอกลวงได้ เช่น พิมพ์ข้อความให้ดูเหมือนแนบสลิปโอนเงิน/ใบเสร็จปลอม)
+// ลองแก้ด้วย sentinel prefix ในตัว content ก่อน (อักขระ NUL) แต่ Postgres text column ปฏิเสธ NUL byte ตรงๆ
+// ("invalid byte sequence for encoding UTF8: 0x00") insert ไม่ได้เลย — เปลี่ยนมาใช้คอลัมน์ boolean แยก
+// `is_file_attachment` (migration 0018) ที่ set โดย server เท่านั้นตอนมี filePath จริง ไม่มีวันมาจากการ parse
+// เนื้อหา content ที่ผู้ใช้พิมพ์เองได้เลย แก้บั๊กนี้แบบถอนรากถอนโคนจริง (ไม่ใช่แค่เปลี่ยน sentinel ที่ยัง spoof ได้อยู่ดี
+// เพราะ API ตอบ content ดิบกลับไปให้ client เห็นอยู่แล้วเสมอ ทำให้ sentinel แบบไหนก็ตามที่ฝังอยู่ใน content ถูก inspect แล้ว copy ซ้ำได้)
+function parseFileAttachment(content: string, isFileAttachment: boolean): FileAttachment | null {
+  if (!isFileAttachment) return null;
   try {
     const parsed = JSON.parse(content);
     if (parsed?.kind === "file" && typeof parsed.path === "string" && typeof parsed.fileName === "string") {
       return parsed as FileAttachment;
     }
   } catch {
-    // ไม่ใช่ JSON ก็ถือเป็นข้อความปกติ
+    // ไม่ใช่ JSON ที่ถูกต้อง (ไม่ควรเกิดขึ้นจริงเพราะ server เป็นคนสร้าง content นี้เอง) — ถือเป็นข้อความปกติ กันพัง
   }
   return null;
 }
@@ -42,7 +51,7 @@ async function signOrderFilePath(path: string, expiresInSeconds = 3600): Promise
 
 // แปลง row จาก DB ให้ frontend ใช้ได้ตรงๆ — ข้อความไฟล์แนบจะมี fileUrl (signed url ชั่วคราว) + fileName เพิ่มมาให้
 async function serializeMessage(row: typeof messages.$inferSelect) {
-  const attachment = parseFileAttachment(row.content);
+  const attachment = parseFileAttachment(row.content, row.isFileAttachment);
   if (!attachment) {
     return { ...row, isFile: false as const, fileUrl: null, fileName: null };
   }
@@ -82,6 +91,11 @@ export const messagesRoutes = new Elysia({ prefix: "/messages" })
           where ${messages.orderId} = ${orders.id}
           order by ${messages.createdAt} desc limit 1
         )`,
+        lastMessageIsFile: sql<boolean>`(
+          select is_file_attachment from ${messages}
+          where ${messages.orderId} = ${orders.id}
+          order by ${messages.createdAt} desc limit 1
+        )`,
         lastMessageAt: sql<string>`(
           select created_at from ${messages}
           where ${messages.orderId} = ${orders.id}
@@ -112,7 +126,7 @@ export const messagesRoutes = new Elysia({ prefix: "/messages" })
       );
 
     const rooms = rows.map((r) => {
-      const attachment = r.lastMessageRaw ? parseFileAttachment(r.lastMessageRaw) : null;
+      const attachment = r.lastMessageRaw ? parseFileAttachment(r.lastMessageRaw, r.lastMessageIsFile) : null;
       return {
         orderId: r.orderId,
         orderCode: r.orderCode,
@@ -152,6 +166,8 @@ export const messagesRoutes = new Elysia({ prefix: "/messages" })
     }
 
     // filePath มีค่า = ข้อความไฟล์แนบ (อัปโหลดผ่าน POST /uploads type "order-file" มาก่อนแล้ว) — เก็บเป็น JSON marker ใน content
+    // + ตั้ง isFileAttachment=true ชัดเจน (คอลัมน์นี้เท่านั้นที่บอกว่าเป็นไฟล์แนบจริง ไม่ใช่การ parse หน้าตาของ content)
+    const isFileAttachment = Boolean(filePath);
     const storedContent: string = filePath
       ? JSON.stringify({ kind: "file", path: filePath, fileName: fileName ?? "ไฟล์แนบ" } satisfies FileAttachment)
       : content ?? "";
@@ -168,6 +184,7 @@ export const messagesRoutes = new Elysia({ prefix: "/messages" })
         senderId: payload.userId,
         shopId: order.shopId,
         content: storedContent,
+        isFileAttachment,
       })
       .returning();
 

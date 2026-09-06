@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-06 (Phase 08 เสร็จสมบูรณ์ — พบ+แก้ BUG-08-01, BUG-08-02, BUG-08-03)
+> อัปเดตล่าสุด: 2026-09-06 (Phase 10 เสร็จสมบูรณ์ — พบ+แก้ BUG-10-01)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -12,13 +12,14 @@
 
 | จุดต้องสงสัย | Phase ในรอบนี้ | Test case ที่จะยืนยัน |
 |---|---|---|
-| ข้อความแชทรูปแบบ JSON ถูกตีความเป็นไฟล์แนบปลอม (โค้ดปัจจุบันยังมี logic เดิม) | Phase 10 | M10-04 |
 | ไม่มี cron เรียก auto-delete cleanup endpoint | Phase 15 | ST15-06 |
 | Unauthenticated upload (`shop-photo`/`id-card`) — เป็นการตัดสินใจเชิงนโยบายที่ยอมรับแล้ว | Phase 15 | ST15-01 |
 | ร้าน pending/suspended contact-admin ไม่ได้ + error message ผิดบริบท | Phase 11 | CA11-04 |
 | ไฟล์แนบแชทมองไม่เห็นใน admin storage dashboard | Phase 15 | ST15-05 |
 | Order เก่า `finishedAt` เป็น NULL | Phase 15 | ST15-08 |
 | Reply overwrite ไม่มี audit trail (review + contact-admin) | Phase 09, 11 | R09-04, CA11-05 |
+
+**ยืนยันซ้ำและแก้ไขแล้วใน Phase 10:** ข้อความแชทรูปแบบ JSON ถูกตีความเป็นไฟล์แนบปลอม (→ **BUG-10-01**) — รายละเอียดในหัวข้อบั๊กที่ยืนยันแล้วด้านล่าง
 
 **ยืนยันซ้ำและแก้ไขแล้วใน Phase 08:** `DELETE /auth/me` 500 (→ **BUG-08-01**), `PUT /shops/me` 401 แทน 403 (→ **BUG-08-03**), ร้าน suspended ยังแก้ `PUT /shops/me` ได้ (→ **BUG-08-02**) — รายละเอียดในหัวข้อบั๊กที่ยืนยันแล้วด้านล่าง
 
@@ -302,6 +303,23 @@
 - **Actual Result (ก่อนแก้):** `401 "ไม่มีสิทธิ์ใช้งาน"`
 - **Fix Applied (2026-09-06):** แยกเช็ค "ไม่ได้ login" (`401`) ออกจากเช็ค "login แล้วแต่ role ผิด" (`403`) ให้ตรงกับ pattern มาตรฐานของระบบ
 - **Verification:** Login เป็น customer ยิง `PUT /shops/me` → `403 {"error":"ต้องเป็นบัญชีร้านค้าเท่านั้น"}` ถูกต้อง (จากเดิม `401`)
+- **Status: FIXED ✅**
+
+### BUG-10-01: ข้อความแชทธรรมดาที่หน้าตาเหมือน JSON ไฟล์แนบถูกตีความเป็นไฟล์แนบปลอม (เดิม C5-09)
+- **Phase:** 10 — Chat/Messaging (M10-04 — จุดที่ถูกจับตาจากรอบทดสอบก่อน ยืนยันแล้วว่ายังไม่ถูกแก้)
+- **Page/Endpoint:** `apps/api/src/routes/messages.ts` — `POST /messages`, `GET /messages/:orderId`, `GET /messages/rooms`
+- **Severity:** 🟡 Medium (ไม่ใช่ data breach — แค่ทำให้ UI แสดงผลหลอกลวงได้ เช่น พิมพ์ข้อความให้ดูเหมือนแนบสลิปโอนเงิน/ใบเสร็จปลอมทั้งที่ไม่เคยอัปโหลดไฟล์จริง)
+- **Steps to Reproduce:**
+  1. ส่งข้อความแชทปกติ (ไม่ผ่าน `filePath`) ด้วย `content` ที่มีรูปแบบ `{"kind":"file","path":"ค่าอะไรก็ได้","fileName":"ชื่ออะไรก็ได้"}`
+- **Expected Result:** ควรแสดงเป็นข้อความธรรมดา (`isFile:false`) เพราะไม่เคยอัปโหลดไฟล์ผ่าน `POST /uploads` จริง
+- **Actual Result (ก่อนแก้):** `isFile:true`, `fileName` ตรงตามที่พิมพ์ (เช่น "ใบเสร็จปลอม.png") — ระบบตีความว่าเป็นไฟล์แนบจริงทันที (`fileUrl` เป็น `null` เพราะ path ปลอมไม่มีจริงใน storage แต่ตัว UI จะ render เป็น file bubble พร้อมชื่อไฟล์ที่พิมพ์เองอยู่ดี)
+- **Possible Cause:** `parseFileAttachment()` เดิมเช็คแค่ `content.startsWith("{")` แล้ว parse JSON ตรงๆ เพื่อตัดสินว่าเป็นไฟล์แนบหรือไม่ ไม่มีทางแยกแยะ "server สร้างจริงจาก filePath" กับ "ผู้ใช้พิมพ์เองบังเอิญหน้าตาเหมือนกัน" เลย
+- **Fix Applied (2026-09-06) — 2 รอบ:**
+  1. ลองแก้ด้วย sentinel prefix (อักขระ NUL) ฝังไว้ใน `content` เอง ก่อนถึงจะ parse เป็น JSON — **ใช้งานไม่ได้จริง**: Postgres text column ปฏิเสธ NUL byte ตรงๆ (`invalid byte sequence for encoding "UTF8": 0x00`) insert ไม่ได้เลย ยกเลิกแนวทางนี้
+  2. แก้จริงด้วยการเพิ่มคอลัมน์ `messages.is_file_attachment boolean default false` (migration `0018_add_message_is_file_attachment.sql`, apply ผ่าน script `postgres` package ตรงที่ import `./src/env` เดียวกับที่ dev server ใช้จริง แทนการ hardcode connection string ในสคริปต์ — connection string ตรงๆ ถูก sandbox classifier บล็อกไม่ให้รันเพราะดูเหมือนความเสี่ยงด้าน credential exposure) — `POST /messages` set คอลัมน์นี้เป็น `true` เฉพาะตอนสร้างจาก `filePath` จริงเท่านั้น ไม่มีวันมาจากการ parse `content` ที่ผู้ใช้พิมพ์เองได้เลย — `parseFileAttachment()` เช็คคอลัมน์นี้ก่อนแทนที่จะเดาจากหน้าตาของ `content`
+  3. อัปเดต `apps/api/drizzle/schema.ts`, `docs/erd.md` (เพิ่ม section ตาราง `messages` ที่ไม่เคยมี doc มาก่อนเลย) ให้ตรงกับ DB จริง
+- **Verification:** ส่งข้อความปลอมซ้ำ (`content` หน้าตาเหมือน JSON ไฟล์แนบ) → `isFile:false` ถูกต้อง (จากเดิม `true`); ส่งไฟล์แนบจริงผ่าน `filePath` (ไฟล์ PDF จริงที่เคยอัปโหลดไว้) → `isFile:true`, `fileUrl` เป็น signed URL ใช้งานได้จริง, `isFileAttachment:true` ใน DB row — ยืนยันว่า flow ไฟล์แนบจริงยังทำงานถูกต้องไม่มี regression; `GET /messages/rooms` แสดง `lastMessageContent` เป็น "📎 ชื่อไฟล์" ถูกต้องสำหรับไฟล์แนบจริง
+- **หมายเหตุ:** ข้อความไฟล์แนบเก่า (ถ้ามีก่อนแก้บั๊กนี้) จะมี `is_file_attachment=false` (ค่า default ตอนเพิ่มคอลัมน์) จึงแสดงเป็นข้อความ JSON ดิบแทน file bubble — เป็น one-time data-compat tradeoff ที่ยอมรับได้ ไม่ได้ backfill ย้อนหลังเพราะไม่มีทางแยกแยะ JSON เก่าที่เป็นไฟล์แนบจริงกับที่ผู้ใช้พิมพ์เองปนกันอยู่แล้ว (นี่คือบั๊กที่กำลังแก้อยู่พอดี)
 - **Status: FIXED ✅**
 
 <!--

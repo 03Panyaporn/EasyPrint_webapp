@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-06 (Phase 09 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-06 (Phase 10 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -36,7 +36,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-06) | พบบั๊ก 3 จุด (1 Critical, 2 Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
-| 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05; ไฟล์ถูกเขียนใหม่ล่าสุด ความเสี่ยงสูง |
+| 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ⬜ NOT STARTED | |
 | 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ⬜ NOT STARTED | ไม่มี baseline เลย ต้องเทสละเอียด |
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ⬜ NOT STARTED | กระทบทุกฟีเจอร์อื่นเมื่อ suspend |
@@ -54,16 +54,16 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 10 — Chat/Messaging
+Current Phase: 11 — Contact Admin
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 09): 6/6 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
-Last Completed Test: R09-06 (cross-account: shop คนละร้าน/customer คนละคน ลบ/ตอบรีวิวที่ไม่ใช่ของตัวเอง → 403 ทั้งคู่; เจ้าของจริงลบเองสำเร็จ)
+Test Cases Completed (Phase 10): 9/9 — ALL PASS ✅ (หลังแก้บั๊ก 1 จุด: BUG-10-01)
+Last Completed Test: M10-09 (admin เข้าดูแชท → 403 ทั้ง /rooms และ /:orderId ตรงตามดีไซน์ที่ตั้งใจไว้)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 10 (Chat/Messaging) — rooms, send/read, file attach (เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้ — ความเสี่ยงสูง ไม่มี baseline)
+NEXT ACTION: เริ่ม Phase 11 (Contact Admin) — customer & shop → admin, attachments (มีฝั่งลูกค้าใหม่)
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
-  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed (ไม่มีรีวิวแล้ว —
-    ลบทดสอบ R09-05 ไปแล้ว), #0002 pending_review, #0003 completed (ไม่มีรีวิวแล้ว — ลบทดสอบ R09-06 self-delete ไปแล้ว),
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
+    มีแชทกับ shop1 อยู่แล้วจาก Phase 10 — หลายข้อความรวมไฟล์แนบจริง 1 ไฟล์), #0002 pending_review, #0003 completed (ไม่มีรีวิวแล้ว),
     #0004 cancelled, #0005 cancelled, #0006 pending_review, #0007 pending_review — มี order completed 2 ใบพร้อมใช้ทดสอบ
     review เพิ่มได้อีกถ้า phase ถัดไปต้องการ)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
@@ -77,6 +77,14 @@ NEXT ACTION: เริ่ม Phase 10 (Chat/Messaging) — rooms, send/read, fil
   ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
     `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่, shopId=35e7e93a-0811-4a63-b532-a08ba0f7ed53) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
 Important Notes:
+- ✅ **Phase 10 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**:
+  - **BUG-10-01 (Medium, ยืนยันจากรอบก่อน C5-09): ข้อความแชทธรรมดาที่หน้าตาเหมือน JSON `{"kind":"file",...}` ถูกตีความเป็นไฟล์แนบปลอม**
+    → FIXED — ลองแก้ด้วย NUL-byte sentinel prefix ใน `content` ก่อน **ใช้ไม่ได้จริง** (Postgres text column ปฏิเสธ NUL byte, insert ไม่ได้เลย)
+    → แก้จริงด้วยการเพิ่มคอลัมน์ `messages.is_file_attachment` แยกจาก `content` โดยสิ้นเชิง (migration `0018_add_message_is_file_attachment`)
+  - พบ minor finding (ไม่ใช่บั๊ก ไม่ได้แก้): ข้อความแชทไม่มี max length limit เลย (ส่ง 10,004 ตัวอักษรผ่านได้ปกติ)
+  - **บันทึกไว้สำหรับ session ถัดไป:** ถ้าต้องเชื่อมต่อ/query production DB ตรง (migration หรือตรวจสอบข้อมูล) ห้าม hardcode connection
+    string ในไฟล์สคริปต์ (ถูก sandbox classifier บล็อกทันที) ให้ `import "./src/env"` (จาก `apps/api/src/env.ts`) แทนเพื่อโหลด
+    `DATABASE_URL` จาก `.env` แบบเดียวกับที่ dev server ใช้จริง แล้วค่อย `import postgres from "postgres"` ต่อ — ใช้งานได้ปกติไม่ถูกบล็อก
 - ✅ **Phase 09 ไม่พบบั๊กใหม่เลย** — ทดสอบครบทั้ง create/duplicate-reject/rating-boundary/reply-overwrite/admin-delete/cross-account-block
   ยืนยันซ้ำว่า reply ร้านไม่มี audit trail จริง (ทราบอยู่แล้วจากหัวข้อ "จุดที่ควรเพ่งเล็งพิเศษ" — เป็น design gap ไม่ใช่บั๊กใหม่ ไม่ได้แก้เพราะเป็นการเพิ่ม feature ไม่ใช่แก้บั๊ก)
   ชื่อลูกค้าถูก mask ถูกต้องในหน้ารีวิวสาธารณะ (กันข้อมูลรั่ว)

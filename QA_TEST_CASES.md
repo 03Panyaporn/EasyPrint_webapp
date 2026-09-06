@@ -213,17 +213,21 @@
 **หน้า:** `components/chat/chatpage.tsx` ((customer)/chat, (shop)/shop/chat)
 **API:** `GET /messages/rooms`, `POST /messages`, `PATCH /messages/:orderId/read`, `GET /messages/:orderId`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-06)** — ทดสอบผ่าน API ตรงบน order #0001 (customer2 ↔ shop1) พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| M10-01 | ลูกค้า/ร้านส่งข้อความ 2 ทาง | สำเร็จ | | NOT TESTED |
-| M10-02 | `GET /messages/rooms` แสดง unreadCount/lastMessage ถูกต้อง | | | NOT TESTED |
-| M10-03 | Ownership fix ใหม่: ร้าน (ผ่าน join `shops.ownerId`) ส่ง/อ่านข้อความสำเร็จ | ยันว่า owner จริงใช้งานได้ (ไม่ใช่แค่ block คนอื่น) | | NOT TESTED |
-| M10-04 | **⚠️ ส่งข้อความ content=`{"kind":"file","path":"x","fileName":"y"}` แบบพิมพ์ธรรมดา** | ไม่ควรถูกตีความเป็นไฟล์แนบปลอม (บั๊กเดิม C5-09 — โค้ดปัจจุบันดูเหมือนยังไม่แก้ ต้องยืนยัน) | | NOT TESTED |
-| M10-05 | แนบไฟล์จริงผ่าน `filePath`/`fileName` | ได้ signed URL ใช้งานได้ | | NOT TESTED |
-| M10-06 | `PATCH /:orderId/read` mark เฉพาะข้อความที่ไม่ใช่ของตัวเอง | ถูกต้อง | | NOT TESTED |
-| M10-07 | Cross-account: customerB/shopB เข้าห้องแชทของ order คนอื่น | 403 | | NOT TESTED |
-| M10-08 | ข้อความยาวมาก (10,000+ ตัวอักษร) | ตรวจ max length + layout | | NOT TESTED |
-| M10-09 | Admin เข้าดูแชท | ควร 403 ตามดีไซน์ปัจจุบัน (หรือ confirm ว่าต้องการเปลี่ยน) | | NOT TESTED |
+| M10-01 | ลูกค้า/ร้านส่งข้อความ 2 ทาง | สำเร็จ | customer2 ส่งข้อความ → `200`; shop1 ตอบกลับ → `200` ทั้งคู่บันทึก `content` ถูกต้องตรงตามที่พิมพ์ | **PASS** |
+| M10-02 | `GET /messages/rooms` แสดง unreadCount/lastMessage ถูกต้อง | | ทั้งสองฝั่งเห็น `lastMessageContent`/`lastMessageAt` ตรงกับข้อความล่าสุดจริง; `unreadCount` คำนวณแยกอิสระต่อฝั่ง (นับเฉพาะข้อความที่อีกฝั่งส่งมาและตัวเองยังไม่อ่าน) ถูกต้องทั้งคู่ | **PASS** |
+| M10-03 | Ownership fix ใหม่: ร้าน (ผ่าน join `shops.ownerId`) ส่ง/อ่านข้อความสำเร็จ | ยันว่า owner จริงใช้งานได้ (ไม่ใช่แค่ block คนอื่น) | shop1 (เจ้าของร้านจริงผ่าน `shops.ownerId`) ส่งข้อความสำเร็จ `200` ยืนยันว่า fix เดิม (join ownerId แทนเทียบ `shopId` ตรงๆ) ยังทำงานถูกต้อง | **PASS** |
+| M10-04 | **⚠️ ส่งข้อความ content=`{"kind":"file","path":"x","fileName":"y"}` แบบพิมพ์ธรรมดา** | ไม่ควรถูกตีความเป็นไฟล์แนบปลอม (บั๊กเดิม C5-09 — โค้ดปัจจุบันดูเหมือนยังไม่แก้ ต้องยืนยัน) | **ยืนยันบั๊กจริงก่อนแก้:** ส่งข้อความธรรมดาหน้าตาเหมือน JSON ไฟล์แนบ → `isFile:true` พร้อม `fileName` ตรงตามที่พิมพ์ (เช่น "ใบเสร็จปลอม.png") ทั้งที่ไม่เคยอัปโหลดไฟล์จริง → **BUG-10-01** → แก้แล้ว (เพิ่มคอลัมน์ `is_file_attachment` แยกจาก `content` โดยสิ้นเชิง — ลองแก้ด้วย NUL-byte sentinel ใน content ก่อนแต่ Postgres ปฏิเสธ NUL byte insert ไม่ได้เลย จึงเปลี่ยนมาใช้คอลัมน์แทน) → retest → `isFile:false` ถูกต้อง | **PASS** ✅ (หลังแก้ไข) |
+| M10-05 | แนบไฟล์จริงผ่าน `filePath`/`fileName` | ได้ signed URL ใช้งานได้ | ส่งไฟล์แนบจริง (PDF ที่เคยอัปโหลดจริงใน Phase 05) ผ่าน `filePath` → `isFile:true`, `isFileAttachment:true` ใน DB, `fileUrl` เป็น signed URL ที่ใช้งานได้จริง (ทดสอบ regression พร้อมกับแก้ BUG-10-01 — ยืนยันไม่กระทบ flow ไฟล์แนบจริง); `GET /messages/rooms` แสดง `lastMessageContent: "📎 ชื่อไฟล์.pdf"` ถูกต้อง | **PASS** |
+| M10-06 | `PATCH /:orderId/read` mark เฉพาะข้อความที่ไม่ใช่ของตัวเอง | ถูกต้อง | customer2 เรียก mark-read → ข้อความที่ตัวเองส่ง (5 ข้อความ) ยังคง `isRead:false` เหมือนเดิม (ถูกต้อง เพราะ `isRead` วัดจากมุมมองผู้รับ), ข้อความของ shop1 ที่ยังไม่อ่าน (0 เหลือ) ถูก mark เป็น `true` ครบ | **PASS** |
+| M10-07 | Cross-account: customerB/shopB เข้าห้องแชทของ order คนอื่น | 403 | customer1 (ไม่เกี่ยวข้อง) ยิง `GET`/`POST`/`PATCH .../read` เข้าห้องแชทของ order #0001 → `403` ทั้ง 3 endpoint; shop_owner คนละร้าน (`qa2.ss08throwaway`) ยิง `GET` เข้าห้องเดียวกัน → `403` เช่นกัน ไม่มีข้อมูลรั่ว | **PASS** |
+| M10-08 | ข้อความยาวมาก (10,000+ ตัวอักษร) | ตรวจ max length + layout | ส่งข้อความ 10,004 ตัวอักษร → `200` สำเร็จ บันทึกครบไม่ถูกตัด (ไม่มีการจำกัดความยาวทั้งที่ schema `t.String()`/DB `text` column — เป็น minor finding ไม่ใช่บั๊ก ไม่ได้แก้เพราะไม่กระทบ correctness แค่ไม่มี guard กันสแปมข้อความยาวเกินจำเป็น) | **PASS** (พบ minor finding: ไม่มี max length limit) |
+| M10-09 | Admin เข้าดูแชท | ควร 403 ตามดีไซน์ปัจจุบัน (หรือ confirm ว่าต้องการเปลี่ยน) | Admin ยิง `GET /messages/rooms` → `403 "ไม่มีสิทธิ์เข้าถึงแชทนี้"`; ยิง `GET /messages/:orderId` → `403 "ไม่มีสิทธิ์ดูข้อความในออเดอร์นี้"` ทั้งคู่ตรงตามดีไซน์ปัจจุบันที่ตั้งใจไว้ (แชทเป็นเรื่องระหว่างลูกค้า-ร้านเท่านั้น แอดมินไม่เข้าไปดูเนื้อหาส่วนตัว) | **PASS** |
+
+รายละเอียดเต็มดูที่ `QA_BUG_REPORT.md` (BUG-10-01)
 
 ---
 

@@ -257,6 +257,19 @@
 | shop_replied_at | timestamp | nullable |
 | created_at | timestamp | |
 
+### `messages`
+แชทระหว่างลูกค้ากับร้านค้าต่อ 1 ออเดอร์ (ไม่มีห้องแชทแยกจากออเดอร์ — 1 ออเดอร์ = 1 ห้องแชท) — เดิมเพิ่งเขียนใหม่ทั้งไฟล์ ยังไม่เคยมี doc มาก่อน เพิ่มตอนแก้ BUG-10-01 (QA Phase 10)
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| order_id | uuid (FK → orders.id) [ON DELETE CASCADE] | |
+| sender_id | uuid (FK → users.id) [ON DELETE CASCADE] | |
+| shop_id | uuid (FK → shops.id) [ON DELETE CASCADE] | denormalize มาจาก order เพื่อ query ง่ายขึ้น |
+| content | text | ข้อความปกติ หรือ JSON string `{"kind":"file","path":"...","fileName":"..."}` ถ้าเป็นไฟล์แนบ (ดู `is_file_attachment`) |
+| is_file_attachment | boolean | default false — **เพิ่มใน migration `0018_add_message_is_file_attachment`** ตั้งโดย server เท่านั้นตอนมี `filePath` จริง (ไม่มีวันมาจากการ parse หน้าตาของ `content`) แก้บั๊ก QA Phase 10 (BUG-10-01, เดิม M10-04/C5-09) ที่ผู้ใช้พิมพ์ข้อความธรรมดารูปแบบ `{"kind":"file",...}` แล้วถูกตีความเป็นไฟล์แนบปลอมได้ |
+| is_read | boolean | default false — mark true เฉพาะข้อความที่ไม่ใช่ของตัวเอง (ดู `PATCH /messages/:orderId/read`) |
+| created_at | timestamp | |
+
 ⚠️ **หมายเหตุเรื่อง `drizzle-kit push`:** ตอนนี้ `bun --cwd apps/api drizzle-kit push` จะ crash ("Cannot read properties of undefined (reading 'replace')" ใน `checkValue.replace`) ตอน "Pulling schema from database" — พิสูจน์แล้วว่าเป็น bug ของ `drizzle-kit@0.31.10` เองตอน introspect DB บน Postgres 17.6 (ไม่เกี่ยวกับ schema ของโปรเจกต์นี้ เกิดกับ schema.ts เดิมก่อนแก้ด้วย) การเปลี่ยนแปลงรอบนี้ (enum `suspended`, `shops.storage_quota_mb`, `orders.finished_at`, ตาราง `system_settings`/`reviews`) ถูก apply ขึ้น Supabase ด้วย SQL ตรงแทน (ตรวจสอบแล้วว่าตรงกับ `schema.ts` 100%) — ครั้งหน้าที่แก้ schema ให้ลอง `drizzle-kit push` ก่อน ถ้ายัง crash อยู่ ให้ apply SQL ด้วยมือแบบเดียวกันแล้วเช็คกับ `schema.ts` ให้ตรงกันเสมอ
 
 ## ความสัมพันธ์ (Relationships)
@@ -287,6 +300,9 @@ shops (1) ──< contact_admin_messages (shop_id)
 shops (1) ──< reviews (shop_id)
 orders (1) ──< reviews (order_id) [unique — 1 ออเดอร์รีวิวได้ 1 ครั้ง]
 users (1) ──< reviews (customer_id)
+orders (1) ──< messages (order_id) [ON DELETE CASCADE]
+users (1) ──< messages (sender_id) [ON DELETE CASCADE]
+shops (1) ──< messages (shop_id) [ON DELETE CASCADE]
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)
