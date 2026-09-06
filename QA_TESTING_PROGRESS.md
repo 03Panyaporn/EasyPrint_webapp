@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-06 (Phase 07 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-06 (Phase 08 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -34,7 +34,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 05 | Cart & Checkout (add/edit cart, delivery options, payment slip, checkout) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 3 จุด (2 High/Critical pricing, **1 Critical checkout race condition**) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 06 | Shop Service Management (CRUD services/add-ons/delivery options/duplicate) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 07 | Order Management (customer history/detail/cancel + shop order list/status workflow) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
-| 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ⬜ NOT STARTED | |
+| 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-06) | พบบั๊ก 3 จุด (1 Critical, 2 Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ⬜ NOT STARTED | ต้องมี order สถานะ completed จาก 07 |
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ⬜ NOT STARTED | ต้องมี order จาก 05; ไฟล์ถูกเขียนใหม่ล่าสุด ความเสี่ยงสูง |
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ⬜ NOT STARTED | |
@@ -54,26 +54,36 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 08 — Shop Settings & Account
+Current Phase: 09 — Reviews
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 07): 8/8 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
-Last Completed Test: O07-08 (cross-account: customer1 ดู/ยกเลิก order ของ customer2 → 403 ทั้งคู่ ไม่มีข้อมูลรั่ว)
+Test Cases Completed (Phase 08): 5/5 — ALL PASS ✅ (หลังแก้บั๊ก 3 จุด: BUG-08-01, BUG-08-02, BUG-08-03)
+Last Completed Test: SS08-05 (ร้าน suspended พยายาม PUT /shops/me → ยืนยัน 403 ถูกบล็อกจริง, approve กลับแล้ว regression ผ่าน)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 08 (Shop Settings & Account) — payment/notification settings, change password/email, delete account
+NEXT ACTION: เริ่ม Phase 09 (Reviews) — customer add/view review, shop reply, admin moderate/delete
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
-  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 5 ใบ: #0001 completed, #0002 pending_review,
-    #0003 completed, #0004 cancelled (invalid_payment_slip), #0005 cancelled (customer_request) — สถานะครบทุกแบบจากการทดสอบ Phase 07
-    ทำให้พร้อมใช้ต่อ Phase 09 Reviews ได้เลย เพราะมี order completed แล้ว 2 ใบ)
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed, #0002 pending_review,
+    #0003 completed, #0004 cancelled, #0005 cancelled, #0006 pending_review (SS08-02 test), #0007 pending_review (SS08-02 test)
+    — มี order completed แล้ว 2 ใบ (#0001, #0003) พร้อมใช้ทดสอบ Phase 09 Reviews ได้เลย)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
-    per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5) และ delivery option
-    "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — ใช้ต่อได้ใน Phase ถัดไป)
+    per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5, มีข้อมูลบัญชีธนาคาร/พร้อมเพย์ทดสอบ
+    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — ใช้ต่อได้ใน Phase ถัดไป)
   - test-admin@easyprint.test / QaAdmin#2026 (admin)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
+  ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
+    `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
 Important Notes:
+- ✅ **Phase 08 พบบั๊ก 3 จุดและแก้ไขครบแล้ว**:
+  - **BUG-08-01 (Critical): `DELETE /auth/me` ได้ raw 500 สำหรับแทบทุกบัญชีที่ใช้งานจริง** (shop owner มีร้านผูกอยู่ FK `shops_owner_id_users_id_fk`,
+    หรือลูกค้าที่เคยสั่งซื้อแล้ว FK `orders_customer_id_users_id_fk` — กว้างกว่าที่คาดไว้เดิมว่ากระทบแค่เจ้าของร้าน) → FIXED (เช็ค dependency
+    ก่อนลบ คืน 400 พร้อมข้อความอธิบาย + ลบ carts/password_reset_tokens ที่เป็นข้อมูลชั่วคราวทิ้งก่อนลบ user จริง)
+  - BUG-08-02 (Medium): `PUT /shops/me` ไม่เช็ค approvalStatus เลย ร้าน suspended ยังแก้ข้อมูล/บัญชีธนาคารได้ตามปกติ → FIXED (เพิ่มเช็คให้ตรงกับ requireShopOwner)
+  - BUG-08-03 (Medium): `PUT /shops/me` คืน 401 แทน 403 เมื่อ role ผิด (ยืนยันซ้ำจาก SEC02-02 รอบ Phase 02) → FIXED พร้อมกับ BUG-08-02 (endpoint เดียวกัน)
+  - พบเพิ่มเติม (ไม่ใช่บั๊ก แค่ documentation drift): ตาราง `addresses` ไม่อยู่ใน migration SQL ไฟล์ไหนเลย (สร้างตรงบน Supabase) และ FK cascade
+    จริงบน DB ต่างจากที่ `schema.ts` ระบุไว้ (ทำงานถูกต้องอยู่แล้ว แค่เอกสารไม่ตรงกับของจริง)
 - ✅ **Phase 07 ไม่พบบั๊กใหม่เลย** — ทดสอบ state-machine ครบทั้ง 2 เส้นทาง (shop_delivery มี shipping / self_pickup ข้าม shipping), idempotent retry,
   skip-ahead reject, ยกเลิกทั้งฝั่งลูกค้า/ร้าน (server ล็อก cancelReason ของลูกค้าเป็น customer_request เสมอไม่ว่า client จะส่งอะไรมา — กันโกหกเหตุผล),
   cross-account block (403 ไม่มีข้อมูลรั่ว) — O07-07 (finishedAt) ตรวจด้วย code review แทน DB query ตรง เพราะ Bash tool บล็อกการรันสคริปต์เชื่อมต่อ

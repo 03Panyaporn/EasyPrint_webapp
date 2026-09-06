@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-06 (Phase 06 เสร็จสมบูรณ์ — พบ+แก้ BUG-06-01, BUG-06-02)
+> อัปเดตล่าสุด: 2026-09-06 (Phase 08 เสร็จสมบูรณ์ — พบ+แก้ BUG-08-01, BUG-08-02, BUG-08-03)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -12,16 +12,15 @@
 
 | จุดต้องสงสัย | Phase ในรอบนี้ | Test case ที่จะยืนยัน |
 |---|---|---|
-| `DELETE /auth/me` (shop owner มีร้านผูกอยู่) อาจได้ 500 | Phase 08 | SS08-04 |
 | ข้อความแชทรูปแบบ JSON ถูกตีความเป็นไฟล์แนบปลอม (โค้ดปัจจุบันยังมี logic เดิม) | Phase 10 | M10-04 |
 | ไม่มี cron เรียก auto-delete cleanup endpoint | Phase 15 | ST15-06 |
-| `PUT /shops/me` คืน 401 แทน 403 เมื่อ role ผิด | Phase 02 | SEC02-02 |
 | Unauthenticated upload (`shop-photo`/`id-card`) — เป็นการตัดสินใจเชิงนโยบายที่ยอมรับแล้ว | Phase 15 | ST15-01 |
 | ร้าน pending/suspended contact-admin ไม่ได้ + error message ผิดบริบท | Phase 11 | CA11-04 |
 | ไฟล์แนบแชทมองไม่เห็นใน admin storage dashboard | Phase 15 | ST15-05 |
 | Order เก่า `finishedAt` เป็น NULL | Phase 15 | ST15-08 |
 | Reply overwrite ไม่มี audit trail (review + contact-admin) | Phase 09, 11 | R09-04, CA11-05 |
-| ร้าน suspended ยังแก้ `PUT /shops/me` ได้ (ไม่ถูกบล็อกเหมือน endpoint อื่น) | Phase 17 | E17-03 |
+
+**ยืนยันซ้ำและแก้ไขแล้วใน Phase 08:** `DELETE /auth/me` 500 (→ **BUG-08-01**), `PUT /shops/me` 401 แทน 403 (→ **BUG-08-03**), ร้าน suspended ยังแก้ `PUT /shops/me` ได้ (→ **BUG-08-02**) — รายละเอียดในหัวข้อบั๊กที่ยืนยันแล้วด้านล่าง
 
 ---
 
@@ -255,6 +254,54 @@
 - **Possible Cause:** โค้ด destructure `addOns/options/colorTiers/quantityTiers/basePrice/minArea/areaRoundingIncrement` ออกจาก `parsed.data` แล้วเอาที่เหลือ (`...rest`) ไปเป็น payload ของ `db.update(mainServices).set(...)` เสมอ — ถ้า client ส่งมาแค่ `addOns` (หรือ `options`/`colorTiers`/`quantityTiers` เดี่ยวๆ) `rest` จะกลายเป็น object ว่างเปล่า และ drizzle-orm 0.45+ ไม่ยอมรับ `.set({})` (throw `"No values to set"` ตรงๆ แทนที่จะ no-op เงียบๆ)
 - **Fix Applied (2026-09-06):** [`apps/api/src/routes/services.ts`](apps/api/src/routes/services.ts) — เช็ค `Object.keys(updateData).length > 0` ก่อนเรียก `db.update(mainServices).set(...)`; ถ้า payload ที่จะ set ว่างเปล่าจริง (ผู้ใช้ตั้งใจแก้แค่ addOns/options/colorTiers/quantityTiers) ให้ `db.select()` แถวเดิมมาใช้แทน ไม่เรียก `.update()` เลย (กัน error โดยไม่กระทบพฤติกรรมตอนมีฟิลด์จริงให้ set)
 - **Verification:** ยิง `PATCH` ซ้ำด้วย body เดิม (`{addOns:[...]}` อย่างเดียว) → ได้ `200` พร้อม `availableAddOns` ตรงตามที่ส่งไป (จากเดิม `500`); ทดสอบต่อว่า add-on ที่ผูกแล้วใช้งานได้จริงตอนสั่งซื้อ — ลูกค้าเพิ่มบริการนี้ลงตะกร้าพร้อมเลือก add-on "QA เคลือบพลาสติก" (฿5) → `lineTotal = ฿6` ถูกต้อง (`basePrice ฿1 + addOn ฿5`) ยืนยันว่า add-on ที่ผูกผ่าน endpoint นี้ใช้งานได้จริงครบวงจร ไม่ใช่แค่บันทึกลง DB เฉยๆ
+- **Status: FIXED ✅**
+
+### BUG-08-01: `DELETE /auth/me` (ลบบัญชี) ได้ raw `500` สำหรับแทบทุกบัญชีที่ใช้งานจริง — ไม่ใช่แค่เจ้าของร้านที่มีร้านผูกอยู่ตามที่คาดไว้เดิม
+- **Phase:** 08 — Shop Settings & Account (SS08-04 — บั๊กวิกฤตที่ถูกจับตาจากรอบทดสอบก่อน 2026-08-25)
+- **Page/Endpoint:** `apps/api/src/auth/routes.ts` — `DELETE /auth/me`
+- **Severity:** 🔴 Critical (กระทบผู้ใช้จริงเกือบทุกคน ไม่ใช่ edge case — ลูกค้าที่เคยสั่งซื้ออย่างน้อย 1 ครั้งและเจ้าของร้านทุกคน **ไม่สามารถลบบัญชีตัวเองได้เลย** ได้แต่ raw error ที่ไม่สื่อความหมาย)
+- **Steps to Reproduce:**
+  1. กรณี A: สมัครร้านค้าใหม่ (มี `shops` row ผูกกับ `owner_id`) แล้วยิง `DELETE /auth/me` (พร้อม `currentPassword` ที่ถูกต้อง) ทันที
+  2. กรณี B: สมัครลูกค้าใหม่ สั่งซื้อสำเร็จ 1 ครั้ง (มี `orders` row ผูกกับ `customer_id`) แล้วยิง `DELETE /auth/me`
+- **Expected Result:** ควรได้ `400` พร้อมข้อความอธิบายว่าทำไมลบไม่ได้ (มี dependency ผูกอยู่) เหมือน pattern ที่ใช้กับการลบ service ที่มี cart ผูกอยู่ (ดู BUG-06-01)
+- **Actual Result:** ทั้ง 2 กรณีได้ raw `500 {"error":"เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง"}` — server log ยืนยัน `PostgresError: update or delete on table "users" violates foreign key constraint "shops_owner_id_users_id_fk"` (กรณี A) และ FK เดียวกันฝั่ง `orders_customer_id_users_id_fk` (กรณี B) โค้ดเดิมไม่มี try/catch ใดๆ รอบ `db.delete(users)` เลย
+- **Evidence:** โค้ดเดิมมีคอมเมนต์ `// Assuming cascading deletes are setup in schema for shops referencing users.` — เป็นการ "เดา" ที่ผิด ไม่เคยถูกยืนยันจริง; ตรวจ migration SQL ยืนยัน `shops.owner_id`, `orders.customer_id`, `carts.customer_id` ทั้งหมดประกาศเป็น `ON DELETE no action` (ไม่มี cascade) ตรงข้ามกับที่คอมเมนต์สันนิษฐานไว้
+- **Possible Cause:** ไม่มีการเช็ค dependency ใดๆ ก่อนลบ user row ทั้งที่ schema ตั้งใจไม่ใส่ cascade บนตาราง shops/orders (กันข้อมูลร้าน/ประวัติการขายหายเงียบๆ — ตรงกับเจตนาเดียวกับที่ป้องกันไว้ใน BUG-06-01) แต่ไม่มีโค้ดฝั่ง route ที่ตรวจสอบและแจ้งเตือนผู้ใช้ก่อนปล่อยให้ query ไปชน constraint ตรงๆ
+- **Fix Applied (2026-09-06):** [`apps/api/src/auth/routes.ts`](apps/api/src/auth/routes.ts) `DELETE /auth/me`:
+  1. ถ้า role เป็น `shop_owner` และมี shop ผูกอยู่ → reject `400` พร้อมข้อความอธิบายชัดเจน ("กรุณาติดต่อผู้ดูแลระบบเพื่อปิด/โอนย้ายร้านค้าก่อนลบบัญชี")
+  2. ถ้ามี order ผูกอยู่ (ไม่ว่า role ใด) → reject `400` พร้อมข้อความอธิบาย
+  3. ถ้าผ่านทั้ง 2 เช็คด้านบน (ไม่มี dependency ทางธุรกิจ) → ลบ `carts` (ตะกร้าที่ยังไม่ checkout) และ `password_reset_tokens` ของ user นี้ก่อน (ทั้งคู่ไม่มี cascade เช่นกัน แต่ไม่ใช่ข้อมูลที่ต้องเก็บรักษา) แล้วค่อยลบ user
+- **Verification:**
+  - บัญชีร้านค้าที่มี shop ผูกอยู่ → ยิงลบซ้ำ → `400 "ไม่สามารถลบบัญชีได้ เนื่องจากยังมีร้านค้าผูกอยู่กับบัญชีนี้..."` (จากเดิม `500`)
+  - บัญชีลูกค้าที่มี order ผูกอยู่ → ยิงลบซ้ำ → `400 "ไม่สามารถลบบัญชีได้ เนื่องจากมีประวัติการสั่งซื้อผูกอยู่กับบัญชีนี้..."` (จากเดิม `500`)
+  - บัญชีลูกค้าสะอาด (มีแค่ตะกร้าที่ยังไม่ checkout ค้างอยู่ ไม่มี order) → ลบสำเร็จ `200 {"ok":true}`, login ซ้ำด้วยบัญชีเดิม → `401` ยืนยันว่าถูกลบจริง
+  - ไม่มี compile error ใหม่จากการ import `orders`/`carts` เพิ่ม
+- **หมายเหตุ:** พบเพิ่มเติมระหว่างตรวจสอบ (ไม่ใช่บั๊ก แค่ documentation drift) — ตาราง `addresses` ไม่ปรากฏอยู่ใน migration SQL ไฟล์ไหนเลย (ถูกสร้างตรงบน Supabase แยกจาก migration history เหมือนที่ migration `0001` เคยเตือนไว้เรื่อง `users.address`) และ FK ของ `addresses.user_id` มี cascade จริงในระดับ DB ทั้งที่ `schema.ts` (TypeScript) ไม่ได้ระบุ `onDelete: "cascade"` ไว้ — พฤติกรรมจริงถูกต้อง (ลบบัญชีที่มีแต่ address สำเร็จ) แต่ schema.ts ไม่ตรงกับ DB จริง ควรพิจารณาซิงก์เอกสารในอนาคต
+- **Status: FIXED ✅**
+
+### BUG-08-02: `PUT /shops/me` ไม่เช็ค `approvalStatus` เลย — ร้านที่ถูกระงับ (suspended) ยังแก้ไขข้อมูลร้าน/บัญชีธนาคารได้ตามปกติ
+- **Phase:** 08 — Shop Settings & Account (SS08-05 — จุดที่ถูกจับตาจากรอบทดสอบก่อน)
+- **Page/Endpoint:** `apps/api/src/routes/shops.ts` — `PUT /shops/me`
+- **Severity:** 🟡 Medium (ไม่ใช่ data breach — เจ้าของร้านแก้ข้อมูลร้านตัวเองได้อยู่แล้วโดยชอบธรรม แต่ไม่สอดคล้องกับพฤติกรรมร้านที่ถูกระงับในจุดอื่นของระบบ เช่น `services.ts`'s `requireShopOwner()` ที่บล็อกร้าน pending/suspended จากการแก้ไขบริการ/ราคาไว้แล้ว)
+- **Steps to Reproduce:**
+  1. Admin suspend ร้านที่ approved อยู่แล้ว (`PATCH /admin/shops/:id/suspend`)
+  2. เจ้าของร้านเดิม ยิง `PUT /shops/me` แก้ชื่อร้าน/ข้อมูลบัญชีธนาคาร
+- **Expected Result:** ควรถูกบล็อกด้วย `403` เหมือนกับ endpoint จัดการบริการอื่นๆ ของร้าน suspended
+- **Actual Result:** สำเร็จ `200 {"success":true}` ตามปกติทุกครั้ง ไม่มีการเช็ค `approvalStatus` เลยในโค้ดเดิม
+- **Possible Cause:** endpoint นี้เขียนเช็คสิทธิ์เอง (`payload.role !== "shop_owner"`) แยกจาก `requireShopOwner()` ใน `services.ts` ที่มีเช็ค `approvalStatus` ถูกต้องอยู่แล้ว — ไม่ได้เรียกใช้ฟังก์ชันร่วมกัน ทำให้ตกหล่นเช็คนี้ไป
+- **Fix Applied (2026-09-06):** [`apps/api/src/routes/shops.ts`](apps/api/src/routes/shops.ts) `PUT /shops/me` — เพิ่ม query เช็ค `shop.approvalStatus` ก่อนอัปเดต ถ้าไม่ใช่ `"approved"` → `403` พร้อมข้อความอธิบาย ("ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน หรือถูกระงับการใช้งานอยู่...") — ถือโอกาสแก้ **BUG-08-03** (ด้านล่าง) ไปพร้อมกันเพราะเป็น endpoint เดียวกัน
+- **Verification:** Suspend ร้านทดสอบ → ยิง `PUT /shops/me` → `403` ถูกต้อง (จากเดิม `200`); Approve กลับ → ยิงซ้ำ → `200` สำเร็จตามปกติ (regression check ผ่าน ไม่กระทบร้านปกติ)
+- **Status: FIXED ✅**
+
+### BUG-08-03: `PUT /shops/me` คืน `401` แทน `403` เมื่อ role ไม่ใช่ shop_owner (ยืนยันซ้ำจาก SEC02-02 รอบก่อน)
+- **Phase:** 08 — Shop Settings & Account (พบระหว่างแก้ BUG-08-02 ที่ endpoint เดียวกัน; เดิมยืนยันไว้แล้วใน Phase 02 — SEC02-02 แต่ยังไม่ถูกแก้ตอนนั้น)
+- **Page/Endpoint:** `apps/api/src/routes/shops.ts` — `PUT /shops/me`
+- **Severity:** 🟡 Medium (semantic HTTP status ผิด ไม่ใช่ security breach — endpoint บล็อกได้จริงอยู่แล้ว แค่ status code สื่อความหมายผิด: 401 ควรใช้เฉพาะ "ยังไม่ได้ login" เท่านั้น ไม่ใช่ "login แล้วแต่ role ไม่ตรง")
+- **Steps to Reproduce:** Login เป็น customer แล้วยิง `PUT /shops/me`
+- **Expected Result:** `403 "ต้องเป็นบัญชีร้านค้าเท่านั้น"` (ตรงกับ pattern ของ endpoint อื่นๆ ทั้งระบบ เช่น `requireShopOwner`/`requireAdmin`)
+- **Actual Result (ก่อนแก้):** `401 "ไม่มีสิทธิ์ใช้งาน"`
+- **Fix Applied (2026-09-06):** แยกเช็ค "ไม่ได้ login" (`401`) ออกจากเช็ค "login แล้วแต่ role ผิด" (`403`) ให้ตรงกับ pattern มาตรฐานของระบบ
+- **Verification:** Login เป็น customer ยิง `PUT /shops/me` → `403 {"error":"ต้องเป็นบัญชีร้านค้าเท่านั้น"}` ถูกต้อง (จากเดิม `401`)
 - **Status: FIXED ✅**
 
 <!--
