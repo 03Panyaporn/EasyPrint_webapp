@@ -236,14 +236,18 @@
 **หน้า:** `(customer)/contact-admin`, `(shop)/shop/contact-admin`, `admin/contact-messages`
 **API:** `/users/contact-admin`, `/shops/:shopId/contact-admin`, `/admin/contact-messages*`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-07)** — ทดสอบผ่าน API ตรง (upload ไฟล์รูปจริง + ส่ง/ตอบคำร้อง) พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| CA11-01 | ลูกค้าส่งคำร้องพร้อมแนบไฟล์ (ฟีเจอร์ใหม่) | สำเร็จ | | NOT TESTED |
-| CA11-02 | ร้านส่งคำร้องพร้อมแนบไฟล์ | สำเร็จ | | NOT TESTED |
-| CA11-03 | Admin ตอบกลับพร้อมแนบไฟล์ (`adminReplyAttachments`) | ลูกค้า/ร้านเห็นไฟล์แนบของ admin ถูกต้อง | | NOT TESTED |
-| CA11-04 | ร้าน pending/suspended ส่งคำร้อง | ตรวจว่ายังบล็อกเหมือนรอบก่อนไหม (บั๊กเดิม S1-16) | | NOT TESTED |
-| CA11-05 | Admin ตอบคำร้องซ้ำที่ resolved แล้ว | ตรวจว่ามี guard กัน overwrite หรือยัง | | NOT TESTED |
-| CA11-06 | Cross-role: ลูกค้าเรียก endpoint ของร้าน / กลับกัน | 403 | | NOT TESTED |
+| CA11-01 | ลูกค้าส่งคำร้องพร้อมแนบไฟล์ (ฟีเจอร์ใหม่) | สำเร็จ | อัปโหลดรูป PNG จริงผ่าน `POST /uploads` (type `contact-admin-attachment`) → ส่งคำร้อง `POST /users/contact-admin` พร้อม `attachments` → `200`, ได้ signed URL ของไฟล์แนบกลับมาใช้งานได้จริง | **PASS** |
+| CA11-02 | ร้านส่งคำร้องพร้อมแนบไฟล์ | สำเร็จ | เช่นเดียวกับ CA11-01 แต่ฝั่งร้าน (`POST /shops/:shopId/contact-admin`) → `200` สำเร็จ พร้อม signed URL ไฟล์แนบถูกต้อง | **PASS** |
+| CA11-03 | Admin ตอบกลับพร้อมแนบไฟล์ (`adminReplyAttachments`) | ลูกค้า/ร้านเห็นไฟล์แนบของ admin ถูกต้อง | Admin ตอบกลับคำร้องของร้าน (CA11-02) พร้อมไฟล์แนบ → `status` เปลี่ยนเป็น `resolved`, `adminReply`/`adminReplyAttachments` บันทึกถูกต้อง; ยืนยันฝั่งร้านเห็นผ่าน `GET /shops/:shopId/contact-admin` ตรงกันทุกฟิลด์ | **PASS** |
+| CA11-04 | ร้าน pending/suspended ส่งคำร้อง | ตรวจว่ายังบล็อกเหมือนรอบก่อนไหม (บั๊กเดิม S1-16) | **ยืนยันบั๊กจริงก่อนแก้:** suspend ร้านแล้วส่งคำร้อง → บล็อกถูกต้อง (`403`) แต่ข้อความ error ผิดบริบท ("ยังตั้งบริการและราคาไม่ได้" ทั้งที่กำลังส่งคำร้อง ไม่เกี่ยวกับบริการเลย) → **BUG-11-01** (พบว่าเป็นปัญหาเชิงระบบกระทบ `requireShopOwner()` ทั้ง 7 endpoint ที่เรียกใช้ร่วมกัน ไม่ใช่แค่ contact-admin) → แก้แล้ว (เปลี่ยนเป็นข้อความกลางที่ใช้ได้ทุก context) → retest → ข้อความถูกบริบทแล้ว, approve กลับมาใช้งานได้ปกติไม่มี regression | **PASS** ✅ (หลังแก้ไข) |
+| CA11-05 | Admin ตอบคำร้องซ้ำที่ resolved แล้ว | ตรวจว่ามี guard กัน overwrite หรือยัง | ตอบซ้ำทับคำร้องเดิม → สำเร็จ `200` แต่ **ไม่มี guard ใดๆ** — `adminReply`/`adminReplyAttachments` เดิมถูกแทนที่ทั้งหมด (ไฟล์แนบเดิมหายไปเมื่อตอบซ้ำโดยไม่แนบไฟล์ใหม่) ยืนยันตรงกับที่บันทึกไว้แล้วในหัวข้อ "จุดที่ควรเพ่งเล็งพิเศษ" (design gap เดียวกับ R09-04 ของรีวิว) ไม่ใช่บั๊กใหม่ ไม่ได้แก้เพราะเป็นการเพิ่ม feature (audit trail) ไม่ใช่แก้บั๊ก | **PASS** (ยืนยัน design gap ที่ทราบอยู่แล้ว) |
+| CA11-06 | Cross-role: ลูกค้าเรียก endpoint ของร้าน / กลับกัน | 403 | ลูกค้าเรียก `POST`/`GET /shops/:shopId/contact-admin` → `403` ทั้งคู่; ร้านเรียก `POST`/`GET /users/contact-admin` → `403` ทั้งคู่ — บล็อกถูกต้องครบทุกทิศทาง ไม่มีข้อมูลรั่ว | **PASS** |
+
+รายละเอียดเต็มดูที่ `QA_BUG_REPORT.md` (BUG-11-01)
 
 ---
 

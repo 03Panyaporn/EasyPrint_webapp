@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-06 (Phase 10 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-07 (Phase 11 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -37,7 +37,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 08 | Shop Settings & Account (payment/notification settings, change password/email, delete account) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-06) | พบบั๊ก 3 จุด (1 Critical, 2 Medium) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
-| 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ⬜ NOT STARTED | |
+| 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-07) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ⬜ NOT STARTED | ไม่มี baseline เลย ต้องเทสละเอียด |
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ⬜ NOT STARTED | กระทบทุกฟีเจอร์อื่นเมื่อ suspend |
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ⬜ NOT STARTED | Users page ดูเหมือนเป็น stub — ต้องยืนยัน |
@@ -54,29 +54,40 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 11 — Contact Admin
+Current Phase: 12 — Notifications
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 10): 9/9 — ALL PASS ✅ (หลังแก้บั๊ก 1 จุด: BUG-10-01)
-Last Completed Test: M10-09 (admin เข้าดูแชท → 403 ทั้ง /rooms และ /:orderId ตรงตามดีไซน์ที่ตั้งใจไว้)
+Test Cases Completed (Phase 11): 6/6 — ALL PASS ✅ (หลังแก้บั๊ก 1 จุด: BUG-11-01)
+Last Completed Test: CA11-06 (cross-role: ลูกค้าเรียก endpoint ร้าน/กลับกัน → 403 ครบทุกทิศทาง ทั้ง POST/GET)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 11 (Contact Admin) — customer & shop → admin, attachments (มีฝั่งลูกค้าใหม่)
+NEXT ACTION: เริ่ม Phase 12 (Notifications) — in-app list, realtime toast, admin notifications (ฟีเจอร์ใหม่ทั้งหมด ไม่มี baseline)
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
   - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
     มีแชทกับ shop1 อยู่แล้วจาก Phase 10 — หลายข้อความรวมไฟล์แนบจริง 1 ไฟล์), #0002 pending_review, #0003 completed (ไม่มีรีวิวแล้ว),
-    #0004 cancelled, #0005 cancelled, #0006 pending_review, #0007 pending_review — มี order completed 2 ใบพร้อมใช้ทดสอบ
-    review เพิ่มได้อีกถ้า phase ถัดไปต้องการ)
+    #0004 cancelled, #0005 cancelled, #0006 pending_review, #0007 pending_review)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
     per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5, มีข้อมูลบัญชีธนาคาร/พร้อมเพย์ทดสอบ
-    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — ใช้ต่อได้ใน Phase ถัดไป)
+    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — มี notification เกิน 14 รายการ
+    สะสมอยู่แล้วจากทุก phase ก่อนหน้า พร้อมใช้ทดสอบ pagination/list ได้เลย) และมีคำร้อง contact-admin ทดสอบค้างอยู่ 2 รายการ (customer2 ยังไม่ resolved,
+    shop1 resolved แล้ว) — ใช้ต่อได้ใน Phase ถัดไป
   - test-admin@easyprint.test / QaAdmin#2026 (admin)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
   ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
     `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่, shopId=35e7e93a-0811-4a63-b532-a08ba0f7ed53) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
+  ⚠️ **DB เคยหลุดการเชื่อมต่อชั่วคราวตอนเริ่ม Phase 11 (2026-09-07)** — อาการเดียวกับ BUG-ENV-01 (Supabase free-tier auto-pause/connection
+    reset หลังไม่มี activity ข้ามคืน) แก้ได้เองแค่ restart api dev server (`preview_stop` แล้ว `preview_start` ใหม่) ไม่ต้องรอ user resume
+    Supabase project ซ้ำ — ถ้าเจอ "Failed to fetch"/"CONNECTION_CLOSED"/"DNS ENOTFOUND" ใน log อีก ให้ลอง restart server ก่อนเป็นอันดับแรก
 Important Notes:
+- ✅ **Phase 11 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**:
+  - **BUG-11-01 (Medium, ยืนยันซ้ำจากรอบก่อน S1-16): `requireShopOwner()` ตอบข้อความ "ยังตั้งบริการและราคาไม่ได้" ผิดบริบทเมื่อร้าน suspended
+    พยายามทำเรื่องอื่นที่ไม่เกี่ยวกับบริการเลย (เช่น ส่งคำร้องถึงแอดมิน)** → FIXED — พบว่าเป็นปัญหาเชิงระบบกระทบทั้ง 7 endpoint ที่เรียก guard
+    เดียวกัน (`shops.ts`,`services.ts`,`orders.ts`,`contactAdmin.ts`,`reviews.ts`,`admin.ts`,`reports.ts`) ไม่ใช่แค่ contact-admin
+    → เปลี่ยนข้อความเป็นกลางๆ ที่ใช้ได้ทุก context (คำเดียวกับที่แก้ไว้แล้วใน BUG-08-02)
+  - ยืนยัน design gap ที่ทราบอยู่แล้ว (ไม่ใช่บั๊กใหม่): admin ตอบกลับคำร้อง contact-admin ซ้ำทับได้โดยไม่มี guard/audit trail
+    (เหมือนกับ reply รีวิวใน R09-04) — ไฟล์แนบเดิมหายไปถ้าตอบซ้ำโดยไม่แนบไฟล์ใหม่
 - ✅ **Phase 10 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**:
   - **BUG-10-01 (Medium, ยืนยันจากรอบก่อน C5-09): ข้อความแชทธรรมดาที่หน้าตาเหมือน JSON `{"kind":"file",...}` ถูกตีความเป็นไฟล์แนบปลอม**
     → FIXED — ลองแก้ด้วย NUL-byte sentinel prefix ใน `content` ก่อน **ใช้ไม่ได้จริง** (Postgres text column ปฏิเสธ NUL byte, insert ไม่ได้เลย)
