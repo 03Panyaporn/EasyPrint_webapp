@@ -63,8 +63,9 @@ NEXT ACTION: เริ่ม Phase 13 (Admin: Shop Management) — approve/rejec
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
   - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
-    มีแชทกับ shop1 อยู่แล้วจาก Phase 10 — หลายข้อความรวมไฟล์แนบจริง 1 ไฟล์), #0002 pending_review, #0003 completed (ไม่มีรีวิวแล้ว),
-    #0004 cancelled, #0005 cancelled, #0006-#0007 pending_review (SS08-02 test), #0009-#0010 pending_review (N12-01 test))
+    มีแชทกับ shop1 อยู่แล้วจาก Phase 10 — หลายข้อความรวมไฟล์แนบจริง 1 ไฟล์ + ข้อความทดสอบ BUG-12-01 อีก 1), #0002 completed
+    (เดินสถานะครบผ่านการทดสอบ BUG-12-01 follow-up แล้ว), #0003 completed (ไม่มีรีวิวแล้ว), #0004 cancelled, #0005 cancelled,
+    #0006 pending_review (SS08-02 test), #0007 cancelled (BUG-12-01 follow-up test), #0009-#0010 pending_review (N12-01 test))
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
@@ -89,6 +90,13 @@ Important Notes:
     (เพิ่ม `ToastProvider`) และ `CustomerHeader.tsx` (bell ข้างไอคอนตะกร้า ทั้ง desktop/mobile) — ทดสอบ end-to-end ผ่านเบราว์เซอร์จริง
     สำเร็จครบ: badge count ถูกต้อง, mark-all-read ยืนยันผ่าน API, วงจรเต็ม (shop ส่งแชทใหม่ → ลูกค้าเห็น badge เพิ่มอัตโนมัติไม่ต้อง
     ทำอะไรเพิ่ม) ทำงานถูกต้อง ไม่มี compile/console error
+    **Follow-up:** ผู้ใช้ถามว่าทำไมไม่ต้องแก้ backend → ตอบตรงๆ ว่าพบเพิ่มว่า backend ไม่เคยสร้าง notification ให้ลูกค้าตอน order
+    เปลี่ยนสถานะปกติ (รับงานแล้ว/กำลังดำเนินการ/กำลังจัดส่ง/เสร็จสิ้น) เลย มีแค่ตอนยกเลิกเท่านั้น → ผู้ใช้ขอให้แก้เพิ่ม → เพิ่ม
+    `createNotification()` ใน `PATCH /orders/:id/status` (`apps/api/src/routes/orders.ts`) ด้วย `typeId:16` ใหม่ (ไม่ยิงตอน idempotent
+    retry, ไม่ยิงตอนยกเลิก) + เพิ่ม icon entry `typeId:16` ใน `ShopNotificationDropdown.tsx` (ใช้ร่วมกับฝั่งลูกค้า) พร้อมแก้ latent bug
+    ที่พบระหว่างทาง (icon lookup เดิมไม่มี fallback ถ้าเจอ typeId ที่ไม่รู้จักจะ crash) — ทดสอบเดินสถานะจริงครบ 3 ขั้น (accepted→
+    in_progress→completed) ได้ notification ถูกต้องครบ 3 รายการพอดี (ไม่ซ้ำตอน idempotent retry), ทดสอบยกเลิกแยกต่างหาก → ไม่มี
+    typeId:16 เกิดขึ้นเลยตามที่ตั้งใจ
   - ระบบ notification เป็น **polling ทุก 15 วินาที ไม่ใช่ WebSocket/push จริง** (ยืนยันจากโค้ด + network log) ทำงานถูกต้องตามที่ออกแบบ:
     ไม่ crash ตอน server หลุด, reconnect เองอัตโนมัติ, ไม่มี cross-tab sync (eventual ผ่าน polling อิสระต่อแท็บ ไม่ใช่ instant) — ทั้งหมดนี้
     ไม่ใช่บั๊ก เป็นพฤติกรรมตามสถาปัตยกรรมที่เลือกใช้

@@ -18,7 +18,8 @@ import {
   Store,
   Unlock,
   Check,
-  X
+  X,
+  Package
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -42,7 +43,7 @@ export interface NotificationItem {
   link?: string;
 }
 
-// 15 Notification Types Definitions
+// Notification Types Definitions
 export const NOTIFICATION_TYPES = {
   1: { icon: FileText, color: "text-blue-500", bg: "bg-blue-50" }, // ออเดอร์ใหม่
   2: { icon: XCircle, color: "text-red-500", bg: "bg-red-50" }, // ลูกค้ายกเลิกออเดอร์
@@ -59,6 +60,7 @@ export const NOTIFICATION_TYPES = {
   13: { icon: Store, color: "text-slate-500", bg: "bg-slate-100" }, // ร้านปิดอัตโนมัติ
   14: { icon: Store, color: "text-green-500", bg: "bg-green-50" }, // ร้านเปิดอัตโนมัติ
   15: { icon: Unlock, color: "text-blue-500", bg: "bg-blue-50" }, // พ้นช่วงปิดชั่วคราว
+  16: { icon: Package, color: "text-blue-500", bg: "bg-blue-50" }, // อัปเดตสถานะออเดอร์ (ลูกค้า) — เพิ่มพร้อม BUG-12-01 follow-up (QA Phase 12)
 };
 
 // Mock Data
@@ -217,9 +219,13 @@ export default function ShopNotificationDropdown() {
             {filteredNotifications.length > 0 ? (
               <div className="flex flex-col divide-y divide-gray-50">
                 {filteredNotifications.map((notif) => {
+                  // fallback กัน crash ถ้าเจอ typeId ที่ไม่มีใน NOTIFICATION_TYPES (เช่นเพิ่ม type ใหม่ฝั่ง backend
+                  // แล้วยังไม่ได้อัปเดต map นี้ให้ตรงกัน — เดิมไม่มี fallback เลย จะ throw ทันทีถ้า typeData เป็น undefined)
                   const typeData = NOTIFICATION_TYPES[notif.typeId as keyof typeof NOTIFICATION_TYPES];
-                  const Icon = typeData.icon;
-                  
+                  const Icon = typeData?.icon ?? Bell;
+                  const iconColor = typeData?.color ?? "text-slate-500";
+                  const iconBg = typeData?.bg ?? "bg-slate-100";
+
                   return (
                     <div 
                       key={notif.id}
@@ -232,8 +238,8 @@ export default function ShopNotificationDropdown() {
                       )}
 
                       {/* Icon */}
-                      <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${typeData.bg}`}>
-                        <Icon size={18} className={typeData.color} />
+                      <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconBg}`}>
+                        <Icon size={18} className={iconColor} />
                       </div>
 
                       {/* Content */}

@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์ — พบ+แก้ BUG-12-01 ตามคำขอผู้ใช้: สร้าง UI แจ้งเตือนฝั่งลูกค้าครบวงจร)
+> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์ — พบ+แก้ BUG-12-01 ครบทั้ง UI ฝั่งลูกค้า + backend order-status notification)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -357,7 +357,15 @@
   - กด "อ่านทั้งหมด" → `unreadCount` เป็น 0 จริงที่ server (ยืนยันผ่าน `GET /notifications` โดยตรง) badge หายไปถูกต้องหลัง reload
   - **ทดสอบ end-to-end เต็มวงจร:** shop ส่งข้อความแชทใหม่ถึงลูกค้า → ลูกค้าเปิดหน้าเว็บใหม่ (ไม่ต้องทำอะไรเพิ่ม) → เห็น badge unread เพิ่มขึ้นทันทีและข้อความปรากฏถูกต้องในรายการ ยืนยันว่า pipeline ทำงานถูกต้องครบวงจรจริง ไม่ใช่แค่ UI เปล่าๆ
   - ไม่มี compile error / console error จากคอมโพเนนต์ใหม่ทั้งสองไฟล์
-- **Status: FIXED ✅**
+- **Follow-up (2026-09-07) — ผู้ใช้ถามว่าทำไมไม่ต้องแก้ backend แล้วขอให้แก้เพิ่ม:** ตอบผู้ใช้ตรงๆ ว่า UI fix ด้านบนแค่ไปดึงข้อมูลที่มีอยู่แล้วมาแสดง แต่พบเพิ่มเติมว่า **backend ไม่เคยสร้าง notification ให้ลูกค้าเลยตอน order เปลี่ยนสถานะปกติ** (รับงานแล้ว/กำลังดำเนินการ/กำลังจัดส่ง/เสร็จสิ้น) — โค้ด `PATCH /orders/:id/status` เดิมสร้าง notification เฉพาะตอนยกเลิก/ปฏิเสธเท่านั้น ผู้ใช้ขอให้แก้เพิ่ม:
+  - [`apps/api/src/routes/orders.ts`](apps/api/src/routes/orders.ts) — เพิ่ม `createNotification()` ให้ลูกค้า (`userId: row.order.customerId`) ทุกครั้งที่ **ร้าน** (ไม่ใช่ลูกค้า) เปลี่ยนสถานะไปข้างหน้า (ไม่ใช่ยกเลิก) ด้วย `typeId:16` (ใหม่) ชื่อเรื่อง/ข้อความใช้ `STATUS_LABELS` เดิมที่มีอยู่แล้ว (เช่น "ออเดอร์ #0002 รับงานแล้ว") พร้อม `link` ไปหน้ารายละเอียดออเดอร์ (`/orders/:id`) — วางไว้หลัง early-return ของ idempotent-retry (บรรทัด `if (row.order.status === nextStatus) return...`) จึงไม่สร้างซ้ำถ้ากดปุ่มเบิ้ล
+  - [`apps/web/components/shop/ShopNotificationDropdown.tsx`](apps/web/components/shop/ShopNotificationDropdown.tsx) — เพิ่ม entry `typeId:16` ใน `NOTIFICATION_TYPES` (icon `Package`, ใช้ร่วมกับฝั่งลูกค้าผ่าน import เดิม) **และแก้ latent bug ที่พบระหว่างทาง:** โค้ดเดิม `const Icon = typeData.icon` ไม่มี fallback เลย ถ้าเจอ `typeId` ที่ไม่มีใน map จะ throw ทันที (ต่างจาก `DashboardNotifications.tsx` ที่มี fallback อยู่แล้ว) เพิ่ม `?? Bell`/`?? "text-slate-500"`/`?? "bg-slate-100"` ให้ตรงกันทั้งระบบ
+- **Verification (2026-09-07):**
+  - เดินสถานะออเดอร์จริงครบ `accepted→in_progress→completed` (self_pickup) → ได้ notification `typeId:16` ถูกต้องครบ 3 รายการ พร้อมข้อความ/ลิงก์ถูกต้องทุกขั้น
+  - ทดสอบ idempotent retry (ยิง `accepted` ซ้ำตอนที่เป็น `accepted` อยู่แล้ว) → **ไม่สร้าง notification ซ้ำ** (ยืนยันนับจำนวนได้ 3 รายการพอดี ไม่ใช่ 4)
+  - ทดสอบยกเลิกออเดอร์อีกใบ (`cancelled`) → **ไม่มี** `typeId:16` เกิดขึ้นเลย (ตรงตามที่ตั้งใจ — logic ยกเลิกเดิมไม่ถูกกระทบ)
+  - เปิด dropdown ฝั่งลูกค้าจริงในเบราว์เซอร์ → เห็นข้อความ "ออเดอร์ #0002 รับงานแล้ว/กำลังดำเนินการ/เสร็จสิ้น" ครบถูกต้อง ไม่มี console error
+- **Status: FIXED ✅ (ครบทั้ง UI + backend notification data)**
 
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
