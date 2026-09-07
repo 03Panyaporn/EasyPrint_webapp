@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-07 (Phase 11 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -38,7 +38,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-07) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
-| 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ⬜ NOT STARTED | ไม่มี baseline เลย ต้องเทสละเอียด |
+| 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-07) | พบ finding สำคัญ 1 จุด (High, **BUG-12-01 ยังไม่ได้แก้** — ลูกค้าไม่มี UI แจ้งเตือนเลย เป็นงานสร้าง feature ใหม่) |
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ⬜ NOT STARTED | กระทบทุกฟีเจอร์อื่นเมื่อ suspend |
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ⬜ NOT STARTED | Users page ดูเหมือนเป็น stub — ต้องยืนยัน |
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ⬜ NOT STARTED | เชื่อมกับเกือบทุก phase (avatar/id-card/order-file/chat-file/contact-admin-attachment) |
@@ -54,25 +54,25 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 12 — Notifications
+Current Phase: 13 — Admin: Shop Management
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 11): 6/6 — ALL PASS ✅ (หลังแก้บั๊ก 1 จุด: BUG-11-01)
-Last Completed Test: CA11-06 (cross-role: ลูกค้าเรียก endpoint ร้าน/กลับกัน → 403 ครบทุกทิศทาง ทั้ง POST/GET)
+Test Cases Completed (Phase 12): 5/5 — ALL PASS ✅ (พบ finding สำคัญ 1 จุด: BUG-12-01 ยังไม่ได้แก้)
+Last Completed Test: N12-05 (หยุด API server ~20 วิระหว่างเปิดหน้า /shop ค้างไว้ → ไม่ crash, restart server กลับมา → poll cycle ถัดไป reconnect เองอัตโนมัติไม่ต้อง refresh)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 12 (Notifications) — in-app list, realtime toast, admin notifications (ฟีเจอร์ใหม่ทั้งหมด ไม่มี baseline)
+NEXT ACTION: เริ่ม Phase 13 (Admin: Shop Management) — approve/reject/suspend/reinstate/edit/delete + admin dashboard
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
-  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 7 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
     มีแชทกับ shop1 อยู่แล้วจาก Phase 10 — หลายข้อความรวมไฟล์แนบจริง 1 ไฟล์), #0002 pending_review, #0003 completed (ไม่มีรีวิวแล้ว),
-    #0004 cancelled, #0005 cancelled, #0006 pending_review, #0007 pending_review)
+    #0004 cancelled, #0005 cancelled, #0006-#0007 pending_review (SS08-02 test), #0009-#0010 pending_review (N12-01 test))
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
     per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5, มีข้อมูลบัญชีธนาคาร/พร้อมเพย์ทดสอบ
-    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — มี notification เกิน 14 รายการ
-    สะสมอยู่แล้วจากทุก phase ก่อนหน้า พร้อมใช้ทดสอบ pagination/list ได้เลย) และมีคำร้อง contact-admin ทดสอบค้างอยู่ 2 รายการ (customer2 ยังไม่ resolved,
-    shop1 resolved แล้ว) — ใช้ต่อได้ใน Phase ถัดไป
-  - test-admin@easyprint.test / QaAdmin#2026 (admin)
+    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — ถูก suspend/approve สลับไปมา
+    หลายรอบระหว่างทดสอบ Phase 08/11 แล้ว (**สถานะปัจจุบัน: approved** — ยืนยันแล้วหลัง Phase 11) ใช้ต่อได้ใน Phase ถัดไป
+  - test-admin@easyprint.test / QaAdmin#2026 (admin, ทดสอบ suspend/approve ร้าน 74dc56d2 ไปแล้วหลายรอบ, ทดสอบ mark-read/read-all
+    admin notifications ไปแล้ว unreadCount ปัจจุบัน = 0)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
   ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
@@ -81,6 +81,14 @@ NEXT ACTION: เริ่ม Phase 12 (Notifications) — in-app list, realtime 
     reset หลังไม่มี activity ข้ามคืน) แก้ได้เองแค่ restart api dev server (`preview_stop` แล้ว `preview_start` ใหม่) ไม่ต้องรอ user resume
     Supabase project ซ้ำ — ถ้าเจอ "Failed to fetch"/"CONNECTION_CLOSED"/"DNS ENOTFOUND" ใน log อีก ให้ลอง restart server ก่อนเป็นอันดับแรก
 Important Notes:
+- ⚠️ **Phase 12 พบ finding สำคัญ 1 จุด (ยังไม่ได้แก้):**
+  - **BUG-12-01 (High): ลูกค้าไม่มี UI แจ้งเตือนเลยทั้งระบบ** (ไม่มี bell icon/toast/dropdown ใน `(customer)` แม้แต่จุดเดียว — ต่างจาก
+    `(shop)` ที่มีครบ) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้อง (admin ตอบกลับคำร้อง, ร้านยกเลิกออเดอร์ ฯลฯ) — **ยังไม่ได้แก้
+    เพราะเป็นงานสร้าง UI component ใหม่ทั้งหมด ต้องออกแบบ UX ก่อน ไม่ใช่การแก้ logic ที่มีอยู่แล้ว** ควรเสนอทีมพิจารณาเป็นงานแยกต่างหาก
+  - ระบบ notification เป็น **polling ทุก 15 วินาที ไม่ใช่ WebSocket/push จริง** (ยืนยันจากโค้ด + network log) ทำงานถูกต้องตามที่ออกแบบ:
+    ไม่ crash ตอน server หลุด, reconnect เองอัตโนมัติ, ไม่มี cross-tab sync (eventual ผ่าน polling อิสระต่อแท็บ ไม่ใช่ instant) — ทั้งหมดนี้
+    ไม่ใช่บั๊ก เป็นพฤติกรรมตามสถาปัตยกรรมที่เลือกใช้
+- ✅ **Phase 11 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**: BUG-11-01 (`requireShopOwner()` ข้อความผิดบริบท) → FIXED (ดูรายละเอียดด้านล่าง)
 - ✅ **Phase 11 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**:
   - **BUG-11-01 (Medium, ยืนยันซ้ำจากรอบก่อน S1-16): `requireShopOwner()` ตอบข้อความ "ยังตั้งบริการและราคาไม่ได้" ผิดบริบทเมื่อร้าน suspended
     พยายามทำเรื่องอื่นที่ไม่เกี่ยวกับบริการเลย (เช่น ส่งคำร้องถึงแอดมิน)** → FIXED — พบว่าเป็นปัญหาเชิงระบบกระทบทั้ง 7 endpoint ที่เรียก guard

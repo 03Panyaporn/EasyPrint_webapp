@@ -256,13 +256,19 @@
 **API:** `notifications.ts`, `adminNotificationsRoutes.ts`
 **หน้า:** ระบบ toast แบบ realtime, `admin/notifications`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-07)** — ทดสอบผ่าน API ตรง + สังเกตพฤติกรรมจริงในเบราว์เซอร์ (multi-tab, server interrupt) **พบ finding สำคัญ 1 จุด (High) — ลูกค้าไม่มี UI แจ้งเตือนเลยทั้งระบบ (BUG-12-01) ยังไม่ได้แก้เพราะเป็นงานสร้าง feature ใหม่ ไม่ใช่แก้ logic เดิม**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| N12-01 | สร้าง order ใหม่ → ร้านได้รับ toast แจ้งเตือน real-time (ไม่ต้อง refresh) | | | NOT TESTED |
-| N12-02 | Mark notification ว่าอ่านแล้ว (`PUT`) | unread count ลดลงถูกต้อง | | NOT TESTED |
-| N12-03 | Admin notifications panel แสดงเหตุการณ์สำคัญ (shop สมัครใหม่, contact-admin ใหม่) | ครบ | | NOT TESTED |
-| N12-04 | เปิดหลายแท็บพร้อมกัน แล้วดูว่า notification sync ข้ามแท็บไหม | ตรวจพฤติกรรมจริง | | NOT TESTED |
-| N12-05 | ปิด service/หยุด polling/websocket ระหว่างใช้งาน แล้วกลับมาเปิดใหม่ | ไม่ crash, reconnect ได้ | | NOT TESTED |
+| N12-01 | สร้าง order ใหม่ → ร้านได้รับ toast แจ้งเตือน real-time (ไม่ต้อง refresh) | | สร้าง order ใหม่ผ่าน checkout จริง (customer) → notification row ถูกสร้างทันที → เปิดหน้า `/shop` ใหม่ (ไม่ต้องกด refresh อะไรเพิ่ม) เห็นออเดอร์ใหม่ปรากฏในวิดเจ็ต "การแจ้งเตือน" ทันที; ยืนยันด้วย network log ว่า `GET /notifications` ถูกยิงอัตโนมัติซ้ำๆ ทุก ~15 วิ ตลอด session (300+ ครั้งสะสม) ไม่ต้องมีการกดปุ่มใดๆ — **หมายเหตุ:** ระบบเป็น **polling ทุก 15 วินาที ไม่ใช่ WebSocket/push จริง** (ตรวจโค้ด `GlobalNotificationListener.tsx` ยืนยัน) การจับภาพ toast popup ชั่วคราว (แสดง 5 วิ) ด้วยเครื่องมือระยะไกลไม่สำเร็จเพราะ round-trip latency ของ tool เกินเวลาที่ toast แสดงผล แต่ pipeline ข้อมูล+ตรรกะการแสดงผลถูกต้องยืนยันแล้วทั้งจาก log และ code review | **PASS** (เป็น polling ~15s ไม่ใช่ push จริง — ตรงตามที่ออกแบบไว้) |
+| N12-02 | Mark notification ว่าอ่านแล้ว (`PUT`) | unread count ลดลงถูกต้อง | Mark 1 รายการอ่าน → unread count ลดลงถูกต้อง (33→32); ทดสอบเพิ่ม cross-account: customer พยายาม mark notification ของร้านอื่นเป็นอ่านแล้ว → `404` ถูกต้อง (query กรองด้วย `userId` เจ้าของจริงอยู่แล้ว) | **PASS** |
+| N12-03 | Admin notifications panel แสดงเหตุการณ์สำคัญ (shop สมัครใหม่, contact-admin ใหม่) | ครบ | `GET /admin/notifications` แสดงครบทั้ง 3 ประเภทที่ระบบออกแบบไว้ (`shop_registered`, `order_cancelled`, `contact_admin_message`) พร้อม `unreadCount` ถูกต้อง; ทดสอบ mark-single-read + mark-all-read → `unreadCount` ลดลงถูกต้องจนเหลือ 0 | **PASS** |
+| N12-04 | เปิดหลายแท็บพร้อมกัน แล้วดูว่า notification sync ข้ามแท็บไหม | ตรวจพฤติกรรมจริง | เปิด 2 แท็บพร้อมกัน (session เดียวกัน) ที่หน้า `/shop` → ทั้งคู่โหลด/ทำงานได้ปกติไม่มี error/conflict; ตรวจโค้ดยืนยันว่า**ไม่มีกลไก sync ข้ามแท็บเลย** (ไม่มี `BroadcastChannel`/`storage` event) แต่ละแท็บ poll อิสระของตัวเองทุก 15 วิ — ถ้าอ่านแล้วในแท็บ A จะเห็นผลใน B ก็ต่อเมื่อ B poll รอบถัดไปเอง (eventual, ไม่ใช่ instant) — เป็นพฤติกรรมตามสถาปัตยกรรม polling ที่ออกแบบไว้ ไม่ถือเป็นบั๊ก | **PASS** (ยืนยันพฤติกรรมจริง: eventual sync ผ่าน polling อิสระต่อแท็บ ไม่ใช่ instant) |
+| N12-05 | ปิด service/หยุด polling/websocket ระหว่างใช้งาน แล้วกลับมาเปิดใหม่ | ไม่ crash, reconnect ได้ | หยุด API server ขณะเปิดหน้า `/shop` ค้างไว้ (~20 วิ ให้ poll cycle fail อย่างน้อย 1 ครั้ง) → console log แสดง error ที่ถูก catch ไว้เรียบร้อย ("Error polling notifications: Failed to fetch") หน้าเว็บยังทำงานปกติไม่ crash/ไม่ขาว; restart server กลับมา → รอ poll cycle ถัดไป (~15-20 วิ) → `GET /notifications` กลับมาสำเร็จ `200` เองอัตโนมัติ **ไม่ต้อง refresh หน้าเว็บเลย** | **PASS** |
+
+**พบ finding สำคัญนอกเหนือจาก test case ที่วางแผนไว้:** ลูกค้าไม่มี UI แจ้งเตือนใดๆ เลยทั้งระบบ (ไม่มี bell icon, toast, หรือ dropdown ในฝั่ง `(customer)` แม้แต่จุดเดียว) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้องครบถ้วน (admin ตอบกลับคำร้อง, ร้านยกเลิก/ปฏิเสธออเดอร์ ฯลฯ) → **BUG-12-01 (High)** — ยังไม่ได้แก้เพราะเป็นการสร้าง UI component ใหม่ทั้งหมด ต้องออกแบบ UX ก่อน ไม่ใช่การแก้ logic ที่มีอยู่ให้ถูกต้อง
+
+รายละเอียดเต็มดูที่ `QA_BUG_REPORT.md` (BUG-12-01)
 
 ---
 

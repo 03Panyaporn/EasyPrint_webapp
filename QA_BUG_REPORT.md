@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-07 (Phase 11 เสร็จสมบูรณ์ — พบ+แก้ BUG-11-01)
+> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์ — พบ BUG-12-01 ยังไม่ได้แก้ เป็นงานสร้าง feature ใหม่)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -335,6 +335,19 @@
 - **Fix Applied (2026-09-06):** [`apps/api/src/routes/services.ts`](apps/api/src/routes/services.ts) — เปลี่ยนข้อความเป็นกลางๆ ที่ใช้ได้ทุก context: "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน หรือถูกระงับการใช้งานอยู่ ไม่สามารถดำเนินการนี้ได้ในขณะนี้" (ใช้ถ้อยคำเดียวกับที่แก้ไว้แล้วใน `PUT /shops/me` — BUG-08-02 — เพื่อความสม่ำเสมอทั้งระบบ)
 - **Verification:** Suspend ร้านทดสอบ → ยิง `POST /shops/:shopId/contact-admin` ซ้ำ → ได้ข้อความใหม่ที่ถูกบริบทแล้ว; Approve กลับ → ยิงซ้ำสำเร็จปกติ (regression check ผ่าน ไม่กระทบร้านปกติหรือ endpoint อื่นที่เรียก guard เดียวกัน)
 - **Status: FIXED ✅**
+
+### BUG-12-01: ลูกค้าไม่มี UI แจ้งเตือนใดๆ เลยทั้งระบบ (ไม่มี bell icon, ไม่มี toast, ไม่มี dropdown) ทั้งที่ backend สร้าง notification ให้ลูกค้าไว้จริง
+- **Phase:** 12 — Notifications (พบระหว่างตรวจสอบโครงสร้างก่อนเริ่มทดสอบ N12-01)
+- **Page/Endpoint:** `apps/web/app/(customer)/layout.tsx`, `apps/web/components/customer/CustomerHeader.tsx` (ไม่มี — เทียบกับ `apps/web/app/(shop)/layout.tsx` ที่มี `GlobalNotificationListener` + `ShopNotificationDropdown`)
+- **Severity:** 🟠 High (ไม่ใช่ data loss/security breach — ข้อมูล notification ถูกสร้างและเก็บไว้ใน DB ถูกต้องครบถ้วน ลูกค้ายังเห็นสถานะจริงได้ถ้าเข้าไปดูหน้า order เอง แต่**ไม่มีทางรู้เชิงรุกเลยว่ามีอะไรใหม่เกิดขึ้น** — กระทบประสบการณ์ผู้ใช้ฝั่งลูกค้าโดยตรง ทั้งที่ backend เขียนโค้ดรองรับไว้ครบแล้ว เช่น `notifyOrderCancelled`, การแจ้งเตือนตอนแอดมินตอบกลับคำร้อง (`typeId:4`), ข้อความแชทใหม่ (`typeId:3`, `receiverId=order.customerId`))
+- **Steps to Reproduce:**
+  1. ตรวจโค้ด `apps/web/app/(shop)/layout.tsx` — มี `<GlobalNotificationListener />` (polling ทุก 15 วิ + toast) และ `ShopNotificationDropdown` (bell icon) ต่อกับ `GET /notifications`
+  2. ตรวจโค้ด `apps/web/app/(customer)/layout.tsx` และ `CustomerHeader.tsx` — **ไม่มีการเรียก `getNotifications()`/`GET /notifications` จากฝั่งลูกค้าเลยสักจุดเดียว** (`grep` หาทั่วโฟลเดอร์ `(customer)` ไม่เจอเลย)
+- **Expected Result:** ลูกค้าควรมีช่องทางเห็นการแจ้งเตือนของตัวเอง (เช่น admin ตอบกลับคำร้อง, ร้านปฏิเสธ/ยกเลิกออเดอร์, ข้อความแชทใหม่) อย่างน้อยเทียบเท่าฝั่งร้านค้าบางส่วน
+- **Actual Result:** ไม่มี UI ใดๆ ทั้งสิ้นฝั่งลูกค้า — ข้อมูล `notifications` row ของลูกค้าถูกสร้างและนอนอยู่เฉยๆ ใน DB ไม่เคยถูกแสดงผลที่ไหนเลย ลูกค้าจะรู้ว่ามีอัปเดตก็ต่อเมื่อบังเอิญเปิดหน้าที่เกี่ยวข้องเองเท่านั้น (เช่น หน้าประวัติออเดอร์, หน้าคำร้อง contact-admin)
+- **Possible Cause:** ฟีเจอร์ notification ถูกพัฒนาและทดสอบเฉพาะฝั่งร้านค้าเป็นหลัก (ตรงกับที่ระบุไว้ใน roadmap ว่า Phase 12 นี้เป็น "ฟีเจอร์ใหม่ทั้งหมด ไม่มี baseline") ฝั่งลูกค้าอาจถูกวางแผนไว้แต่ยังไม่ได้สร้าง component จริง
+- **Fix Applied:** **ยังไม่ได้แก้ในรอบนี้** — การสร้าง UI แจ้งเตือนฝั่งลูกค้า (bell icon + dropdown + polling listener) เป็นงานสร้าง component ใหม่ทั้งหมด ไม่ใช่การแก้ logic ที่มีอยู่แล้วให้ถูกต้อง (ต่างจากบั๊กอื่นๆ ในรอบทดสอบนี้) จึงอยู่นอกขอบเขตของการ "แก้บั๊กที่พบ" แบบปกติ — ต้องมีการออกแบบ UX ก่อน (เช่น ควรมี bell icon ที่ไหนในหน้าลูกค้า, toast แบบไหน) เสนอให้ทีมพิจารณาเป็นงานแยกต่างหาก
+- **Status: OPEN — พบแล้ว ยังไม่ได้แก้ (งานสร้าง feature ใหม่ ต้องออกแบบ UX ก่อน)**
 
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:
