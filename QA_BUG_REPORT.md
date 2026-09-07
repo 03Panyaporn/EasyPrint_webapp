@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์ — พบ BUG-12-01 ยังไม่ได้แก้ เป็นงานสร้าง feature ใหม่)
+> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์ — พบ+แก้ BUG-12-01 ตามคำขอผู้ใช้: สร้าง UI แจ้งเตือนฝั่งลูกค้าครบวงจร)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -346,8 +346,18 @@
 - **Expected Result:** ลูกค้าควรมีช่องทางเห็นการแจ้งเตือนของตัวเอง (เช่น admin ตอบกลับคำร้อง, ร้านปฏิเสธ/ยกเลิกออเดอร์, ข้อความแชทใหม่) อย่างน้อยเทียบเท่าฝั่งร้านค้าบางส่วน
 - **Actual Result:** ไม่มี UI ใดๆ ทั้งสิ้นฝั่งลูกค้า — ข้อมูล `notifications` row ของลูกค้าถูกสร้างและนอนอยู่เฉยๆ ใน DB ไม่เคยถูกแสดงผลที่ไหนเลย ลูกค้าจะรู้ว่ามีอัปเดตก็ต่อเมื่อบังเอิญเปิดหน้าที่เกี่ยวข้องเองเท่านั้น (เช่น หน้าประวัติออเดอร์, หน้าคำร้อง contact-admin)
 - **Possible Cause:** ฟีเจอร์ notification ถูกพัฒนาและทดสอบเฉพาะฝั่งร้านค้าเป็นหลัก (ตรงกับที่ระบุไว้ใน roadmap ว่า Phase 12 นี้เป็น "ฟีเจอร์ใหม่ทั้งหมด ไม่มี baseline") ฝั่งลูกค้าอาจถูกวางแผนไว้แต่ยังไม่ได้สร้าง component จริง
-- **Fix Applied:** **ยังไม่ได้แก้ในรอบนี้** — การสร้าง UI แจ้งเตือนฝั่งลูกค้า (bell icon + dropdown + polling listener) เป็นงานสร้าง component ใหม่ทั้งหมด ไม่ใช่การแก้ logic ที่มีอยู่แล้วให้ถูกต้อง (ต่างจากบั๊กอื่นๆ ในรอบทดสอบนี้) จึงอยู่นอกขอบเขตของการ "แก้บั๊กที่พบ" แบบปกติ — ต้องมีการออกแบบ UX ก่อน (เช่น ควรมี bell icon ที่ไหนในหน้าลูกค้า, toast แบบไหน) เสนอให้ทีมพิจารณาเป็นงานแยกต่างหาก
-- **Status: OPEN — พบแล้ว ยังไม่ได้แก้ (งานสร้าง feature ใหม่ ต้องออกแบบ UX ก่อน)**
+- **Fix Applied (2026-09-07) — ผู้ใช้ขอให้แก้เพิ่มเติมหลังรายงานพบ:** สร้าง UI แจ้งเตือนฝั่งลูกค้าคู่ขนานกับฝั่งร้านค้า โดย reuse backend endpoint เดิมทั้งหมด (`GET /notifications`, `PUT /notifications/:id/read`, `PUT /notifications/read-all` — endpoint เหล่านี้ scope ด้วย `userId` จาก JWT อยู่แล้ว ไม่ผูกกับ role ใดโดยเฉพาะ ไม่ต้องแก้ backend เลย):
+  1. [`apps/web/components/customer/CustomerNotificationDropdown.tsx`](apps/web/components/customer/CustomerNotificationDropdown.tsx) (ใหม่) — bell icon + dropdown, import `NOTIFICATION_TYPES`/`NotificationItem` จาก `ShopNotificationDropdown.tsx` ที่มีอยู่แล้วแทนการก็อปโค้ด icon-mapping ซ้ำ
+  2. [`apps/web/components/customer/CustomerNotificationListener.tsx`](apps/web/components/customer/CustomerNotificationListener.tsx) (ใหม่) — polling ทุก 15 วิ + toast, คู่ขนานกับ `GlobalNotificationListener.tsx` ฝั่งร้าน แต่ตัดส่วนเช็ค `notificationSettings`/setup-reminder ออก (ลูกค้าไม่มีการตั้งค่าประเภทนี้) แสดง toast ทุกรายการที่ยังไม่อ่านเสมอ
+  3. [`apps/web/app/(customer)/layout.tsx`](apps/web/app/(customer)/layout.tsx) — ห่อด้วย `<ToastProvider>` + mount `<CustomerNotificationListener />` (เดิมไม่มี `ToastProvider` เลยในฝั่งลูกค้า)
+  4. [`apps/web/components/customer/CustomerHeader.tsx`](apps/web/components/customer/CustomerHeader.tsx) — เพิ่ม `<CustomerNotificationDropdown />` ข้างไอคอนตะกร้า ทั้ง desktop nav และ mobile nav (แสดงเฉพาะตอน `variant==="auth"` เหมือนไอคอนตะกร้า)
+- **Verification (ทดสอบผ่านเบราว์เซอร์จริงครบวงจร):**
+  - Bell icon แสดงถูกต้องทั้ง desktop (1280px) และ mobile (375px) viewport — badge unread count ตรงกับข้อมูลจริง
+  - เปิด dropdown เห็นรายการแจ้งเตือนจริงของลูกค้าครบถ้วน (ข้อความแชทจากร้าน, แจ้งเตือนเปลี่ยนรหัสผ่าน ฯลฯ)
+  - กด "อ่านทั้งหมด" → `unreadCount` เป็น 0 จริงที่ server (ยืนยันผ่าน `GET /notifications` โดยตรง) badge หายไปถูกต้องหลัง reload
+  - **ทดสอบ end-to-end เต็มวงจร:** shop ส่งข้อความแชทใหม่ถึงลูกค้า → ลูกค้าเปิดหน้าเว็บใหม่ (ไม่ต้องทำอะไรเพิ่ม) → เห็น badge unread เพิ่มขึ้นทันทีและข้อความปรากฏถูกต้องในรายการ ยืนยันว่า pipeline ทำงานถูกต้องครบวงจรจริง ไม่ใช่แค่ UI เปล่าๆ
+  - ไม่มี compile error / console error จากคอมโพเนนต์ใหม่ทั้งสองไฟล์
+- **Status: FIXED ✅**
 
 <!--
 ฟอร์แมตสำหรับแต่ละบั๊ก:

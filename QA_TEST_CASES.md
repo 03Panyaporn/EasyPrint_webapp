@@ -256,7 +256,7 @@
 **API:** `notifications.ts`, `adminNotificationsRoutes.ts`
 **หน้า:** ระบบ toast แบบ realtime, `admin/notifications`
 
-**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-07)** — ทดสอบผ่าน API ตรง + สังเกตพฤติกรรมจริงในเบราว์เซอร์ (multi-tab, server interrupt) **พบ finding สำคัญ 1 จุด (High) — ลูกค้าไม่มี UI แจ้งเตือนเลยทั้งระบบ (BUG-12-01) ยังไม่ได้แก้เพราะเป็นงานสร้าง feature ใหม่ ไม่ใช่แก้ logic เดิม**
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-07)** — ทดสอบผ่าน API ตรง + สังเกตพฤติกรรมจริงในเบราว์เซอร์ (multi-tab, server interrupt) **พบ finding สำคัญ 1 จุด (High) — ลูกค้าไม่มี UI แจ้งเตือนเลยทั้งระบบ (BUG-12-01) → แก้ไขและ verify แล้วตามคำขอผู้ใช้**
 
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
@@ -266,7 +266,7 @@
 | N12-04 | เปิดหลายแท็บพร้อมกัน แล้วดูว่า notification sync ข้ามแท็บไหม | ตรวจพฤติกรรมจริง | เปิด 2 แท็บพร้อมกัน (session เดียวกัน) ที่หน้า `/shop` → ทั้งคู่โหลด/ทำงานได้ปกติไม่มี error/conflict; ตรวจโค้ดยืนยันว่า**ไม่มีกลไก sync ข้ามแท็บเลย** (ไม่มี `BroadcastChannel`/`storage` event) แต่ละแท็บ poll อิสระของตัวเองทุก 15 วิ — ถ้าอ่านแล้วในแท็บ A จะเห็นผลใน B ก็ต่อเมื่อ B poll รอบถัดไปเอง (eventual, ไม่ใช่ instant) — เป็นพฤติกรรมตามสถาปัตยกรรม polling ที่ออกแบบไว้ ไม่ถือเป็นบั๊ก | **PASS** (ยืนยันพฤติกรรมจริง: eventual sync ผ่าน polling อิสระต่อแท็บ ไม่ใช่ instant) |
 | N12-05 | ปิด service/หยุด polling/websocket ระหว่างใช้งาน แล้วกลับมาเปิดใหม่ | ไม่ crash, reconnect ได้ | หยุด API server ขณะเปิดหน้า `/shop` ค้างไว้ (~20 วิ ให้ poll cycle fail อย่างน้อย 1 ครั้ง) → console log แสดง error ที่ถูก catch ไว้เรียบร้อย ("Error polling notifications: Failed to fetch") หน้าเว็บยังทำงานปกติไม่ crash/ไม่ขาว; restart server กลับมา → รอ poll cycle ถัดไป (~15-20 วิ) → `GET /notifications` กลับมาสำเร็จ `200` เองอัตโนมัติ **ไม่ต้อง refresh หน้าเว็บเลย** | **PASS** |
 
-**พบ finding สำคัญนอกเหนือจาก test case ที่วางแผนไว้:** ลูกค้าไม่มี UI แจ้งเตือนใดๆ เลยทั้งระบบ (ไม่มี bell icon, toast, หรือ dropdown ในฝั่ง `(customer)` แม้แต่จุดเดียว) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้องครบถ้วน (admin ตอบกลับคำร้อง, ร้านยกเลิก/ปฏิเสธออเดอร์ ฯลฯ) → **BUG-12-01 (High)** — ยังไม่ได้แก้เพราะเป็นการสร้าง UI component ใหม่ทั้งหมด ต้องออกแบบ UX ก่อน ไม่ใช่การแก้ logic ที่มีอยู่ให้ถูกต้อง
+**พบ finding สำคัญนอกเหนือจาก test case ที่วางแผนไว้:** ลูกค้าไม่มี UI แจ้งเตือนใดๆ เลยทั้งระบบ (ไม่มี bell icon, toast, หรือ dropdown ในฝั่ง `(customer)` แม้แต่จุดเดียว) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้องครบถ้วน (admin ตอบกลับคำร้อง, ร้านยกเลิก/ปฏิเสธออเดอร์ ฯลฯ) → **BUG-12-01 (High)** → ผู้ใช้ขอให้แก้เพิ่มเติม → สร้าง `CustomerNotificationDropdown.tsx` + `CustomerNotificationListener.tsx` (คู่ขนานกับฝั่งร้านค้า, reuse backend endpoint เดิมทั้งหมดไม่ต้องแก้ backend) → wire เข้า `(customer)/layout.tsx` (เพิ่ม `ToastProvider`) และ `CustomerHeader.tsx` → ทดสอบ end-to-end ผ่านเบราว์เซอร์จริงครบ: bell แสดงถูกต้องทั้ง desktop/mobile, badge count ตรง, mark-all-read ยืนยันผ่าน API, และทดสอบวงจรเต็ม (shop ส่งแชทใหม่ → ลูกค้าเห็น badge เพิ่มขึ้นอัตโนมัติ) สำเร็จ ไม่มี compile/console error
 
 รายละเอียดเต็มดูที่ `QA_BUG_REPORT.md` (BUG-12-01)
 

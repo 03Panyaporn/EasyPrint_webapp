@@ -38,7 +38,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 09 | Reviews (customer add/view, shop reply, admin moderate/delete) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-06) | ไม่พบบั๊กใหม่เลย |
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-07) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
-| 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-07) | พบ finding สำคัญ 1 จุด (High, **BUG-12-01 ยังไม่ได้แก้** — ลูกค้าไม่มี UI แจ้งเตือนเลย เป็นงานสร้าง feature ใหม่) |
+| 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-07) | พบบั๊ก 1 จุด (High, **BUG-12-01 แก้ไขแล้วตามคำขอผู้ใช้** — สร้าง UI แจ้งเตือนฝั่งลูกค้าครบวงจร) |
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ⬜ NOT STARTED | กระทบทุกฟีเจอร์อื่นเมื่อ suspend |
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ⬜ NOT STARTED | Users page ดูเหมือนเป็น stub — ต้องยืนยัน |
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ⬜ NOT STARTED | เชื่อมกับเกือบทุก phase (avatar/id-card/order-file/chat-file/contact-admin-attachment) |
@@ -56,8 +56,8 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ```
 Current Phase: 13 — Admin: Shop Management
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 12): 5/5 — ALL PASS ✅ (พบ finding สำคัญ 1 จุด: BUG-12-01 ยังไม่ได้แก้)
-Last Completed Test: N12-05 (หยุด API server ~20 วิระหว่างเปิดหน้า /shop ค้างไว้ → ไม่ crash, restart server กลับมา → poll cycle ถัดไป reconnect เองอัตโนมัติไม่ต้อง refresh)
+Test Cases Completed (Phase 12): 5/5 — ALL PASS ✅ (พบ+แก้บั๊ก 1 จุด: BUG-12-01 ตามคำขอผู้ใช้)
+Last Completed Test: N12-05 (หยุด API server ~20 วิระหว่างเปิดหน้า /shop ค้างไว้ → ไม่ crash, restart server กลับมา → poll cycle ถัดไป reconnect เองอัตโนมัติไม่ต้อง refresh) + BUG-12-01 fix verify end-to-end (shop ส่งแชทใหม่ → ลูกค้าเห็น badge เพิ่มอัตโนมัติ)
 Current Page/Feature: -
 NEXT ACTION: เริ่ม Phase 13 (Admin: Shop Management) — approve/reject/suspend/reinstate/edit/delete + admin dashboard
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
@@ -81,10 +81,14 @@ NEXT ACTION: เริ่ม Phase 13 (Admin: Shop Management) — approve/rejec
     reset หลังไม่มี activity ข้ามคืน) แก้ได้เองแค่ restart api dev server (`preview_stop` แล้ว `preview_start` ใหม่) ไม่ต้องรอ user resume
     Supabase project ซ้ำ — ถ้าเจอ "Failed to fetch"/"CONNECTION_CLOSED"/"DNS ENOTFOUND" ใน log อีก ให้ลอง restart server ก่อนเป็นอันดับแรก
 Important Notes:
-- ⚠️ **Phase 12 พบ finding สำคัญ 1 จุด (ยังไม่ได้แก้):**
+- ✅ **Phase 12 พบบั๊ก 1 จุดและแก้ไขครบแล้ว (ตามคำขอผู้ใช้ให้แก้เพิ่มเติมหลังรายงานพบ):**
   - **BUG-12-01 (High): ลูกค้าไม่มี UI แจ้งเตือนเลยทั้งระบบ** (ไม่มี bell icon/toast/dropdown ใน `(customer)` แม้แต่จุดเดียว — ต่างจาก
-    `(shop)` ที่มีครบ) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้อง (admin ตอบกลับคำร้อง, ร้านยกเลิกออเดอร์ ฯลฯ) — **ยังไม่ได้แก้
-    เพราะเป็นงานสร้าง UI component ใหม่ทั้งหมด ต้องออกแบบ UX ก่อน ไม่ใช่การแก้ logic ที่มีอยู่แล้ว** ควรเสนอทีมพิจารณาเป็นงานแยกต่างหาก
+    `(shop)` ที่มีครบ) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้อง (admin ตอบกลับคำร้อง, ร้านยกเลิกออเดอร์ ฯลฯ) → FIXED —
+    สร้าง `CustomerNotificationDropdown.tsx` + `CustomerNotificationListener.tsx` คู่ขนานกับฝั่งร้านค้า (reuse backend endpoint เดิม
+    ทั้งหมด ไม่ต้องแก้ backend เลย เพราะ `/notifications*` scope ด้วย userId จาก JWT อยู่แล้ว) wire เข้า `(customer)/layout.tsx`
+    (เพิ่ม `ToastProvider`) และ `CustomerHeader.tsx` (bell ข้างไอคอนตะกร้า ทั้ง desktop/mobile) — ทดสอบ end-to-end ผ่านเบราว์เซอร์จริง
+    สำเร็จครบ: badge count ถูกต้อง, mark-all-read ยืนยันผ่าน API, วงจรเต็ม (shop ส่งแชทใหม่ → ลูกค้าเห็น badge เพิ่มอัตโนมัติไม่ต้อง
+    ทำอะไรเพิ่ม) ทำงานถูกต้อง ไม่มี compile/console error
   - ระบบ notification เป็น **polling ทุก 15 วินาที ไม่ใช่ WebSocket/push จริง** (ยืนยันจากโค้ด + network log) ทำงานถูกต้องตามที่ออกแบบ:
     ไม่ crash ตอน server หลุด, reconnect เองอัตโนมัติ, ไม่มี cross-tab sync (eventual ผ่าน polling อิสระต่อแท็บ ไม่ใช่ instant) — ทั้งหมดนี้
     ไม่ใช่บั๊ก เป็นพฤติกรรมตามสถาปัตยกรรมที่เลือกใช้
