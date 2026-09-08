@@ -11,7 +11,7 @@ import { db } from "../db";
 import { cartItems, carts, orderItems, orders, shops, users, messages } from "../../drizzle/schema";
 import { requireAdmin } from "./admin";
 import { getSystemSettings } from "../systemSettings";
-import { supabaseAdmin, listBucketFiles } from "../storage";
+import { objectStorage, listBucketFiles } from "../storage";
 
 // ไฟล์งานพิมพ์ทั้งหมดของลูกค้า (ตะกร้า + ออเดอร์) อยู่ใน bucket นี้ที่เดียว — ดู apps/api/src/storage.ts UPLOAD_BUCKETS
 const ORDER_FILES_BUCKET = "order-files";
@@ -227,7 +227,7 @@ export const adminStorageRoutes = new Elysia({ prefix: "/admin/storage" })
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
 
-    const { data, error } = await supabaseAdmin.storage.from(ORDER_FILES_BUCKET).createSignedUrl(params.path, 600);
+    const { data, error } = await objectStorage.from(ORDER_FILES_BUCKET).createSignedUrl(params.path, 600);
     if (error || !data) {
       set.status = 404;
       return { error: "ไม่พบไฟล์นี้ หรือสร้างลิงก์ไม่สำเร็จ" };
@@ -240,7 +240,7 @@ export const adminStorageRoutes = new Elysia({ prefix: "/admin/storage" })
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
 
-    const { error } = await supabaseAdmin.storage.from(ORDER_FILES_BUCKET).remove([params.path]);
+    const { error } = await objectStorage.from(ORDER_FILES_BUCKET).remove([params.path]);
     if (error) {
       set.status = 500;
       return { error: `ลบไฟล์ไม่สำเร็จ: ${error.message}` };
@@ -262,7 +262,7 @@ export const adminStorageRoutes = new Elysia({ prefix: "/admin/storage" })
     }
 
     const paths = shopFiles.map((f) => f.path);
-    const { error } = await supabaseAdmin.storage.from(ORDER_FILES_BUCKET).remove(paths);
+    const { error } = await objectStorage.from(ORDER_FILES_BUCKET).remove(paths);
     if (error) {
       set.status = 500;
       return { error: `ลบไฟล์ไม่สำเร็จ: ${error.message}` };

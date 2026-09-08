@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { and, eq, inArray, isNotNull, lt, or } from "drizzle-orm";
 import { db } from "../db";
 import { orders, orderItems } from "../../drizzle/schema";
-import { supabaseAdmin } from "../storage";
+import { objectStorage } from "../storage";
 
 // endpoint นี้ไม่ใช่ของแอดมินที่ login ผ่านหน้าเว็บ — เป็น machine-to-machine เรียกจาก cron ภายนอก (Supabase pg_cron / cron-job.org / GitHub Actions scheduled workflow)
 // เลยเช็คสิทธิ์ด้วย shared secret (header x-cleanup-secret) แทน JWT cookie ปกติ
@@ -46,7 +46,7 @@ export const internalCleanupRoutes = new Elysia().post(
     const paths = expiredFiles.map((f) => f.fileUrl).filter((p): p is string => p !== null);
     const ids = expiredFiles.map((f) => f.id);
 
-    const { error } = await supabaseAdmin.storage.from(ORDER_FILES_BUCKET).remove(paths);
+    const { error } = await objectStorage.from(ORDER_FILES_BUCKET).remove(paths);
     if (error) {
       set.status = 500;
       return { error: `ลบไฟล์ไม่สำเร็จ: ${error.message}` };
