@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-08 (Phase 15 เสร็จสมบูรณ์ — พบ+แก้ BUG-15-01, BUG-15-02 — ทุกจุดเฝ้าระวังยืนยันซ้ำครบแล้ว)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 17 ระหว่างทดสอบ — พบ+แก้ **BUG-17-01 (🔴 Critical)**: checkout ตอบสำเร็จแต่ order ไม่ถูก commit ลง DB จริง เกิดจาก postgres.js client ไม่ได้ปิด prepared statements ตอนต่อผ่าน Supabase transaction-mode pooler)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -410,6 +410,23 @@
   1. [`packages/shared/src/schemas/adminStorage.ts`](packages/shared/src/schemas/adminStorage.ts) — เพิ่ม `"chat"` เป็นค่าที่ยอมรับได้ของ `AdminStorageFile.source`
   2. [`apps/api/src/routes/adminStorage.ts`](apps/api/src/routes/adminStorage.ts) — เพิ่ม query `messages` ที่ `is_file_attachment = true` เข้าไปใน `collectAllFiles()` (parse `content` JSON เอา `path`/`fileName` แบบเดียวกับ `messages.ts` แต่แยกฟังก์ชันเล็กๆ ไม่ import ข้าม route) และเพิ่ม `clearFileReferences()` ให้จัดการฝั่ง `messages` ด้วย — ตอนแอดมินลบไฟล์แนบแชทออก จะ `UPDATE` ข้อความนั้นเป็น "[ไฟล์แนบนี้ถูกลบโดยแอดมินแล้ว]" พร้อม `isFileAttachment=false` (match ด้วย `LIKE` บน path ที่ฝังอยู่ใน JSON content) กันไม่ให้แชทค้างเป็น file bubble ที่กดแล้วดาวน์โหลดไม่ได้เพราะไฟล์จริงถูกลบไปแล้ว
 - **Verification:** อัปโหลดไฟล์แนบแชทจริงในออเดอร์ทดสอบ → เห็นใน `GET /admin/storage/files` ทันที (`source:"chat"`, ข้อมูลร้าน/ผู้ส่ง/ออเดอร์ถูกต้องครบ); ทดสอบลบไฟล์นี้ผ่าน `DELETE /admin/storage/files/:path` → หายจากรายการ + ข้อความแชทอัปเดตเป็น "ไฟล์นี้ถูกลบโดยแอดมินแล้ว" ถูกต้อง ไม่ค้างเป็น file bubble เสีย; ยืนยันด้วยข้อมูลจริงจาก Phase 10 (ไฟล์แนบแชทที่อัปโหลดไว้ตั้งแต่ตอนนั้น) ก็ถูกดึงมาแสดงถูกต้องเช่นกัน (`totalFileCount` รวม `chat` source ครบถ้วนไม่ตกหล่น/ไม่นับซ้ำกับ `order`/`cart`)
+- **Status: FIXED ✅**
+
+### BUG-17-01: 🔴 Checkout ตอบ `200` สำเร็จ (ได้ `order.id`/`order.code` จริง) แต่ออเดอร์ไม่ถูกบันทึกลง DB จริง — cart ก็ไม่ถูกเคลียร์ (Critical data-integrity bug)
+- **Phase:** 17 — End-to-End Integration (E17-01)
+- **Page/Endpoint:** `apps/api/src/db.ts` (root cause) กระทบทุก endpoint ที่ใช้ `db.transaction()` โดยตรงหรือโดยอ้อม โดยเฉพาะ `POST /shops/:shopId/cart/checkout` (`apps/api/src/routes/cart.ts`)
+- **Severity:** 🔴 Critical — ลูกค้าเห็นหน้า "สั่งซื้อสำเร็จ" พร้อมเลขออเดอร์จริง แต่ออเดอร์หายไปจากระบบทั้งหมด (ร้านไม่เห็นออเดอร์ ลูกค้าไม่เห็นออเดอร์ใน "ออเดอร์ของฉัน") ทั้งที่จ่ายเงินโอนสลิปไปแล้ว และ cart เดิมก็ไม่ถูกลบ ทำให้ลูกค้าสั่งซื้อซ้ำได้ข้อมูลปนกัน (พบไอเทมจาก cart รอบแรกที่ "หาย" ไปติดมากับ cart รอบถัดไปจริง)
+- **Steps to Reproduce (พบระหว่าง E17-01):**
+  1. ลูกค้า login → เพิ่มบริการลงตะกร้า → `POST /shops/:shopId/cart/checkout` (พร้อม `slipUrl`) → ได้ `200` พร้อม `order.id`/`order.code` ที่ดูสมบูรณ์
+  2. เช็คทันทีด้วย `GET /orders/:id` → `404`
+  3. เช็ค `GET /shops/:shopId/orders` (ฝั่งร้าน) → array ว่างเปล่า
+  4. เช็ค `GET /customers/orders` (ฝั่งลูกค้า) → array ว่างเปล่า
+  5. ตรวจตรงฐานข้อมูล (`SELECT * FROM orders WHERE shop_id = ...`) → **ไม่มีออเดอร์นี้อยู่เลย** — ไม่ใช่แค่ query ไม่เจอ แต่ transaction ไม่เคย commit จริง
+  6. สั่งซื้อซ้ำอีกครั้งด้วยบริการเดิม → ออเดอร์ใหม่กลับมี 2 รายการ (ไอเทมจากตะกร้ารอบแรกที่ "หาย" ยังค้างอยู่ในตะกร้าจริง เพราะ checkout รอบแรก rollback ทั้งหมดรวมถึงการลบตะกร้า) และได้เลขออเดอร์ `#0001` ซ้ำ (เพราะระบบนับออเดอร์เดิมของร้านเป็น 0 อยู่ดี)
+- **Expected Result:** Checkout ที่ตอบ `200` ต้องมีออเดอร์ปรากฏจริงในทุก query path เสมอ และตะกร้าต้องถูกเคลียร์
+- **Root Cause:** `apps/api/src/db.ts` สร้าง postgres.js client ต่อ Supabase ผ่าน **connection pooler โหมด "transaction" ของ PgBouncer (พอร์ต 6543)** โดยไม่ได้ปิด prepared statements (`prepare: false`) — ค่า default ของ postgres.js คือเปิด prepared statements ไว้ ซึ่ง Supabase เตือนไว้ชัดเจนว่า **ห้ามใช้ร่วมกับ transaction-mode pooler** เพราะโหมดนี้ PgBouncer สลับ physical backend connection ให้แต่ละ logical transaction ได้ตลอดเวลา ถ้ามี query แบบ prepared statement (เช่น `createNotification()` ใน `apps/api/src/utils/notification.ts` ที่เรียก `db.insert()`/`db.select()` ด้วย client กลาง ไม่ใช่ `tx` — ทำงานคู่ขนานไปกับ `db.transaction()` ของ checkout ที่ยังเปิดอยู่) ไปชนกับ transaction อื่นที่ pooler assign ไปยัง physical connection เดียวกันโดยบังเอิญ ทำให้เกิด silent rollback ของ transaction หลัก — client ฝั่ง postgres.js ยังคิดว่า `INSERT ... RETURNING` สำเร็จ (เพราะได้ค่ากลับมาจริงในช่วงที่ transaction ยังไม่ commit) แต่สุดท้าย transaction ทั้งก้อนถูก rollback แบบเงียบๆ ไม่มี error โผล่ใน server log เลย
+- **Fix Applied (2026-09-08):** [`apps/api/src/db.ts`](apps/api/src/db.ts) — เพิ่ม `{ prepare: false }` ตอนสร้าง postgres client (`postgres(connectionString, { prepare: false })`) ตามคำแนะนำอย่างเป็นทางการของ Supabase สำหรับการต่อผ่าน transaction-mode pooler
+- **Verification:** รี-โปรดิวซ์ปัญหาด้วยร้าน/ลูกค้า/บริการทดสอบชุดใหม่ (throwaway, สร้าง+ลบเฉพาะ user ทดสอบ ไม่กระทบข้อมูลจริง) — ก่อนแก้ยังคงพบปัญหาเดิม (order หายจาก DB จริง, cart ไม่ถูกเคลียร์); หลังแก้และรีสตาร์ท API แล้ว รัน checkout ซ้ำ **6 ครั้งติดต่อกัน** ด้วยชุดข้อมูลทดสอบใหม่ทุกครั้ง → ทุกครั้งได้ `200`, ออเดอร์ปรากฏถูกต้องครบทั้ง 3 query path (`GET /orders/:id`, `GET /shops/:id/orders`, `GET /customers/orders`) และตรงกับที่ตรวจสอบตรง DB ทุกครั้ง, ตะกร้าถูกเคลียร์เหลือ 0 รายการทุกครั้ง — ยืนยันว่าแก้ไขสำเร็จและเสถียร
 - **Status: FIXED ✅**
 
 <!--

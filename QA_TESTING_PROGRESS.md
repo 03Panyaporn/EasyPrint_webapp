@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-08 (Phase 16 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 17 ระหว่างทดสอบ — พบ+แก้ BUG-17-01 🔴 Critical ระหว่าง E17-01)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -43,7 +43,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ยืนยัน Users page เป็น static placeholder จริง |
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-08) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด**; ทุกจุดเฝ้าระวังจากรอบก่อนยืนยันซ้ำครบแล้ว |
 | 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ตัวเลขตรงกับ order จริงทุกจุด |
-| 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | ⬜ NOT STARTED | ทำหลังทุก phase ย่อยผ่านแล้ว |
+| 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | 🟡 IN PROGRESS | พบบั๊ก 1 จุด (**🔴 Critical, BUG-17-01**) ระหว่าง E17-01 — **แก้ไขและ verify แล้ว** (6 รอบทดสอบซ้ำติดต่อกันสำเร็จหลังแก้) — เหลือทดสอบ E17-01 (ต่อ lifecycle) ถึง E17-05 |
 | 18 | UI/Responsive & Cross-cutting Edge Cases (mobile/dark-tab, refresh/back, repeated clicks) | 🟡 Medium | ⬜ NOT STARTED | ทำแทรกได้ตลอด แต่สรุปรวมท้ายสุด |
 | 19 | Regression (สุดท้าย หลังบั๊กถูกแก้) | 🟡 Medium | ⬜ NOT STARTED | รันหลัง dev แก้บั๊กจาก 01-18 |
 
@@ -55,11 +55,19 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 
 ```
 Current Phase: 17 — End-to-End Integration
-Phase Status: NOT STARTED
-Test Cases Completed (Phase 16): 4/4 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
-Last Completed Test: RP16-04 (ร้านไม่มี order เลย → รายงานคืน 200 empty state ถูกต้อง ไม่ crash)
-Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 17 (End-to-End Integration) — order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ (ทำหลังทุก phase ย่อยผ่านแล้ว — ตอนนี้ผ่านครบ 01-16 แล้ว)
+Phase Status: IN PROGRESS — พบ+แก้ BUG-17-01 (🔴 Critical) ระหว่าง E17-01 แล้ว กำลังทดสอบต่อ
+Test Cases Completed (Phase 17): 0/5 อย่างเป็นทางการ (E17-01 อยู่ระหว่างทำ — เจอบั๊กร้ายแรงกลางคัน ต้อง root-cause+แก้ก่อนถึงจะเดินหน้าเทสต่อได้)
+Last Completed Test: (ยังไม่จบ E17-01) — เพิ่งแก้ BUG-17-01 เสร็จและ verify ซ้ำ 6 รอบสำเร็จหมด
+Current Page/Feature: `apps/api/src/routes/cart.ts` checkout flow → กำลังจะเดินหน้า order lifecycle ต่อ (accepted → in_progress → completed → review)
+
+## 🔴 BUG-17-01 พบระหว่าง E17-01 (สรุปสั้น — รายละเอียดเต็มใน QA_BUG_REPORT.md)
+Checkout ตอบ `200` พร้อม `order.id`/`order.code` เหมือนสำเร็จ แต่ตรวจ DB จริงพบว่า **transaction ไม่เคย commit** — order หายทั้งหมด, cart ก็ไม่ถูกเคลียร์ (ลูกค้าสั่งซ้ำได้ไอเทมปนกัน+เลขออเดอร์ซ้ำ)
+**Root cause:** `apps/api/src/db.ts` ต่อ Supabase ผ่าน PgBouncer transaction-mode pooler (พอร์ต 6543) โดยไม่ปิด prepared statements ของ postgres.js (ค่า default เปิด) — ชนกับ query คู่ขนานจาก `createNotification()` (ใช้ client กลาง ไม่ใช่ `tx`) ที่ทำงานอยู่ระหว่าง checkout transaction ยังไม่ commit ทำให้เกิด silent rollback
+**Fix:** เพิ่ม `{ prepare: false }` ใน `postgres(connectionString, ...)` — ตาม official recommendation ของ Supabase
+**Verify:** รี-โปรดิวซ์ด้วยชุดข้อมูลทดสอบทิ้งใหม่ (throwaway) 6 รอบติดต่อกันหลังแก้ → สำเร็จครบทุกรอบ (order ปรากฏถูกต้องทั้ง 3 query path, cart เคลียร์เหลือ 0 ทุกครั้ง)
+**Status: FIXED ✅** — ยังไม่ได้ commit/push (จะรวมกับผลทดสอบ Phase 17 ทั้งหมดตอนจบ phase)
+
+NEXT ACTION: เดินหน้าออเดอร์ที่รอด (shop `54ea0bb4-e1aa-4940-b712-86e267ed247d`, order `6c1f8152-8b53-469c-86cb-97fe77dcc0ca`, code #0001, 2 items ฿20) ผ่าน accepted → in_progress → completed → ลูกค้ารีวิว (E17-01), ต่อด้วย E17-02 (contact-admin round-trip + เช็ค notification bell ลูกค้า), E17-03 (suspend→reinstate cycle เต็ม), E17-04 (cancel จากสถานะ active กลางทาง), E17-05 (upload→cleanup cron ยังไม่ลบเพราะไม่เกิน retention)
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
   - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed, #0002 completed,
