@@ -1,0 +1,42 @@
+name: Mirror to GitLab
+
+# GitHub เป็น repo หลัก — workflow นี้ push ทุก branch/tag ไปที่ GitLab อัตโนมัติทุกครั้งที่มีคน push เข้า GitHub
+# เพื่อให้เพื่อนที่ทำงานฝั่ง GitLab CI/CD (.gitlab-ci.yml) เห็นโค้ดล่าสุดเสมอ (one-way mirror, แก้ที่ GitHub เท่านั้น
+# ห้ามแก้ตรงบน GitLab แล้ว push กลับ เพราะจะถูกทับทิ้งรอบถัดไป)
+#
+# วิธีเปิดใช้งาน:
+#   1. สร้าง GitLab project เปล่าๆ ไว้ก่อน (Settings ทั่วไป ไม่ต้องตั้งค่าอะไรเพิ่ม)
+#   2. สร้าง GitLab Access Token: GitLab project → Settings → Access Tokens
+#      → scope เลือก "write_repository" → copy token ที่ได้มา
+#   3. ไปที่ GitHub repo → Settings → Secrets and variables → Actions → tab Secrets
+#      → เพิ่ม secret ชื่อ GITLAB_MIRROR_URL ค่าเป็น:
+#      https://oauth2:<TOKEN_ที่ได้จากข้อ2>@gitlab.com/<namespace>/<project-name>.git
+#   4. เสร็จแล้ว — push เข้า GitHub ครั้งถัดไปจะ sync ไป GitLab เองอัตโนมัติ
+#
+# ถ้ายังไม่ได้ตั้งค่า GITLAB_MIRROR_URL: job จะ fail (แดง) ทุกครั้งที่ push ไม่กระทบ repo หลักบน GitHub แต่อย่างใด
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ต้องได้ full history + ทุก branch ไม่ใช่แค่ shallow clone ถึงจะ mirror ครบ
+
+      - name: Push mirror to GitLab
+        run: |
+          if [ -z "${{ secrets.GITLAB_MIRROR_URL }}" ]; then
+            echo "::error::ยังไม่ได้ตั้งค่า secret ชื่อ GITLAB_MIRROR_URL — ดูวิธีตั้งค่าในคอมเมนต์ต้นไฟล์นี้"
+            exit 1
+          fi
+          git remote add gitlab "${{ secrets.GITLAB_MIRROR_URL }}"
+          # actions/checkout เช็คเอาต์แค่ branch ที่ trigger workflow เป็น local branch เดียว
+          # (branch อื่นมีแค่ remote-tracking ref origin/*) เลย push จาก refs/remotes/origin/* ตรงๆ
+          # แทนการใช้ --all เพื่อให้ mirror ครบทุก branch จริง ไม่ใช่แค่ branch ที่เพิ่ง push
+          git push gitlab 'refs/remotes/origin/*:refs/heads/*' --force
+          git push gitlab --tags --force

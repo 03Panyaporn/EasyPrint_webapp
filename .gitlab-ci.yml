@@ -1,0 +1,91 @@
+# GitLab CI/CD pipeline — ทำงานเฉพาะตอนโค้ดถูก mirror มาอยู่ใน GitLab project จริงแล้วเท่านั้น
+# (ไฟล์นี้อยู่เฉยๆ ใน GitHub repo ไม่ได้ทำอะไร — ต้องมี GitLab project + .github/workflows/mirror-to-gitlab.yml
+# push โค้ดมาถึงจริงก่อน ดูวิธีตั้งค่าใน mirror-to-gitlab.yml)
+#
+# 4 ขั้นตอนตามที่ต้องการ: lint → test → build → deploy
+#
+# สถานะปัจจุบันของโปรเจกต์ (สำคัญ อ่านก่อนแก้ pipeline):
+# - apps/web มี linter พร้อมใช้ (next lint) — ทำงานได้จริงทันที
+# - apps/api ยังไม่มี eslint/biome config เลย — stage lint_api เป็น placeholder รอเพิ่ม config จริง
+# - ทั้งโปรเจกต์ยังไม่มีไฟล์ *.test.ts สักไฟล์เดียว (QA รอบที่ผ่านมาทดสอบผ่าน API script มือ ไม่ใช่ automated test
+#   ในโค้ด) — stage test_api scaffold ให้ `bun test` รันได้ทันที พอมีไฟล์ test จริงจะถูกเก็บมารันเองอัตโนมัติ
+#   โดยไม่ต้องแก้ pipeline แต่ตอนนี้ allow_failure:true ไว้ก่อน (ไม่งั้น pipeline ex "ผ่าน" ทั้งที่ไม่มีอะไรให้เช็ค)
+# - deploy stage รอ URL จริงจาก Render/Vercel ก่อน (ตั้งเป็น CI/CD variable ที่ Settings > CI/CD > Variables)
+
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+image: oven/bun:1
+
+# cache node_modules ข้าม stage/job เพื่อไม่ต้อง bun install ใหม่ทุกครั้ง (ประหยัดเวลา CI)
+cache:
+  key: bun-${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules
+    - apps/web/node_modules
+    - apps/api/node_modules
+    - packages/shared/node_modules
+
+lint_web:
+  stage: lint
+  script:
+    - bun install
+    - bun --cwd apps/web run lint
+
+lint_api:
+  stage: lint
+  script:
+    - echo "TODO — apps/api ยังไม่มี eslint/biome config ตั้งไว้ (ไม่มี .eslintrc/biome.json) — เพิ่ม config แล้วมาต่อ script จุดนี้"
+  allow_failure: true
+
+test_api:
+  stage: test
+  script:
+    - bun install
+    - bun --cwd apps/api test
+  allow_failure: true # เอาออกทีหลังพอมี test จริง — ตอนนี้ยังไม่มีไฟล์ *.test.ts เลยสักไฟล์
+
+build_web:
+  stage: build
+  script:
+    - bun install
+    - bun --cwd apps/web run build
+  artifacts:
+    paths:
+      - apps/web/.next
+    expire_in: 1 hour
+
+build_api:
+  stage: build
+  script:
+    - bun install
+    # apps/api เป็น Bun script รันตรง ไม่มี build/compile step จริง (ดู apps/api/package.json scripts)
+    # เช็คแค่ type error แทนเพื่อจับบั๊กก่อน deploy
+    - cd apps/api && bunx tsc --noEmit
+
+deploy_api:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - |
+      if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+        echo "ยังไม่ได้ตั้งค่า CI/CD variable RENDER_DEPLOY_HOOK (Settings > CI/CD > Variables) — ข้าม deploy"
+        exit 0
+      fi
+      curl -sf -X POST "$RENDER_DEPLOY_HOOK"
+
+deploy_web:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - |
+      if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
+        echo "ยังไม่ได้ตั้งค่า CI/CD variable VERCEL_DEPLOY_HOOK (Settings > CI/CD > Variables) — ข้าม deploy"
+        exit 0
+      fi
+      curl -sf -X POST "$VERCEL_DEPLOY_HOOK"
