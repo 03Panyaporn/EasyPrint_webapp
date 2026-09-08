@@ -34,8 +34,11 @@ export async function uploadFile(type: UploadType, file: File) {
   const config = UPLOAD_BUCKETS[type];
 
   if (!(config.allowedMime as readonly string[]).includes(file.type)) {
+    // ยืนยันบั๊กเล็กน้อยจากการตรวจสอบระหว่าง QA Phase 15: ข้อความ error เดิมเช็คแค่ type === "order-file" ถึงจะบอกว่ารองรับ PDF
+    // ทั้งที่ "contact-admin-attachment" ก็ใช้ PRINT_FILE_MIME เดียวกัน (รองรับ PDF จริง) แต่ข้อความ error กลับบอกว่ารองรับแค่รูปภาพ
+    // เช็คจาก allowedMime ของ config ตรงๆ แทนการเจาะจงชื่อ type จะได้ไม่พลาดถ้ามี type ใหม่ที่ใช้ PRINT_FILE_MIME เพิ่มในอนาคต
     throw new Error(
-      type === "order-file"
+      (config.allowedMime as readonly string[]).includes("application/pdf")
         ? "รองรับเฉพาะไฟล์ JPG, PNG, WEBP หรือ PDF เท่านั้น"
         : "รองรับเฉพาะไฟล์รูปภาพ JPG, PNG หรือ WEBP เท่านั้น"
     );

@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { eq, isNotNull, inArray } from "drizzle-orm";
+import { eq, isNotNull, inArray, and, like } from "drizzle-orm";
 import type {
   AdminStorageFile,
   AdminStorageOverviewResponse,
@@ -8,7 +8,7 @@ import type {
   StorageStatus,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { cartItems, carts, orderItems, orders, shops, users } from "../../drizzle/schema";
+import { cartItems, carts, orderItems, orders, shops, users, messages } from "../../drizzle/schema";
 import { requireAdmin } from "./admin";
 import { getSystemSettings } from "../systemSettings";
 import { supabaseAdmin, listBucketFiles } from "../storage";
@@ -21,10 +21,27 @@ function fullName(firstname: string | null, lastname: string | null): string {
   return `${firstname} ${lastname ?? ""}`.trim();
 }
 
-// รวมไฟล์งานพิมพ์ทั้งหมดในระบบ (ทั้งที่ยังอยู่ในตะกร้าและอยู่ในออเดอร์แล้ว) พร้อม join ชื่อร้าน/ผู้อัปโหลด/ขนาดไฟล์จริงจาก Storage
+// parse ขั้นต่ำแค่ path/fileName จาก messages.content — คู่กับ parseFileAttachment ใน routes/messages.ts แต่ไม่ต้องออก signed URL
+// ที่นี่ (แค่เอาไว้แสดงในตาราง storage เฉยๆ) กันสร้าง dependency ข้าม route ไฟล์โดยไม่จำเป็น
+function parseChatFileAttachment(content: string): { path: string; fileName: string } | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed?.kind === "file" && typeof parsed.path === "string" && typeof parsed.fileName === "string") {
+      return { path: parsed.path, fileName: parsed.fileName };
+    }
+  } catch {
+    // ไม่ใช่ JSON ที่ถูกต้อง (ไม่ควรเกิดขึ้นจริงเพราะ is_file_attachment=true มาจาก server เท่านั้น)
+  }
+  return null;
+}
+
+// รวมไฟล์งานพิมพ์ทั้งหมดในระบบ (ตะกร้า/ออเดอร์/ไฟล์แนบแชท) พร้อม join ชื่อร้าน/ผู้อัปโหลด/ขนาดไฟล์จริงจาก Storage
 // เป็น query ที่ใช้ร่วมกันทั้ง /overview (เอาไปรวมยอดต่อร้าน) และ /files (แสดงรายการ) กันเขียน join ซ้ำ 2 ที่
+// ⚠️ เพิ่มไฟล์แนบแชท (messages ที่ is_file_attachment=true) แก้ QA Phase 15 (ST15-05, เดิม ST7-09) — ไฟล์เหล่านี้อัปโหลดเข้า
+// bucket "order-files" เดียวกันแต่ไม่เคยถูกนับรวมในแดชบอร์ดนี้เลย ทำให้พื้นที่ใช้งานจริงที่แอดมินเห็นน้อยกว่าความเป็นจริง
+// และแอดมินลบไฟล์แนบแชทที่ไม่เหมาะสม/เก่าผ่านหน้านี้ไม่ได้เลย (ต้องเข้า Supabase dashboard ตรงๆ เท่านั้น)
 async function collectAllFiles(): Promise<AdminStorageFile[]> {
-  const [cartRows, orderRows, shopRows, sizeByPath] = await Promise.all([
+  const [cartRows, orderRows, chatRows, shopRows, sizeByPath] = await Promise.all([
     db
       .select({
         path: cartItems.fileUrl,
@@ -52,6 +69,19 @@ async function collectAllFiles(): Promise<AdminStorageFile[]> {
       .innerJoin(orders, eq(orderItems.orderId, orders.id))
       .leftJoin(users, eq(orders.customerId, users.id))
       .where(isNotNull(orderItems.fileUrl)),
+    db
+      .select({
+        content: messages.content,
+        createdAt: messages.createdAt,
+        shopId: messages.shopId,
+        orderCode: orders.code,
+        firstname: users.firstname,
+        lastname: users.lastname,
+      })
+      .from(messages)
+      .innerJoin(orders, eq(messages.orderId, orders.id))
+      .leftJoin(users, eq(messages.senderId, users.id))
+      .where(eq(messages.isFileAttachment, true)),
     db.select({ id: shops.id, name: shops.name }).from(shops),
     listBucketFiles(ORDER_FILES_BUCKET),
   ]);
@@ -90,15 +120,40 @@ async function collectAllFiles(): Promise<AdminStorageFile[]> {
     });
   }
 
+  for (const row of chatRows) {
+    const attachment = parseChatFileAttachment(row.content);
+    if (!attachment) continue;
+    files.push({
+      path: attachment.path,
+      fileName: attachment.fileName,
+      sizeMb: (sizeByPath.get(attachment.path) ?? 0) / (1024 * 1024),
+      shopId: row.shopId,
+      shopName: shopNameById.get(row.shopId) ?? "-",
+      uploadedBy: fullName(row.firstname, row.lastname),
+      createdAt: row.createdAt.toISOString(),
+      source: "chat",
+      orderCode: row.orderCode,
+    });
+  }
+
   return files;
 }
 
 // เคลียร์ fileUrl/fileName ใน DB หลังลบไฟล์จริงจาก Storage แล้ว — เช็คทั้ง cart_items และ order_items เพราะไม่รู้ล่วงหน้าว่า path นี้มาจากตารางไหน (path เป็น UUID สุ่ม ไม่ชนกันข้ามตารางอยู่แล้ว เช็คคู่ขนานได้อย่างปลอดภัย)
+// รวมถึง messages ที่เป็นไฟล์แนบแชท (BUG-15-02) — content เป็น JSON string ไม่ใช่ path ตรงๆ เลย match แบบ substring บนฟิลด์ path
+// ที่แน่ใจว่าไม่ชนกับข้อมูลอื่น (path เป็น UUID.ext สุ่ม) แทนที่จะลบทั้งข้อความทิ้ง — set isFileAttachment=false + เปลี่ยน content
+// เป็นข้อความบอกว่าไฟล์ถูกลบแล้ว กันไม่ให้แชทค้างเป็น file bubble ที่กดแล้วดาวน์โหลดไม่ได้ (ไฟล์จริงถูกลบไปแล้วจาก Storage)
 async function clearFileReferences(paths: string[]) {
   if (paths.length === 0) return;
   await Promise.all([
     db.update(cartItems).set({ fileUrl: null, fileName: null }).where(inArray(cartItems.fileUrl, paths)),
     db.update(orderItems).set({ fileUrl: null, fileName: null }).where(inArray(orderItems.fileUrl, paths)),
+    ...paths.map((path) =>
+      db
+        .update(messages)
+        .set({ content: "[ไฟล์แนบนี้ถูกลบโดยแอดมินแล้ว]", isFileAttachment: false })
+        .where(and(eq(messages.isFileAttachment, true), like(messages.content, `%"path":"${path}"%`)))
+    ),
   ]);
 }
 

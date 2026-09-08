@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-08 (Phase 13 เสร็จสมบูรณ์ — พบ+แก้ BUG-13-01)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 15 เสร็จสมบูรณ์ — พบ+แก้ BUG-15-01, BUG-15-02 — ทุกจุดเฝ้าระวังยืนยันซ้ำครบแล้ว)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -10,14 +10,17 @@
 
 รายละเอียดเต็มอยู่ที่ [docs/qa/test-plan.md](docs/qa/test-plan.md) — สรุปย่อเป็น "จุดต้องสงสัย" ที่จะตรวจซ้ำตาม test case ที่เกี่ยวข้องใน `QA_TEST_CASES.md`:
 
-| จุดต้องสงสัย | Phase ในรอบนี้ | Test case ที่จะยืนยัน |
-|---|---|---|
-| ไม่มี cron เรียก auto-delete cleanup endpoint | Phase 15 | ST15-06 |
-| Unauthenticated upload (`shop-photo`/`id-card`) — เป็นการตัดสินใจเชิงนโยบายที่ยอมรับแล้ว | Phase 15 | ST15-01 |
-| ไฟล์แนบแชทมองไม่เห็นใน admin storage dashboard | Phase 15 | ST15-05 |
-| Order เก่า `finishedAt` เป็น NULL | Phase 15 | ST15-08 |
+**ทุกจุดในหัวข้อนี้ถูกยืนยันซ้ำครบแล้วในรอบนี้ (Phase 01-15) — ไม่มีจุดที่ยังไม่ได้ตรวจ**
 
-**ยืนยันซ้ำและแก้ไข/สรุปแล้วใน Phase 09-11:** reply overwrite ไม่มี audit trail (review R09-04 + contact-admin CA11-05 — เป็น design gap ที่ทราบแล้ว ไม่ใช่บั๊ก ไม่ได้แก้เพราะเป็นการเพิ่ม feature ไม่ใช่แก้บั๊ก); ร้าน pending/suspended contact-admin ไม่ได้ + error message ผิดบริบท (→ **BUG-11-01**, พบว่าเป็นปัญหาเชิงระบบที่กระทบ 7 endpoint ไม่ใช่แค่ contact-admin) — รายละเอียดในหัวข้อบั๊กที่ยืนยันแล้วด้านล่าง
+**ยืนยันซ้ำและแก้ไข/สรุปแล้วใน Phase 09-15:**
+- reply overwrite ไม่มี audit trail (review R09-04 + contact-admin CA11-05) — design gap ที่ทราบแล้ว ไม่ใช่บั๊ก ไม่ได้แก้เพราะเป็นการเพิ่ม feature ไม่ใช่แก้บั๊ก
+- ร้าน pending/suspended contact-admin ไม่ได้ + error message ผิดบริบท → **BUG-11-01** (พบว่าเป็นปัญหาเชิงระบบที่กระทบ 7 endpoint ไม่ใช่แค่ contact-admin) — FIXED
+- Unauthenticated upload (`shop-photo`/`id-card`, ST15-01) — ยืนยันซ้ำว่ายังเป็นแบบเดิมตามการตัดสินใจเชิงนโยบายที่ยอมรับแล้ว ไม่ใช่บั๊ก ไม่ต้องแก้
+- ไม่มี cron เรียก auto-delete cleanup endpoint (ST15-06) — ยืนยันซ้ำว่ายังไม่มีจริง (`cron.ts` มีแค่ 2 job: setup-reminders กับ opening/closing-hours ไม่มี job เรียก `/internal/cleanup/expired-order-files` เลย) — **ไม่ได้แก้** เพราะเป็นเรื่อง infra/deployment (ต้องตั้ง cron ภายนอก เช่น Supabase pg_cron/GitHub Actions/cron-job.org ตามที่คอมเมนต์ในโค้ดระบุไว้แล้ว) ไม่ใช่โค้ดในระบบที่แก้ได้ตรงๆ
+- ไฟล์แนบแชทมองไม่เห็นใน admin storage dashboard (ST15-05) → **BUG-15-02** — FIXED
+- Order เก่า `finishedAt` เป็น NULL (ST15-08) — ยืนยันว่า**มีค่าถูกต้องเสมอจริง** ทั้งจาก code review (`orders.ts` set พร้อมกับเปลี่ยนสถานะในทรานแซคชันเดียว ไม่มี gap) และหลักฐานเชิงประจักษ์ (`POST /internal/cleanup/expired-order-files` ที่ query กรองด้วย `isNotNull(finishedAt)` ลบไฟล์ได้จริง 4 ไฟล์ระหว่างทดสอบ ยืนยันว่ามี order จริงที่ finishedAt ไม่ null) — ไม่ใช่บั๊ก
+
+รายละเอียดเต็มของบั๊กที่ยืนยันแล้วอยู่ในหัวข้อด้านล่าง
 
 **ยืนยันซ้ำและแก้ไขแล้วใน Phase 10:** ข้อความแชทรูปแบบ JSON ถูกตีความเป็นไฟล์แนบปลอม (→ **BUG-10-01**) — รายละเอียดในหัวข้อบั๊กที่ยืนยันแล้วด้านล่าง
 
@@ -379,6 +382,34 @@
 - **Possible Cause:** `PATCH /admin/shops/:id/approve` ใช้ endpoint เดียวกันทั้ง 2 กรณี (ตั้งใจ เพราะ DB update เหมือนกันเป๊ะ) แต่ไม่เคยเช็คสถานะ "ก่อน" อัปเดตเลยว่าเป็นการอนุมัติครั้งแรก (`pending→approved`) หรือ reinstate (`suspended→approved`) ก่อนจะเลือกข้อความแจ้งเตือน
 - **Fix Applied (2026-09-08):** [`apps/api/src/routes/admin.ts`](apps/api/src/routes/admin.ts) — เพิ่ม `SELECT` สถานะเดิมก่อน `UPDATE` เพื่อเช็คว่า `approvalStatus === "suspended"` หรือไม่ ถ้าใช่ (reinstate) → ส่งข้อความ "การระงับการใช้งานร้านค้าของคุณถูกยกเลิกแล้ว" / "ร้านค้าของคุณกลับมาเปิดให้บริการได้ตามปกติแล้ว ขอบคุณที่ให้ความร่วมมือ" แทน — กรณีอื่น (pending/rejected → approved) ยังคงใช้ข้อความเดิม
 - **Verification:** suspend ร้านทดสอบแล้ว reinstate → ได้ข้อความใหม่ที่ถูกบริบทถูกต้อง; ทดสอบ regression ด้วยร้านสมัครใหม่ (pending) → approve ครั้งแรก → ยังได้ข้อความเดิมถูกต้อง ("ยินดีด้วย! ผ่านการตรวจสอบ...") ไม่กระทบ flow ปกติ
+- **Status: FIXED ✅**
+
+### BUG-15-01: `POST /uploads` ด้วย body ว่างเปล่าได้ raw `500` (เดิม SEC9-05c)
+- **Phase:** 15 — File Upload & Storage (ST15-03 — ยืนยันซ้ำจากรอบทดสอบก่อน)
+- **Page/Endpoint:** `apps/api/src/routes/uploads.ts` — `POST /uploads`
+- **Severity:** 🟡 Medium (raw error รั่ว ไม่ใช่ security breach)
+- **Steps to Reproduce:** ยิง `POST /uploads` โดยไม่ส่ง multipart body ใดๆ เลย (ไม่มีทั้ง `file` และ `type`)
+- **Expected Result:** `400 "ไม่พบไฟล์ที่อัปโหลด"` (ข้อความเดียวกับตอนส่ง `file` มาแต่ไม่ใช่ไฟล์จริง)
+- **Actual Result (ก่อนแก้):** raw `500` — server log ยืนยัน `TypeError: Cannot destructure property 'file' from null or undefined value` เพราะ `body` เป็น `null`/`undefined` ตรงๆ แล้วโค้ด destructure ทันทีโดยไม่เช็คก่อน
+- **Fix Applied (2026-09-08):** [`apps/api/src/routes/uploads.ts`](apps/api/src/routes/uploads.ts) — เพิ่มเช็ค `typeof body !== "object" || body === null` ก่อน destructure คืน `400` ทันทีถ้าไม่ผ่าน
+- **Verification:** ยิง `POST /uploads` body ว่าง → `400 "ไม่พบไฟล์ที่อัปโหลด"` ถูกต้อง (จากเดิม `500`); ทดสอบ regression อัปโหลดไฟล์จริงปกติ (type `shop-photo`) → ยังสำเร็จ `200` ตามปกติ ไม่มีผลกระทบ
+- **หมายเหตุ (พบเพิ่มระหว่างทดสอบ endpoint เดียวกัน, ไม่ใช่บั๊กร้ายแรง):** ข้อความ error ตอนไฟล์ผิดชนิดของ `contact-admin-attachment` เดิมบอกว่า "รองรับเฉพาะไฟล์รูปภาพ JPG, PNG หรือ WEBP เท่านั้น" ทั้งที่ type นี้รองรับ PDF จริงด้วย (เช็คโค้ด `PRINT_FILE_MIME` ยืนยันว่า config อนุญาต PDF แต่ error message เดิมเช็คแค่ `type === "order-file"` ถึงจะบอกว่ารองรับ PDF) แก้ไปพร้อมกันใน [`apps/api/src/storage.ts`](apps/api/src/storage.ts) — เปลี่ยนไปเช็คจาก `config.allowedMime` ตรงๆ แทนการเจาะจงชื่อ type ยืนยันด้วยการอัปโหลด PDF จริงเป็น `contact-admin-attachment` → สำเร็จ `200`, ทดสอบ error message ตอนไฟล์ผิดชนิด → ได้ข้อความที่พูดถึง PDF ถูกต้องแล้ว; regression เช็ค `shop-photo` (ไม่รองรับ PDF) → ยังได้ข้อความ "รูปภาพเท่านั้น" ถูกต้องเหมือนเดิม
+- **Status: FIXED ✅**
+
+### BUG-15-02: ไฟล์แนบแชท (chat file attachment) มองไม่เห็นเลยใน admin storage dashboard (เดิม ST7-09)
+- **Phase:** 15 — File Upload & Storage (ST15-05 — ยืนยันซ้ำจากรอบทดสอบก่อน)
+- **Page/Endpoint:** `apps/api/src/routes/adminStorage.ts` — `collectAllFiles()` (ใช้ร่วมกันทั้ง `GET /admin/storage/overview` และ `GET /admin/storage/files`)
+- **Severity:** 🟡 Medium (ไม่ใช่ data breach — ไฟล์ยังอยู่และเข้าถึงได้ปกติจากฝั่งแชท แต่แอดมินไม่มีทางเห็น/ลบ/นับรวมไฟล์เหล่านี้ผ่านหน้าจัดการ storage เลย ทำให้ตัวเลขพื้นที่ใช้งานที่แอดมินเห็นน้อยกว่าความเป็นจริง และลบไฟล์แนบแชทที่ไม่เหมาะสม/เก่าไม่ได้นอกจากเข้า Supabase dashboard ตรงๆ)
+- **Steps to Reproduce:**
+  1. ร้าน/ลูกค้าแนบไฟล์จริงในแชทของออเดอร์ (ผ่าน `filePath` ใน `POST /messages` — อัปโหลดเข้า bucket `order-files` เดียวกับไฟล์งานพิมพ์ปกติ)
+  2. Admin เปิด `GET /admin/storage/files` (หรือ `/overview`)
+- **Expected Result:** ควรเห็นไฟล์แนบแชทนี้อยู่ในรายการ (พร้อม source ระบุว่าเป็นไฟล์แชท) และถูกนับรวมในยอดพื้นที่ใช้งานของร้าน
+- **Actual Result (ก่อนแก้):** ไฟล์แนบแชท **ไม่ปรากฏเลย** ในรายการทั้งที่มีอยู่จริงใน Storage — `collectAllFiles()` query แค่ `cart_items`/`order_items` เท่านั้น ไม่เคย query ตาราง `messages` เลย
+- **Possible Cause:** ฟีเจอร์แชทถูกเพิ่มทีหลัง (เขียนใหม่ทั้งไฟล์ใน Phase 10) แต่ไม่มีใครย้อนไปอัปเดต `collectAllFiles()` ให้รู้จักแหล่งไฟล์ใหม่นี้ด้วย
+- **Fix Applied (2026-09-08):**
+  1. [`packages/shared/src/schemas/adminStorage.ts`](packages/shared/src/schemas/adminStorage.ts) — เพิ่ม `"chat"` เป็นค่าที่ยอมรับได้ของ `AdminStorageFile.source`
+  2. [`apps/api/src/routes/adminStorage.ts`](apps/api/src/routes/adminStorage.ts) — เพิ่ม query `messages` ที่ `is_file_attachment = true` เข้าไปใน `collectAllFiles()` (parse `content` JSON เอา `path`/`fileName` แบบเดียวกับ `messages.ts` แต่แยกฟังก์ชันเล็กๆ ไม่ import ข้าม route) และเพิ่ม `clearFileReferences()` ให้จัดการฝั่ง `messages` ด้วย — ตอนแอดมินลบไฟล์แนบแชทออก จะ `UPDATE` ข้อความนั้นเป็น "[ไฟล์แนบนี้ถูกลบโดยแอดมินแล้ว]" พร้อม `isFileAttachment=false` (match ด้วย `LIKE` บน path ที่ฝังอยู่ใน JSON content) กันไม่ให้แชทค้างเป็น file bubble ที่กดแล้วดาวน์โหลดไม่ได้เพราะไฟล์จริงถูกลบไปแล้ว
+- **Verification:** อัปโหลดไฟล์แนบแชทจริงในออเดอร์ทดสอบ → เห็นใน `GET /admin/storage/files` ทันที (`source:"chat"`, ข้อมูลร้าน/ผู้ส่ง/ออเดอร์ถูกต้องครบ); ทดสอบลบไฟล์นี้ผ่าน `DELETE /admin/storage/files/:path` → หายจากรายการ + ข้อความแชทอัปเดตเป็น "ไฟล์นี้ถูกลบโดยแอดมินแล้ว" ถูกต้อง ไม่ค้างเป็น file bubble เสีย; ยืนยันด้วยข้อมูลจริงจาก Phase 10 (ไฟล์แนบแชทที่อัปโหลดไว้ตั้งแต่ตอนนั้น) ก็ถูกดึงมาแสดงถูกต้องเช่นกัน (`totalFileCount` รวม `chat` source ครบถ้วนไม่ตกหล่น/ไม่นับซ้ำกับ `order`/`cart`)
 - **Status: FIXED ✅**
 
 <!--

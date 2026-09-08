@@ -33,8 +33,10 @@ export interface AdminStorageFile {
   shopName: string;
   uploadedBy: string;
   createdAt: string;
-  source: "cart" | "order"; // cart = ยังอยู่ในตะกร้า ยังไม่ checkout, order = อยู่ในออเดอร์จริงแล้ว
-  orderCode: string | null; // มีค่าเฉพาะ source: "order"
+  // cart = ยังอยู่ในตะกร้า ยังไม่ checkout, order = อยู่ในออเดอร์จริงแล้ว, chat = ไฟล์แนบในแชทของออเดอร์
+  // (เพิ่ม "chat" แก้ QA Phase 15 — BUG-15-02 — เดิมไฟล์แนบแชทไม่ถูกนับรวมในแดชบอร์ดนี้เลย ทั้งที่กินพื้นที่ storage จริง)
+  source: "cart" | "order" | "chat";
+  orderCode: string | null; // มีค่าเฉพาะ source: "order" หรือ "chat" (เชื่อมกับออเดอร์ที่มีข้อความนี้)
 }
 
 export interface AdminStorageFilesResponse {

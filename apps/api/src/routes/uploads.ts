@@ -12,6 +12,12 @@ import { requireAdmin } from "./admin";
 // "order-file" อนุญาตทั้ง customer และ shop_owner เพราะใช้ร่วมกันทั้งตอนสั่งซื้อ (ลูกค้าเท่านั้น) และตอนแนบไฟล์ในแชทออเดอร์ (ทั้งสองฝั่งคุยกันได้)
 // "contact-admin-attachment" อนุญาต shop_owner (ตอนส่งคำร้อง) และ admin (ตอนตอบกลับ)
 export const uploadsRoutes = new Elysia().post("/uploads", async ({ body, cookie, set }) => {
+  // ยืนยันบั๊กจริงจาก QA Phase 15 (ST15-03, เดิม SEC9-05c): ยิง POST /uploads แบบ body ว่างเปล่า (ไม่ส่ง multipart มาเลย)
+  // ทำให้ body เป็น null/undefined แล้ว destructure ตรงๆ ด้านล่าง throw TypeError ดิบๆ กลายเป็น raw 500 แทน 400 ที่ควรจะเป็น
+  if (typeof body !== "object" || body === null) {
+    set.status = 400;
+    return { error: "ไม่พบไฟล์ที่อัปโหลด" };
+  }
   const { file, type } = body as { file?: unknown; type?: unknown };
 
   if (!(file instanceof File)) {

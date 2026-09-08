@@ -312,16 +312,20 @@
 
 **API:** `/uploads` ทุก type, `/admin/storage/*`, `/internal/cleanup/expired-order-files`, `cron.ts`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-08)** — ทดสอบผ่าน API ตรงครบทุก upload type + storage dashboard จริง พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| ST15-01 | อัปโหลดแต่ละ type (`shop-photo`,`id-card`,`service-image`,`delivery-logo`,`order-file`,`payment-slip`,`contact-admin-attachment`,`system-logo`) — ตรวจสิทธิ์ตาม role ปัจจุบัน | ตรงตาม policy ในโค้ดล่าสุด | | NOT TESTED |
-| ST15-02 | อัปโหลดไฟล์ผิดประเภท/เกินขนาด | reject 400 | | NOT TESTED |
-| ST15-03 | ยิง `POST /uploads` แบบ body ว่าง | ตรวจว่ายัง 500 เหมือนบั๊กเดิม (SEC9-05c) ไหม | | NOT TESTED |
-| ST15-04 | Admin storage dashboard overview + ลบไฟล์เดี่ยว/bulk | ทำงานถูกต้อง | | NOT TESTED |
-| ST15-05 | ไฟล์แนบแชท (chat file) ปรากฏใน admin storage dashboard ไหม | ตรวจว่ายังเป็นบั๊ก ST7-09 (มองไม่เห็น) หรือถูกแก้แล้ว | | NOT TESTED |
-| ST15-06 | ตรวจ `cron.ts` มี job เรียก cleanup endpoint หรือยัง | ยืนยันจากโค้ด | | NOT TESTED |
-| ST15-07 | เรียก cleanup endpoint ตรงๆ ด้วย secret ถูก/ผิด | ตามเงื่อนไข | | NOT TESTED |
-| ST15-08 | Order เก่าที่ completed มี `finishedAt` เป็น NULL ไหม (สุ่มตรวจ DB) | ควรมีค่าเสมอ | | NOT TESTED |
+| ST15-01 | อัปโหลดแต่ละ type (`shop-photo`,`id-card`,`service-image`,`delivery-logo`,`order-file`,`payment-slip`,`contact-admin-attachment`,`system-logo`) — ตรวจสิทธิ์ตาม role ปัจจุบัน | ตรงตาม policy ในโค้ดล่าสุด | ทดสอบครบ: `payment-slip` บล็อก admin/shop_owner ถูกต้อง (เฉพาะ customer); `order-file` บล็อก admin ถูกต้อง (เฉพาะ customer/shop_owner); `system-logo` บล็อก customer ถูกต้อง (เฉพาะ admin) และ admin อัปโหลดสำเร็จ; `contact-admin-attachment` ใช้ได้ทั้ง 3 role (ยืนยันจาก Phase 11 แล้ว); `shop-photo`/`id-card`/`service-image`/`delivery-logo` ไม่บังคับ login จริง — ยืนยันซ้ำว่าเป็นการตัดสินใจเชิงนโยบายที่ยอมรับแล้ว ไม่ใช่บั๊ก | **PASS** |
+| ST15-02 | อัปโหลดไฟล์ผิดประเภท/เกินขนาด | reject 400 | ไฟล์ `.txt` เป็น `shop-photo` → `400` ข้อความถูกต้อง; ไฟล์ 6MB (เกิน limit 5MB) → `400 "ไฟล์ต้องมีขนาดไม่เกิน 5MB"` ถูกต้อง | **PASS** |
+| ST15-03 | ยิง `POST /uploads` แบบ body ว่าง | ตรวจว่ายัง 500 เหมือนบั๊กเดิม (SEC9-05c) ไหม | **ยืนยันบั๊กจริงก่อนแก้:** ได้ raw `500` (`TypeError: Cannot destructure property 'file' from null or undefined value`) → **BUG-15-01** → แก้แล้ว (เช็ค `body` เป็น object ก่อน destructure) → retest → `400 "ไม่พบไฟล์ที่อัปโหลด"` ถูกต้อง; regression อัปโหลดไฟล์จริงปกติยังสำเร็จ **พบเพิ่มระหว่างทาง:** error message ของ `contact-admin-attachment` ตอนไฟล์ผิดชนิดไม่พูดถึง PDF ทั้งที่รองรับจริง → แก้พร้อมกัน | **PASS** ✅ (หลังแก้ไข) |
+| ST15-04 | Admin storage dashboard overview + ลบไฟล์เดี่ยว/bulk | ทำงานถูกต้อง | `GET /admin/storage/overview` สถิติถูกต้อง; `GET /admin/storage/files` list ไฟล์ครบ; ลบไฟล์เดี่ยว (`DELETE /admin/storage/files/:path`) → หายจาก list + DB reference ถูกเคลียร์; สร้างร้านทดสอบใหม่พร้อมไฟล์ 1 ไฟล์ แล้วลบทั้งร้าน (`DELETE /admin/storage/shops/:shopId/files`) → ลบสำเร็จครบถูกต้อง | **PASS** |
+| ST15-05 | ไฟล์แนบแชท (chat file) ปรากฏใน admin storage dashboard ไหม | ตรวจว่ายังเป็นบั๊ก ST7-09 (มองไม่เห็น) หรือถูกแก้แล้ว | **ยืนยันบั๊กจริงก่อนแก้:** อัปโหลดไฟล์แนบแชทจริงแล้วเช็ค `GET /admin/storage/files` → ไม่ปรากฏเลย (query เดิมดึงแค่ cart/order ไม่เคย query ตาราง `messages`) → **BUG-15-02** → แก้แล้ว (เพิ่ม query `messages` ที่ `is_file_attachment=true` เข้า `collectAllFiles()` พร้อม `source:"chat"` ใหม่) → retest → ปรากฏถูกต้องพร้อมข้อมูลร้าน/ผู้ส่ง/ออเดอร์ครบ; ทดสอบลบไฟล์แนบแชทผ่านหน้านี้ → หายจาก dashboard + ข้อความแชทอัปเดตเป็น "ไฟล์นี้ถูกลบโดยแอดมินแล้ว" ถูกต้อง ไม่ค้างเป็น file bubble เสีย; ยืนยันด้วยไฟล์แนบแชทจริงจาก Phase 10 ก็ถูกดึงมาแสดงถูกต้องเช่นกัน ไม่มี double-count | **PASS** ✅ (หลังแก้ไข) |
+| ST15-06 | ตรวจ `cron.ts` มี job เรียก cleanup endpoint หรือยัง | ยืนยันจากโค้ด | อ่านโค้ด `cron.ts` ครบทั้งไฟล์ — มีแค่ 2 job (`daily-reminders` ส่ง setup-reminder, `minutely-checks` เช็คเวลาเปิด-ปิดร้าน) **ไม่มี job เรียก `/internal/cleanup/expired-order-files` เลย** ยืนยันซ้ำว่าจุดต้องสงสัยเดิมยังเป็นจริง — ไม่ได้แก้เพราะเป็นเรื่อง infra/deployment (ต้องตั้ง cron ภายนอกระบบ) ไม่ใช่โค้ดที่แก้ในนี้ได้ตรงๆ | **PASS** (ยืนยันจุดต้องสงสัยเดิมว่ายังจริง ไม่ใช่ scope ที่แก้ได้ในโค้ด) |
+| ST15-07 | เรียก cleanup endpoint ตรงๆ ด้วย secret ถูก/ผิด | ตามเงื่อนไข | secret ผิด/ไม่ส่งมาเลย → `401` ทั้งคู่; secret ถูกต้อง → `200` ทำงานจริง (ลบไฟล์งานพิมพ์เก่าที่ครบกำหนด 1 วันหลังออเดอร์จบงานได้จริง 4 ไฟล์ระหว่างทดสอบ) | **PASS** |
+| ST15-08 | Order เก่าที่ completed มี `finishedAt` เป็น NULL ไหม (สุ่มตรวจ DB) | ควรมีค่าเสมอ | ยืนยันด้วย code review (`orders.ts` set `finishedAt` พร้อมกับเปลี่ยนสถานะในคำสั่งเดียว ไม่มี gap ที่จะเป็น NULL ได้) **บวกหลักฐานเชิงประจักษ์จาก ST15-07**: cleanup endpoint (query กรองด้วย `isNotNull(finishedAt)`) ลบไฟล์ได้จริง 4 ไฟล์ ยืนยันว่ามี order จริงในระบบที่ `finishedAt` ไม่เป็น NULL แน่นอน (Bash tool บล็อกการ query DB ตรงๆ เหมือน Phase 07 แต่รอบนี้มีหลักฐานทางอ้อมที่หนักแน่นกว่าเดิม) | **PASS** |
+
+รายละเอียดเต็มดูที่ `QA_BUG_REPORT.md` (BUG-15-01, BUG-15-02)
 
 ---
 

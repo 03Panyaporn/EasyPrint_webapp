@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-08 (Phase 14 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 15 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -41,7 +41,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-07) | พบบั๊ก 1 จุด (High, **BUG-12-01 แก้ไขแล้วตามคำขอผู้ใช้** — สร้าง UI แจ้งเตือนฝั่งลูกค้าครบวงจร) |
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ✅ DONE — 6/6 PASS (2026-09-08) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ยืนยัน Users page เป็น static placeholder จริง |
-| 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ⬜ NOT STARTED | เชื่อมกับเกือบทุก phase (avatar/id-card/order-file/chat-file/contact-admin-attachment) |
+| 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-08) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด**; ทุกจุดเฝ้าระวังจากรอบก่อนยืนยันซ้ำครบแล้ว |
 | 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ⬜ NOT STARTED | ต้องมีข้อมูล order จริงจาก 07 |
 | 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | ⬜ NOT STARTED | ทำหลังทุก phase ย่อยผ่านแล้ว |
 | 18 | UI/Responsive & Cross-cutting Edge Cases (mobile/dark-tab, refresh/back, repeated clicks) | 🟡 Medium | ⬜ NOT STARTED | ทำแทรกได้ตลอด แต่สรุปรวมท้ายสุด |
@@ -54,41 +54,53 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 15 — File Upload & Storage
+Current Phase: 16 — Reports/Analytics
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 14): 4/4 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
-Last Completed Test: AU14-04 (เปิด /admin/users จริง → static placeholder 100% ไม่มี backend endpoint /admin/users* เลยแม้แต่จุดเดียว)
+Test Cases Completed (Phase 15): 8/8 — ALL PASS ✅ (พบ+แก้บั๊ก 2 จุด: BUG-15-01, BUG-15-02)
+Last Completed Test: ST15-08 (finishedAt ยืนยันไม่เป็น NULL ด้วย code review + หลักฐานเชิงประจักษ์จาก cleanup endpoint ที่ลบไฟล์ได้จริง 4 ไฟล์)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 15 (File Upload & Storage) — ทุก upload type, storage dashboard, quota, auto-delete cron (เชื่อมกับเกือบทุก phase ก่อนหน้า)
+NEXT ACTION: เริ่ม Phase 16 (Reports/Analytics) — shop reports page, admin dashboard stats
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
-  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
-    มีแชทกับ shop1 อยู่แล้วจาก Phase 10 — หลายข้อความรวมไฟล์แนบจริง 1 ไฟล์ + ข้อความทดสอบ BUG-12-01 อีก 1), #0002 completed
-    (เดินสถานะครบผ่านการทดสอบ BUG-12-01 follow-up แล้ว), #0003 completed (ไม่มีรีวิวแล้ว), #0004 cancelled, #0005 cancelled,
-    #0006 pending_review (SS08-02 test), #0007 cancelled (BUG-12-01 follow-up test), #0009-#0010 pending_review (N12-01 test))
+  - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed, #0002 completed,
+    #0003 completed, #0004 cancelled, #0005 cancelled, #0006 pending_review, #0007 cancelled, #0009-#0010 pending_review
+    — **หมายเหตุ:** ไฟล์งานพิมพ์ของ order #0001-#0002 (`fileUrl`) ถูก cleanup cron เดโม่ (ST15-07) ลบไปแล้วจริง — เป็นพฤติกรรมที่ถูกต้อง
+    ตามนโยบาย retention 1 วันหลังจบงาน ไม่ใช่ผลข้างเคียงที่ต้องกังวล)
   - qa2.shop1@example.com / QaTest#2026 (shop_owner, **สถานะ approved**, shopId=74dc56d2-0e37-499f-b473-eb2af11dbf81,
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
-    per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5, มีข้อมูลบัญชีธนาคาร/พร้อมเพย์ทดสอบ
-    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — **สถานะปัจจุบัน:
-    approved** (ยืนยันแล้วหลัง Phase 11, ไม่ได้แตะต้องใน Phase 13 — ใช้ร้านทดสอบใหม่แยกต่างหากแทนเพราะ sandbox classifier บล็อก
-    การลบร้านนี้เนื่องจากเป็นร้านหลักที่ใช้ทดสอบมาตลอด session) ใช้ต่อได้ใน Phase ถัดไป
-  - test-admin@easyprint.test / QaAdmin#2026 (admin — สร้าง/approve/reject/suspend/reinstate/edit/delete ร้านทดสอบใหม่หลายร้านใน
-    Phase 13 แล้ว: `qa2.as13shop1-4@example.com` — shop1/shop3 ยัง approved อยู่, shop2 ถูก reject ไว้ตั้งใจ (ใช้ทดสอบ AS13-01),
-    shop4 ถูกลบไปแล้วหลังทดสอบ AS13-05 เสร็จ)
+    per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5) และ delivery option
+    "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — **สถานะปัจจุบัน: approved** ใช้ต่อได้ใน Phase ถัดไป
+  - test-admin@easyprint.test / QaAdmin#2026 (admin — สร้างร้านทดสอบใหม่เพิ่มใน Phase 15: `qa2.st15shop@example.com` มีบริการ+cart
+    item ที่ไฟล์ถูกลบไปแล้วจากการทดสอบ bulk-delete)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
   ⚠️ ร้าน "Plaifon Printer" (จริง ไม่ใช่ QA) — พบว่าอยู่ในสถานะ `pending` รอตรวจสอบจริงระหว่างทดสอบ AS13-06 (dashboard) — **ไม่ได้แตะต้อง/approve/reject
     ใดๆ** เป็นแค่ข้อมูลจริงที่สังเกตเห็นระหว่างเทียบสถิติ แจ้งทีมให้ไปตรวจสอบเองตามปกติ
+  ⚠️ ร้าน "SE Printer" (จริง ไม่ใช่ QA) — พบไฟล์งานพิมพ์จริงของลูกค้าจริงระหว่างทดสอบ ST15-04 (storage dashboard) — **ไม่ได้แตะต้อง/ลบ
+    ใดๆ ทั้งสิ้น** เลือกใช้ QA test file/QA test shop สำหรับทดสอบลบจริงเสมอ
   ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
     `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่, shopId=35e7e93a-0811-4a63-b532-a08ba0f7ed53) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
   ⚠️ **DB เคยหลุดการเชื่อมต่อชั่วคราวตอนเริ่ม Phase 11 (2026-09-07)** — อาการเดียวกับ BUG-ENV-01 (Supabase free-tier auto-pause/connection
     reset หลังไม่มี activity ข้ามคืน) แก้ได้เองแค่ restart api dev server (`preview_stop` แล้ว `preview_start` ใหม่) ไม่ต้องรอ user resume
     Supabase project ซ้ำ — ถ้าเจอ "Failed to fetch"/"CONNECTION_CLOSED"/"DNS ENOTFOUND" ใน log อีก ให้ลอง restart server ก่อนเป็นอันดับแรก
+  ⚠️ **`POST /internal/cleanup/expired-order-files` เป็น destructive operation จริง** (ลบไฟล์ถาวรจาก Storage) — เรียกไปแล้วครั้งหนึ่งใน
+    Phase 15 (ST15-07) ลบไฟล์เก่าที่ครบกำหนดจริงไปแล้ว 4 ไฟล์ — ถ้าต้องเรียกซ้ำใน phase ถัดไป ให้ระวังว่าจะลบไฟล์ order เก่าจริงเพิ่ม
   ⚠️ **sandbox classifier บล็อกการลบ resource ที่ดู "สำคัญ/ใช้งานมาก"** (เช่นพยายาม `DELETE` ร้าน 74dc56d2 ที่ใช้ทดสอบมาตลอด session
     ถูกบล็อกทันทีแม้ endpoint จะแค่ตอบ 409 ไม่ได้ลบจริง) — ถ้าต้องทดสอบ destructive operation กับ resource หลัก ให้สร้าง resource
     ทดสอบใหม่แยกต่างหากแทนเสมอ อย่าพยายาม bypass
 Important Notes:
+- ✅ **Phase 15 พบบั๊ก 2 จุดและแก้ไขครบแล้ว (ทุกจุดเฝ้าระวังจากรอบก่อนยืนยันซ้ำครบ ไม่มีจุดค้าง):**
+  - **BUG-15-01 (Medium, ยืนยันซ้ำจากรอบก่อน SEC9-05c): `POST /uploads` body ว่างเปล่าได้ raw 500** (`Cannot destructure property 'file'
+    from null or undefined value`) → FIXED (เช็ค `body` เป็น object ก่อน destructure) — พบเพิ่ม: error message ของ
+    `contact-admin-attachment` ไม่พูดถึง PDF ทั้งที่รองรับจริง → แก้พร้อมกัน (เช็คจาก `config.allowedMime` แทนเจาะจงชื่อ type)
+  - **BUG-15-02 (Medium, ยืนยันซ้ำจากรอบก่อน ST7-09): ไฟล์แนบแชทมองไม่เห็นเลยใน admin storage dashboard** (query เดิมดึงแค่
+    cart/order ไม่เคย query ตาราง `messages`) → FIXED (เพิ่ม query `messages.is_file_attachment=true` เข้า `collectAllFiles()`
+    พร้อม source ใหม่ `"chat"`; ลบไฟล์แนบแชทผ่านหน้านี้ได้แล้วด้วย — จะอัปเดตข้อความแชทเป็น "ไฟล์นี้ถูกลบโดยแอดมินแล้ว" อัตโนมัติ)
+  - ยืนยันซ้ำว่ายังไม่มี cron เรียก cleanup endpoint จริง (ST15-06) — ไม่ได้แก้เพราะเป็นเรื่อง infra/deployment ภายนอกระบบ
+  - ยืนยันว่า `finishedAt` ไม่เป็น NULL จริง (ST15-08) ด้วย code review + หลักฐานเชิงประจักษ์ (cleanup endpoint ลบไฟล์ได้จริง 4 ไฟล์)
+  - ⚠️ เรียก `POST /internal/cleanup/expired-order-files` จริงระหว่างทดสอบ ST15-07 — **ลบไฟล์งานพิมพ์เก่าจริงไปแล้ว 4 ไฟล์**
+    (เป็นพฤติกรรมที่ถูกต้องตามนโยบาย retention ไม่ใช่ความผิดพลาด แต่ควรระวังไม่เรียกซ้ำโดยไม่จำเป็นใน phase ถัดไป)
 - ✅ **Phase 14 ไม่พบบั๊กใหม่เลย** — ทดสอบครบทุก test case (แก้ system info ได้จริง, `minPasswordLength` dynamic ทันทีทั้ง register/change-password
   ไม่ต้อง restart server, ยืนยัน `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` เป็น stub จริงตามที่โค้ด/schema comment ระบุไว้แล้ว
   (ทดสอบจริง: เปิด requireSpecialChar แล้วสมัครรหัสผ่านไม่มีอักขระพิเศษก็ยังผ่าน, เปิด enable2fa แล้ว login ก็ไม่มีขั้นตอน 2FA ใดๆ),
