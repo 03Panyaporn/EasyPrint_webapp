@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-07 (Phase 12 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 13 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -39,7 +39,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 10 | Chat/Messaging (rooms, send/read, file attach — **เขียนใหม่ทั้งไฟล์เมื่อไม่นานมานี้**) | 🔴 Critical | ✅ DONE — 9/9 PASS (2026-09-06) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-07) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-07) | พบบั๊ก 1 จุด (High, **BUG-12-01 แก้ไขแล้วตามคำขอผู้ใช้** — สร้าง UI แจ้งเตือนฝั่งลูกค้าครบวงจร) |
-| 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ⬜ NOT STARTED | กระทบทุกฟีเจอร์อื่นเมื่อ suspend |
+| 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ✅ DONE — 6/6 PASS (2026-09-08) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ⬜ NOT STARTED | Users page ดูเหมือนเป็น stub — ต้องยืนยัน |
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ⬜ NOT STARTED | เชื่อมกับเกือบทุก phase (avatar/id-card/order-file/chat-file/contact-admin-attachment) |
 | 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ⬜ NOT STARTED | ต้องมีข้อมูล order จริงจาก 07 |
@@ -54,12 +54,12 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 13 — Admin: Shop Management
+Current Phase: 14 — Admin: System Settings & Users
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 12): 5/5 — ALL PASS ✅ (พบ+แก้บั๊ก 1 จุด: BUG-12-01 ตามคำขอผู้ใช้)
-Last Completed Test: N12-05 (หยุด API server ~20 วิระหว่างเปิดหน้า /shop ค้างไว้ → ไม่ crash, restart server กลับมา → poll cycle ถัดไป reconnect เองอัตโนมัติไม่ต้อง refresh) + BUG-12-01 fix verify end-to-end (shop ส่งแชทใหม่ → ลูกค้าเห็น badge เพิ่มอัตโนมัติ)
+Test Cases Completed (Phase 13): 6/6 — ALL PASS ✅ (พบ+แก้บั๊ก 1 จุด: BUG-13-01)
+Last Completed Test: AS13-06 (dashboard stats เทียบกับ GET /admin/shops ตรงกันเป๊ะทุกตัวเลข รวม pendingShops list)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 13 (Admin: Shop Management) — approve/reject/suspend/reinstate/edit/delete + admin dashboard
+NEXT ACTION: เริ่ม Phase 14 (Admin: System Settings & Users) — Users page ดูเหมือนเป็น stub ต้องยืนยัน
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
   - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
@@ -70,18 +70,29 @@ NEXT ACTION: เริ่ม Phase 13 (Admin: Shop Management) — approve/rejec
     มีบริการทดสอบ "QA Duplex Test Service" (id=051e9cbb-9065-47dc-a5e8-fe9ee3475de0, per_page, มี cart_item ค้างอยู่ใน
     ตะกร้าของ qa2.customer2 โดยตั้งใจ — ใช้ยืนยัน BUG-06-01 อยู่), "QA Fixed Price Service" (id=d74fc746-517d-424e-a6b7-406064d48e74,
     per_piece, มี add-on "QA เคลือบพลาสติก" ผูกอยู่แล้ว id=913e36a4-e86a-4027-beb2-6079617e8f15 ฿5, มีข้อมูลบัญชีธนาคาร/พร้อมเพย์ทดสอบ
-    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — ถูก suspend/approve สลับไปมา
-    หลายรอบระหว่างทดสอบ Phase 08/11 แล้ว (**สถานะปัจจุบัน: approved** — ยืนยันแล้วหลัง Phase 11) ใช้ต่อได้ใน Phase ถัดไป
-  - test-admin@easyprint.test / QaAdmin#2026 (admin, ทดสอบ suspend/approve ร้าน 74dc56d2 ไปแล้วหลายรอบ, ทดสอบ mark-read/read-all
-    admin notifications ไปแล้ว unreadCount ปัจจุบัน = 0)
+    แล้วจาก SS08-01) และ delivery option "จัดส่งในเมือง" (id=650272af-e000-4486-905d-99d112b2c2f3, ฿30) อยู่แล้ว — **สถานะปัจจุบัน:
+    approved** (ยืนยันแล้วหลัง Phase 11, ไม่ได้แตะต้องใน Phase 13 — ใช้ร้านทดสอบใหม่แยกต่างหากแทนเพราะ sandbox classifier บล็อก
+    การลบร้านนี้เนื่องจากเป็นร้านหลักที่ใช้ทดสอบมาตลอด session) ใช้ต่อได้ใน Phase ถัดไป
+  - test-admin@easyprint.test / QaAdmin#2026 (admin — สร้าง/approve/reject/suspend/reinstate/edit/delete ร้านทดสอบใหม่หลายร้านใน
+    Phase 13 แล้ว: `qa2.as13shop1-4@example.com` — shop1/shop3 ยัง approved อยู่, shop2 ถูก reject ไว้ตั้งใจ (ใช้ทดสอบ AS13-01),
+    shop4 ถูกลบไปแล้วหลังทดสอบ AS13-05 เสร็จ)
   ⚠️ มี admin จริงของทีมอีกบัญชี `shop01.john@gmail.com` — **ห้ามแตะ/reset รหัสผ่านบัญชีนี้เด็ดขาด**
   ⚠️ ร้าน TONFAH PRINTER (จริง ไม่ใช่ QA) — แก้ราคา ฿0→฿1/฿50 ของ "ถ่ายเอกสารขาวดำ"/"โปสเตอร์" ไปแล้ว (BUG-05-02) แจ้งทีมถ้าเจ้าของร้านจริงสงสัยว่าทำไมราคาเปลี่ยน
+  ⚠️ ร้าน "Plaifon Printer" (จริง ไม่ใช่ QA) — พบว่าอยู่ในสถานะ `pending` รอตรวจสอบจริงระหว่างทดสอบ AS13-06 (dashboard) — **ไม่ได้แตะต้อง/approve/reject
+    ใดๆ** เป็นแค่ข้อมูลจริงที่สังเกตเห็นระหว่างเทียบสถิติ แจ้งทีมให้ไปตรวจสอบเองตามปกติ
   ⚠️ มีบัญชี QA throwaway 2 บัญชีที่ **ตั้งใจ** ลบไม่ได้ (ใช้ยืนยัน BUG-08-01 ค้างไว้เป็นหลักฐานอยู่ — ไม่ต้องลบออก ไม่กระทบ phase อื่น):
     `qa2.ss08throwaway@example.com` (shop_owner มีร้านผูกอยู่, shopId=35e7e93a-0811-4a63-b532-a08ba0f7ed53) และ `qa2.ss08orderonly@example.com` (customer มี order #0008 ผูกอยู่)
   ⚠️ **DB เคยหลุดการเชื่อมต่อชั่วคราวตอนเริ่ม Phase 11 (2026-09-07)** — อาการเดียวกับ BUG-ENV-01 (Supabase free-tier auto-pause/connection
     reset หลังไม่มี activity ข้ามคืน) แก้ได้เองแค่ restart api dev server (`preview_stop` แล้ว `preview_start` ใหม่) ไม่ต้องรอ user resume
     Supabase project ซ้ำ — ถ้าเจอ "Failed to fetch"/"CONNECTION_CLOSED"/"DNS ENOTFOUND" ใน log อีก ให้ลอง restart server ก่อนเป็นอันดับแรก
+  ⚠️ **sandbox classifier บล็อกการลบ resource ที่ดู "สำคัญ/ใช้งานมาก"** (เช่นพยายาม `DELETE` ร้าน 74dc56d2 ที่ใช้ทดสอบมาตลอด session
+    ถูกบล็อกทันทีแม้ endpoint จะแค่ตอบ 409 ไม่ได้ลบจริง) — ถ้าต้องทดสอบ destructive operation กับ resource หลัก ให้สร้าง resource
+    ทดสอบใหม่แยกต่างหากแทนเสมอ อย่าพยายาม bypass
 Important Notes:
+- ✅ **Phase 13 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**:
+  - **BUG-13-01 (Medium, ยืนยันซ้ำจากรอบก่อน A3-07): Reinstate ร้านที่ suspended ได้ข้อความแจ้งเตือนเหมือนอนุมัติร้านสมัครใหม่เป๊ะ**
+    → FIXED — เพิ่ม `SELECT` เช็คสถานะเดิมก่อน `UPDATE` ใน `PATCH /admin/shops/:id/approve` ถ้าเดิมเป็น `suspended` (reinstate)
+    → ส่งข้อความ "การระงับการใช้งาน...ถูกยกเลิกแล้ว" แทน; กรณี pending/rejected → approved ยังคงใช้ข้อความเดิม ("ยินดีด้วย! ผ่านการตรวจสอบ")
 - ✅ **Phase 12 พบบั๊ก 1 จุดและแก้ไขครบแล้ว (ตามคำขอผู้ใช้ให้แก้เพิ่มเติมหลังรายงานพบ):**
   - **BUG-12-01 (High): ลูกค้าไม่มี UI แจ้งเตือนเลยทั้งระบบ** (ไม่มี bell icon/toast/dropdown ใน `(customer)` แม้แต่จุดเดียว — ต่างจาก
     `(shop)` ที่มีครบ) ทั้งที่ backend สร้าง notification สำหรับลูกค้าไว้ถูกต้อง (admin ตอบกลับคำร้อง, ร้านยกเลิกออเดอร์ ฯลฯ) → FIXED —
