@@ -297,12 +297,14 @@
 **หน้า:** `admin/settings`, `admin/users` (ดูเหมือน stub)
 **API:** `GET/PATCH /admin/settings`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-08)** — ทดสอบผ่าน API ตรง (ทุกค่าที่แก้ทดสอบแล้ว revert กลับค่าเดิมทันทีเพราะเป็นการตั้งค่าระดับระบบทั้งเว็บ) — **ไม่พบบั๊กใหม่เลย**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| AU14-01 | แก้ system info/logo/ติดต่อ | บันทึกถูกต้อง | | NOT TESTED |
-| AU14-02 | `minPasswordLength` มีผลจริงกับ change-password/register | dynamic ทันที | | NOT TESTED |
-| AU14-03 | `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` — ยืนยันว่ายังเป็น stub หรือถูก implement แล้ว | ตามที่ UI disclose | | NOT TESTED |
-| AU14-04 | เปิดหน้า `/admin/users` | ยืนยันว่าเป็น static placeholder จริง ไม่มี logic ซ่อน | | NOT TESTED |
+| AU14-01 | แก้ system info/logo/ติดต่อ | บันทึกถูกต้อง | `PATCH /admin/settings` แก้ `systemName`/`logoUrl`/`contactEmail`/`contactPhone`/`website` → `200` บันทึกถูกต้องครบทุกฟิลด์ → revert กลับค่าเดิมทันทีหลังยืนยัน | **PASS** |
+| AU14-02 | `minPasswordLength` มีผลจริงกับ change-password/register | dynamic ทันที | ตั้ง `minPasswordLength=12` → สมัครสมาชิกด้วยรหัสผ่าน 8 ตัวอักษร (ผ่าน Zod hardcoded min-8 แต่ควรติด dynamic check) → `400 "รหัสผ่านต้องมีอย่างน้อย 12 ตัวอักษร"` ถูกต้อง; สมัครด้วย 12 ตัวอักษร → `200` สำเร็จ; เปลี่ยนรหัสผ่านด้วย 8 ตัวอักษร → `400` ข้อความเดียวกัน ยืนยันว่า dynamic ทันทีทั้ง register และ change-password ไม่ต้อง restart server → revert กลับ 8 | **PASS** |
+| AU14-03 | `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` — ยืนยันว่ายังเป็น stub หรือถูก implement แล้ว | ตามที่ UI disclose | ตรวจโค้ด `packages/shared/src/schemas/admin.ts` มีคอมเมนต์ยืนยันตรงๆ ว่า field เหล่านี้ "เก็บไว้แสดงผลเฉยๆ ยังไม่บังคับใช้จริง"; `grep` ทั่วโค้ด backend/frontend ยืนยันไม่มีจุดไหนอ่านค่าเหล่านี้ไปบังคับใช้เลยนอกจากหน้า settings เอง — ทดสอบจริง: ตั้ง `requireSpecialChar=true` แล้วสมัครด้วยรหัสผ่านไม่มีอักขระพิเศษเลย → `200` สำเร็จ (ไม่ถูกบล็อก); ตั้ง `enable2fa=true` แล้ว login ปกติ → `200` สำเร็จทันทีไม่มีขั้นตอน 2FA ใดๆ เลย — ยืนยันว่ายังเป็น stub จริงตามที่ UI/โค้ด disclose ไม่ใช่บั๊ก → revert กลับค่าเดิมทั้งหมด | **PASS** (ยืนยัน stub ตามที่ตั้งใจ ไม่ใช่บั๊ก) |
+| AU14-04 | เปิดหน้า `/admin/users` | ยืนยันว่าเป็น static placeholder จริง ไม่มี logic ซ่อน | เปิดหน้าจริงในเบราว์เซอร์ → แสดงแค่ข้อความ static บอกว่า "หน้านี้แสดงรายชื่อผู้ใช้งาน..." ไม่มี table/ข้อมูลจริง/API call ใดๆ เลย; `grep` หา backend endpoint `/admin/users*` ทั่วทั้ง API → ไม่พบเลยแม้แต่จุดเดียว ยืนยันเป็น static placeholder 100% ไม่มี logic ซ่อนอยู่จริง | **PASS** |
 
 ---
 

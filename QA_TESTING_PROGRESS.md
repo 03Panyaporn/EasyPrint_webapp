@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-08 (Phase 13 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 14 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -40,7 +40,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 11 | Contact Admin (customer & shop → admin, attachments — **มีฝั่งลูกค้าใหม่**) | 🟠 High | ✅ DONE — 6/6 PASS (2026-09-07) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 12 | Notifications (in-app list, realtime toast, admin notifications — **ฟีเจอร์ใหม่ทั้งหมด**) | 🟠 High | ✅ DONE — 5/5 PASS (2026-09-07) | พบบั๊ก 1 จุด (High, **BUG-12-01 แก้ไขแล้วตามคำขอผู้ใช้** — สร้าง UI แจ้งเตือนฝั่งลูกค้าครบวงจร) |
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ✅ DONE — 6/6 PASS (2026-09-08) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
-| 14 | Admin: System Settings & Users page | 🟡 Medium | ⬜ NOT STARTED | Users page ดูเหมือนเป็น stub — ต้องยืนยัน |
+| 14 | Admin: System Settings & Users page | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ยืนยัน Users page เป็น static placeholder จริง |
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ⬜ NOT STARTED | เชื่อมกับเกือบทุก phase (avatar/id-card/order-file/chat-file/contact-admin-attachment) |
 | 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ⬜ NOT STARTED | ต้องมีข้อมูล order จริงจาก 07 |
 | 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | ⬜ NOT STARTED | ทำหลังทุก phase ย่อยผ่านแล้ว |
@@ -54,12 +54,12 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 14 — Admin: System Settings & Users
+Current Phase: 15 — File Upload & Storage
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 13): 6/6 — ALL PASS ✅ (พบ+แก้บั๊ก 1 จุด: BUG-13-01)
-Last Completed Test: AS13-06 (dashboard stats เทียบกับ GET /admin/shops ตรงกันเป๊ะทุกตัวเลข รวม pendingShops list)
+Test Cases Completed (Phase 14): 4/4 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
+Last Completed Test: AU14-04 (เปิด /admin/users จริง → static placeholder 100% ไม่มี backend endpoint /admin/users* เลยแม้แต่จุดเดียว)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 14 (Admin: System Settings & Users) — Users page ดูเหมือนเป็น stub ต้องยืนยัน
+NEXT ACTION: เริ่ม Phase 15 (File Upload & Storage) — ทุก upload type, storage dashboard, quota, auto-delete cron (เชื่อมกับเกือบทุก phase ก่อนหน้า)
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
   - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed (ไม่มีรีวิวแล้ว,
@@ -89,6 +89,11 @@ NEXT ACTION: เริ่ม Phase 14 (Admin: System Settings & Users) — Users
     ถูกบล็อกทันทีแม้ endpoint จะแค่ตอบ 409 ไม่ได้ลบจริง) — ถ้าต้องทดสอบ destructive operation กับ resource หลัก ให้สร้าง resource
     ทดสอบใหม่แยกต่างหากแทนเสมอ อย่าพยายาม bypass
 Important Notes:
+- ✅ **Phase 14 ไม่พบบั๊กใหม่เลย** — ทดสอบครบทุก test case (แก้ system info ได้จริง, `minPasswordLength` dynamic ทันทีทั้ง register/change-password
+  ไม่ต้อง restart server, ยืนยัน `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` เป็น stub จริงตามที่โค้ด/schema comment ระบุไว้แล้ว
+  (ทดสอบจริง: เปิด requireSpecialChar แล้วสมัครรหัสผ่านไม่มีอักขระพิเศษก็ยังผ่าน, เปิด enable2fa แล้ว login ก็ไม่มีขั้นตอน 2FA ใดๆ),
+  ยืนยัน `/admin/users` เป็น static placeholder 100% ไม่มี backend endpoint ซ่อนอยู่เลย) — **ทุกค่าที่แก้ทดสอบ revert กลับค่าเดิม
+  ทันทีแล้ว** (systemName=EasyPrint, minPasswordLength=8, enable2fa=false ฯลฯ) เพราะเป็นการตั้งค่าระดับระบบทั้งเว็บ ไม่ใช่แค่ QA data
 - ✅ **Phase 13 พบบั๊ก 1 จุดและแก้ไขครบแล้ว**:
   - **BUG-13-01 (Medium, ยืนยันซ้ำจากรอบก่อน A3-07): Reinstate ร้านที่ suspended ได้ข้อความแจ้งเตือนเหมือนอนุมัติร้านสมัครใหม่เป๊ะ**
     → FIXED — เพิ่ม `SELECT` เช็คสถานะเดิมก่อน `UPDATE` ใน `PATCH /admin/shops/:id/approve` ถ้าเดิมเป็น `suspended` (reinstate)
