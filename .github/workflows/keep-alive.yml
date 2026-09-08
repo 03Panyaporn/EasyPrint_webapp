@@ -1,0 +1,31 @@
+name: Keep API awake (Render free tier)
+
+# วัตถุประสงค์: ยิง request เบาๆ ไปหา API บน Render ทุก 10 นาที กัน Render free tier
+# sleep เครื่องหลัง idle 15 นาที (ทำให้ผู้ใช้จริงเจอ cold start ~30-50 วิ)
+#
+# วิธีเปิดใช้งานหลัง deploy API ขึ้น Render แล้ว:
+#   1. ไปที่ GitHub repo → Settings → Secrets and variables → Actions → tab "Variables"
+#   2. เพิ่ม repository variable ชื่อ API_URL ค่าเป็น URL จริงของ Render (เช่น https://easyprint-api.onrender.com)
+#   3. เสร็จแล้ว — workflow นี้จะเริ่มยิงอัตโนมัติทุก 10 นาทีตาม schedule ด้านล่าง
+#
+# ถ้ายังไม่ได้ deploy/ยังไม่ตั้งค่า API_URL: job จะ fail (แดง) ทุกครั้งที่รัน ไม่กระทบอะไรอื่น
+# ปิดชั่วคราวได้ที่ Actions tab → เลือก workflow นี้ → "..." → Disable workflow
+
+on:
+  schedule:
+    # ทุก 10 นาที (เร็วกว่าเวลา sleep ของ Render ที่ 15 นาที เพื่อไม่ให้ทันหลับ)
+    - cron: "*/10 * * * *"
+  # กดรันเองได้ทันทีจาก tab Actions เพื่อทดสอบว่า API_URL ตั้งถูกไหม โดยไม่ต้องรอ schedule
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API root endpoint
+        run: |
+          if [ -z "${{ vars.API_URL }}" ]; then
+            echo "::error::ยังไม่ได้ตั้งค่า repository variable ชื่อ API_URL — ดูวิธีตั้งค่าในคอมเมนต์ต้นไฟล์นี้"
+            exit 1
+          fi
+          curl -sf --max-time 20 "${{ vars.API_URL }}/" -o /dev/null && echo "ping สำเร็จ: ${{ vars.API_URL }}"
