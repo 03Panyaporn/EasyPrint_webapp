@@ -540,6 +540,18 @@ export const ordersRoutes = new Elysia()
         kind: row.order.status === "pending_review" ? "reject_payment" : "cancel",
         reasonLabel: CANCEL_REASON_LABELS[effectiveCancelReason],
       }).catch((err) => console.error("ส่งอีเมลแจ้งเตือนลูกค้าไม่สำเร็จ:", err));
+
+      // แจ้งเตือนในแอป (bell/toast) ให้ลูกค้าด้วย ไม่ใช่แค่อีเมล — เดิมมีแค่อีเมลอย่างเดียวตอนร้านยกเลิก/ปฏิเสธ
+      // ทั้งที่ฝั่งร้านได้ in-app notification ทุกครั้งที่ลูกค้ายกเลิก (ดู typeId: 2 ด้านล่าง) ไม่สมมาตรกัน
+      // (พบจาก QA Phase 17 — E17-04: ยกเลิกออเดอร์กลางทาง ลูกค้าไม่เห็น notification ในแอปเลย มีแค่อีเมล)
+      await createNotification({
+        userId: row.order.customerId,
+        typeId: 17, // 17 = ออเดอร์ถูกยกเลิกโดยร้าน (ลูกค้า)
+        category: "general",
+        title: `ออเดอร์ ${updated.code} ถูกยกเลิก`,
+        message: `ร้าน ${row.shop?.name ?? ""} ${row.order.status === "pending_review" ? "ปฏิเสธการชำระเงินของ" : "ยกเลิก"}ออเดอร์ ${updated.code} — เหตุผล: ${CANCEL_REASON_LABELS[effectiveCancelReason]}`,
+        link: `/orders/${updated.id}`,
+      }).catch((err) => console.error("สร้างการแจ้งเตือนออเดอร์ถูกยกเลิกไม่สำเร็จ:", err));
     }
 
     // แจ้งเตือนแอดมินทุกครั้งที่มีออเดอร์ถูกยกเลิก/ปฏิเสธการชำระเงิน ไม่ว่าฝั่งไหนเป็นคนกด — เผื่อเป็นสัญญาณปัญหาร้าน (ปฏิเสธถี่ผิดปกติ) หรือลูกค้า (ยกเลิกถี่ผิดปกติ)
@@ -562,6 +574,21 @@ export const ordersRoutes = new Elysia()
         message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
       });
     }
+
+    // แจ้งเตือนลูกค้าทุกครั้งที่ร้านเปลี่ยนสถานะเดินหน้า (ไม่ใช่ยกเลิก) — เดิมไม่มี notification ฝั่งลูกค้าเลยสำหรับสถานะปกติ
+    // (รับงานแล้ว/กำลังดำเนินการ/กำลังจัดส่ง/เสร็จสิ้น) มีแค่ตอนยกเลิก/ปฏิเสธเท่านั้น (ยืนยันบั๊กจริงจาก QA Phase 12 —
+    // ผู้ใช้ขอให้เสริมเพิ่มหลังพบว่า BUG-12-01 แก้แค่ UI แต่ backend ไม่เคยสร้างข้อมูลนี้ให้ลูกค้าตั้งแต่แรก)
+    if (nextStatus !== "cancelled" && !isCustomerOwner && row.customer) {
+      await createNotification({
+        userId: row.order.customerId,
+        typeId: 16, // 16 = อัปเดตสถานะออเดอร์ (ลูกค้า)
+        category: "general",
+        title: `ออเดอร์ ${updated.code} ${STATUS_LABELS[nextStatus]}`,
+        message: `ร้าน ${row.shop?.name ?? ""} อัปเดตสถานะออเดอร์ ${updated.code} เป็น "${STATUS_LABELS[nextStatus]}" แล้ว`,
+        link: `/orders/${updated.id}`,
+      }).catch((err) => console.error("สร้างการแจ้งเตือนอัปเดตสถานะออเดอร์ไม่สำเร็จ:", err));
+    }
+
     return { order: await withSignedFileUrls(serializeOrder(updated, row.customer)) };
   });
 

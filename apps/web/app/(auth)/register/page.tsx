@@ -85,7 +85,9 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register({ email, password, firstname, lastname, phone, address: address || undefined });
-      router.push("/orders");
+      // ใช้ replace แทน push (เหมือนหน้า login) — push เฉยๆ แล้วตามด้วย refresh() ทันที
+      // ทำให้ navigation ไม่เกิดขึ้นจริงฝั่ง client (RSC fetch สำเร็จแต่หน้าไม่เปลี่ยน) เป็นบั๊กที่ยืนยันแล้วจากการทดสอบจริง
+      router.replace("/orders");
       router.refresh();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

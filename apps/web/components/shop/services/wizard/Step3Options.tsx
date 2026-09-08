@@ -51,8 +51,9 @@ function buildDefaultOptions(mode: PricingMode, pricingModel: PricingModel): Ser
       type: "radio" as ServiceOptionType,
       priceCategory: "printing_side" as OptionPriceCategory,
       values: [
-        { name: "หน้าเดียว", extraPrice: 0, priceScope: scope },
-        { name: "หน้าหลัง (2 ด้าน)", extraPrice: 2, priceScope: scope },
+        { name: "หน้าเดียว", extraPrice: 0, priceScope: scope, isDuplex: false },
+        // isDuplex: true — บอกระบบว่าค่านี้แทน "พิมพ์สองหน้า" เพื่อ auto-override วิธีนับหน้าเป็น "นับตามแผ่น" ตอนคำนวณราคาจริง
+        { name: "หน้าหลัง (2 ด้าน)", extraPrice: 2, priceScope: scope, isDuplex: true },
       ],
     },
   ];
@@ -96,12 +97,16 @@ function availablePriceCategories(pricingModel: PricingModel): OptionPriceCatego
 function ValueRow({
   value,
   scopeLabel,
+  showDuplexToggle,
   onChange,
+  onSetDuplex,
   onRemove,
 }: {
   value: ServiceOptionValue;
   scopeLabel: string;
+  showDuplexToggle: boolean;
   onChange: (v: ServiceOptionValue) => void;
+  onSetDuplex: (checked: boolean) => void;
   onRemove: () => void;
 }) {
   return (
@@ -123,6 +128,20 @@ function ValueRow({
         className="w-20 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25"
       />
       <span className="text-xs text-gray-400 w-20 shrink-0">{scopeLabel}</span>
+      {showDuplexToggle && (
+        <label
+          title="ติ๊กถ้าค่านี้แทน 'พิมพ์สองหน้า' — ระบบจะคิดค่ากระดาษ/แผ่นเป็นครึ่งหนึ่งอัตโนมัติเมื่อลูกค้าเลือกค่านี้ (เลือกได้แค่ 1 ค่าต่อหัวข้อ)"
+          className="flex items-center gap-1 text-[11px] text-gray-500 whitespace-nowrap cursor-pointer"
+        >
+          <input
+            type="checkbox"
+            checked={value.isDuplex ?? false}
+            onChange={(e) => onSetDuplex(e.target.checked)}
+            className="accent-orange-500"
+          />
+          พิมพ์ 2 หน้า
+        </label>
+      )}
       <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition">
         <Trash2 size={13} />
       </button>
@@ -169,6 +188,14 @@ function OptionSection({
   const updateValue = (i: number, v: ServiceOptionValue) =>
     onChange({ ...option, values: option.values.map((old, idx) => (idx === i ? v : old)) });
 
+  // ตั้งค่าใดค่าหนึ่งเป็น "พิมพ์สองหน้า" (isDuplex) — ทำแบบ radio ในตัว: เลือกค่านี้แล้วปิดค่าอื่นในหัวข้อเดียวกันทั้งหมด
+  // (schema บังคับว่าต่อหัวข้อ printing_side มีค่า isDuplex=true ได้แค่ 1 ค่าเท่านั้น)
+  const setDuplexValue = (i: number, checked: boolean) =>
+    onChange({
+      ...option,
+      values: option.values.map((v, idx) => ({ ...v, isDuplex: idx === i ? checked : false })),
+    });
+
   const changeGroupScope = (scope: PriceScope) =>
     onChange({ ...option, values: option.values.map((v) => ({ ...v, priceScope: scope })) });
 
@@ -201,7 +228,13 @@ function OptionSection({
           {!isStandard && (
             <select
               value={option.priceCategory}
-              onChange={(e) => onChange({ ...option, priceCategory: e.target.value as OptionPriceCategory })}
+              onChange={(e) => {
+                const priceCategory = e.target.value as OptionPriceCategory;
+                // ย้ายหมวดออกจาก printing_side แล้ว ต้องเคลียร์ isDuplex ทิ้งด้วย ไม่งั้นจะโดน schema refine ปฏิเสธ
+                // แบบเงียบๆ (checkbox หายไปจาก UI แล้วแต่ค่าเดิมยังติดอยู่ข้างใน state)
+                const values = priceCategory === "printing_side" ? option.values : option.values.map((v) => ({ ...v, isDuplex: false }));
+                onChange({ ...option, priceCategory, values });
+              }}
               title="หมวดราคา — กันสร้างตัวเลือกที่ทำหน้าที่ซ้ำกัน"
               className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500/25 bg-white"
             >
@@ -237,7 +270,9 @@ function OptionSection({
             key={i}
             value={v}
             scopeLabel={scopeLabels[groupScope]}
+            showDuplexToggle={option.priceCategory === "printing_side"}
             onChange={(updated) => updateValue(i, updated)}
+            onSetDuplex={(checked) => setDuplexValue(i, checked)}
             onRemove={() => removeValue(i)}
           />
         ))}

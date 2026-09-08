@@ -52,6 +52,10 @@ export const serviceOptionValueSchema = z.object({
   name: z.string().trim().min(1, "กรุณากรอกชื่อค่าตัวเลือก").max(100),
   extraPrice: z.number().nonnegative("ราคาเพิ่มต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
   priceScope: priceScopeSchema.default("per_item"),
+  // มีความหมายเฉพาะตอน option แม่ (priceCategory) เป็น "printing_side" — true = ค่านี้แทน "พิมพ์สองหน้า"
+  // ใช้ auto-override page_counting_mode เป็น by_sheet ตอนคำนวณราคาจริงถ้าลูกค้าเลือกค่านี้ (แก้บั๊ก QA Phase 05:
+  // เดิมเลือก "หน้าหลัง" แล้วจำนวนแผ่นที่คิดเงินไม่ลดลงเลย เพราะ page_counting_mode เป็นค่าคงที่ระดับบริการ)
+  isDuplex: z.boolean().default(false),
 });
 export type ServiceOptionValueInput = z.infer<typeof serviceOptionValueSchema>;
 
@@ -250,6 +254,39 @@ function refineSizeCategoryNotAllowedForSqm(
   });
 }
 
+// isDuplex มีความหมายเฉพาะหัวข้อ priceCategory = "printing_side" — หัวข้ออื่น (paper/size/other) ต้องไม่มีค่าไหนตั้ง true
+// เพื่อกันร้านค้าตั้งผิดหมวดโดยไม่ตั้งใจแล้วระบบไปคำนวณ page_counting_mode override ผิดจุด (สเปกเสริมของ printing_side)
+// และภายในหัวข้อ printing_side เดียวกัน ต้องมีค่า isDuplex=true ได้ไม่เกิน 1 ค่า (ไม่งั้นระบบไม่รู้ว่าค่าไหนคือ "พิมพ์สองหน้า" ตัวจริง)
+function refineIsDuplexOnlyForPrintingSide(
+  d: { options?: ServiceOptionInput[] },
+  ctx: z.RefinementCtx
+) {
+  if (!d.options) return;
+  d.options.forEach((opt, optIdx) => {
+    const duplexValueIdxs = opt.values
+      .map((v, i) => (v.isDuplex ? i : -1))
+      .filter((i) => i !== -1);
+    if (duplexValueIdxs.length === 0) return;
+    if (opt.priceCategory !== "printing_side") {
+      duplexValueIdxs.forEach((valIdx) => {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `"พิมพ์สองหน้า" ตั้งได้เฉพาะหัวข้อหมวด "ด้านพิมพ์ (หน้าเดียว/สองหน้า)" เท่านั้น — หัวข้อ "${opt.name || "-"}" ใช้หมวดอื่นอยู่`,
+          path: ["options", optIdx, "values", valIdx, "isDuplex"],
+        });
+      });
+      return;
+    }
+    if (duplexValueIdxs.length > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `หัวข้อ "${opt.name || "-"}" ตั้ง "พิมพ์สองหน้า" ได้แค่ 1 ค่าเท่านั้น (เจอ ${duplexValueIdxs.length} ค่า)`,
+        path: ["options", optIdx],
+      });
+    }
+  });
+}
+
 function refineMainService(
   d: {
     options?: ServiceOptionInput[];
@@ -264,6 +301,7 @@ function refineMainService(
   refineQuantityTierOverlap(d, ctx);
   refineQuantityTiersOnlyForPerPiece(d, ctx);
   refineSizeCategoryNotAllowedForSqm(d, ctx);
+  refineIsDuplexOnlyForPrintingSide(d, ctx);
 }
 
 export const createMainServiceSchema = mainServiceObjectSchema.superRefine(refineMainService);

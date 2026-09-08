@@ -120,6 +120,20 @@
       "when": 1787545426000,
       "tag": "0016_admin_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788674818399,
+      "tag": "0017_add_option_value_is_duplex",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788675600000,
+      "tag": "0018_add_message_is_file_attachment",
+      "breakpoints": true
     }
   ]
 }

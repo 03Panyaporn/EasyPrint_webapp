@@ -193,10 +193,16 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
   })
 
   // อนุมัติร้าน — ใช้ทั้ง 2 กรณี: ร้านสมัครใหม่ (pending → approved) และ "คืนสถานะ" ร้านที่เคยถูกระงับ (suspended → approved)
-  // ทั้งสองกรณีทำสิ่งเดียวกันเป๊ะ (ตั้ง approved + ล้างเหตุผลเดิม) เลยไม่แยก endpoint /reinstate ต่างหาก
+  // ทั้งสองกรณี update DB เหมือนกันเป๊ะ (ตั้ง approved + ล้างเหตุผลเดิม) เลยไม่แยก endpoint /reinstate ต่างหาก
+  // แต่ข้อความแจ้งเตือนต้องต่างกัน — ยืนยันบั๊กจริงจาก QA Phase 13 (AS13-03, เดิม A3-07): reinstate หลังถูกระงับเคยได้ข้อความ
+  // "ยินดีด้วย! ผ่านการตรวจสอบ..." เหมือนอนุมัติร้านสมัครใหม่เป๊ะ ทั้งที่บริบทต่างกันมาก (ร้านเคยเปิดขายอยู่แล้วแค่โดนระงับชั่วคราว
+  // ไม่ใช่เพิ่งผ่านการตรวจสอบครั้งแรก) ต้องอ่านสถานะ "ก่อน" อัปเดตมาเช็คก่อนถึงจะรู้ว่าเป็นกรณีไหน
   .patch("/shops/:id/approve", async ({ params, cookie, set }) => {
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
+
+    const [before] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.id, params.id));
+    const isReinstate = before?.approvalStatus === "suspended";
 
     const [shop] = await db
       .update(shops)
@@ -213,8 +219,10 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       userId: shop.ownerId,
       typeId: 4,
       category: "general", // 4 = แอดมินอนุมัติเรื่อง
-      title: "ร้านค้าของคุณได้รับการอนุมัติแล้ว",
-      message: "ยินดีด้วย! บัญชีร้านค้าของคุณผ่านการตรวจสอบและพร้อมเปิดให้บริการแล้ว",
+      title: isReinstate ? "การระงับการใช้งานร้านค้าของคุณถูกยกเลิกแล้ว" : "ร้านค้าของคุณได้รับการอนุมัติแล้ว",
+      message: isReinstate
+        ? "ร้านค้าของคุณกลับมาเปิดให้บริการได้ตามปกติแล้ว ขอบคุณที่ให้ความร่วมมือ"
+        : "ยินดีด้วย! บัญชีร้านค้าของคุณผ่านการตรวจสอบและพร้อมเปิดให้บริการแล้ว",
     });
 
     return { shop };

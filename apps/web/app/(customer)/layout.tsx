@@ -1,9 +1,13 @@
 import { Printer, Phone, Mail } from "lucide-react";
 import CustomerHeader from "@/components/customer/CustomerHeader";
+import { ToastProvider } from "@/contexts/ToastContext";
+import CustomerNotificationListener from "@/components/customer/CustomerNotificationListener";
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <ToastProvider>
+      <CustomerNotificationListener />
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <CustomerHeader variant="auth" />
       {children}
       <footer className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 text-white mt-12 sm:mt-16 py-10 sm:py-12 px-6 sm:px-12 lg:px-20">
@@ -91,6 +95,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
           © {new Date().getFullYear()} EasyPrint. All rights reserved.
         </div>
       </footer>
-    </div>
+      </div>
+    </ToastProvider>
   );
 }

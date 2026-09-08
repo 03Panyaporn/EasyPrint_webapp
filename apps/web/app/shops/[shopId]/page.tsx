@@ -141,22 +141,26 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
     setLoading(true);
     setLoadError("");
 
+    // getMe() แยกออกจาก chain การโหลดร้านโดยเจตนา — guest ที่ยังไม่ login ต้องดูหน้าร้านสาธารณะได้ปกติ
+    // getMe() คืน 401 เสมอสำหรับ guest (พฤติกรรมปกติ ไม่ใช่ error) ถ้าเอาไปรวม chain เดียวกับ getShop/getMainServices
+    // แล้ว catch รวมกัน จะทำให้ guest ทุกคนถูกเข้าใจผิดว่า "โหลดร้านไม่สำเร็จเพราะไม่มีสิทธิ์" แล้วโดน redirect
+    // ไป /login ทั้งที่ร้านนั้นเป็นร้านสาธารณะปกติ (ยืนยันบั๊กจริงจาก QA Phase 04 — BUG-04-01)
     getMe()
       .then((meRes) => {
+        if (!cancelled && meRes?.user) setUser(meRes.user);
+      })
+      .catch(() => {
+        // guest ไม่ได้ login — ปกติ ไม่ต้องทำอะไร ไม่ redirect
+      });
+
+    Promise.all([getShop(params.shopId), getMainServices(params.shopId)])
+      .then(([shopRes, servicesRes]) => {
         if (cancelled) return;
-        if (meRes?.user) setUser(meRes.user);
-        return Promise.all([getShop(params.shopId), getMainServices(params.shopId)]).then(([shopRes, servicesRes]) => {
-          if (cancelled) return;
-          setShop(shopRes.shop);
-          setMainServices(servicesRes.services);
-        });
+        setShop(shopRes.shop);
+        setMainServices(servicesRes.services);
       })
       .catch((err) => {
         if (cancelled) return;
-        if (err instanceof ApiError && err.status === 401) {
-          router.replace(`/login?redirect=${encodeURIComponent(`/shops/${params.shopId}`)}`);
-          return;
-        }
         setLoadError(err instanceof ApiError && err.status === 404 ? "ไม่พบร้านค้านี้" : "โหลดข้อมูลร้านค้าไม่สำเร็จ");
       })
       .finally(() => {

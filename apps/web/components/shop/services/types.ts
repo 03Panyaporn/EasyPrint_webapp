@@ -31,6 +31,9 @@ export interface ServiceOptionValue {
   name: string;
   extraPrice: number; // ห้ามติดลบ
   priceScope: PriceScope;
+  // มีความหมายเฉพาะตอน option แม่ priceCategory = "printing_side" — true = ค่านี้แทน "พิมพ์สองหน้า"
+  // ใช้ auto-override page_counting_mode เป็น by_sheet ตอนคำนวณราคาจริงถ้าลูกค้าเลือกค่านี้
+  isDuplex?: boolean;
 }
 
 export interface ServiceOption {

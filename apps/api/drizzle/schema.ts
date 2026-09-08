@@ -181,6 +181,11 @@ export const serviceOptionValues = pgTable("service_option_values", {
   extraPrice: numeric("extra_price", { precision: 10, scale: 2 }).notNull().default("0"), // ห้ามติดลบ (บังคับที่ Zod)
   // ขอบเขตการคูณราคาเพิ่มนี้ ต้องอยู่ใน allow-list ตาม pricingModel ของบริการ (บังคับที่ API ชั้นถัดไป) — default per_item ไม่คูณอะไร
   priceScope: priceScopeEnum("price_scope").notNull().default("per_item"),
+  // มีความหมายเฉพาะตอน option.priceCategory = "printing_side" เท่านั้น — true = ค่านี้แทน "พิมพ์สองหน้า"
+  // ใช้ auto-override page_counting_mode เป็น "by_sheet" ตอนคำนวณราคาจริงถ้าลูกค้าเลือกค่านี้ (ไม่ว่า service จะตั้ง
+  // page_counting_mode default ไว้เป็นอะไรก็ตาม) กันไม่ให้ค่ากระดาษ/แผ่นถูกคิดผิดเมื่อลูกค้าเลือกพิมพ์ 2 หน้าเอง
+  // ปกติมีแค่ 1 ค่าต่อหัวข้อ "รูปแบบการพิมพ์" ที่ true (เช่น "หน้าหลัง (2 ด้าน)") ค่าอื่นเป็น false (เช่น "หน้าเดียว")
+  isDuplex: boolean("is_duplex").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -513,6 +518,10 @@ export const messages = pgTable("messages", {
   senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   shopId: uuid("shop_id").notNull().references(() => shops.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  // true เฉพาะตอน server สร้างข้อความจาก filePath จริงเท่านั้น (ดู POST /messages) — ไม่มีวันมาจากการ parse
+  // เนื้อหา content ที่ผู้ใช้พิมพ์เอง กันบั๊ก QA Phase 10 (BUG-10-01/เดิม M10-04/C5-09): ข้อความธรรมดาที่หน้าตา
+  // เหมือน JSON ไฟล์แนบ {"kind":"file",...} เคยถูกตีความเป็นไฟล์แนบจริงผิดๆ ตอนที่ตรวจสอบแค่รูปแบบของ content เอง
+  isFileAttachment: boolean("is_file_attachment").default(false).notNull(),
   isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

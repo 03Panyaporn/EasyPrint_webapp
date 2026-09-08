@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { shops, reviews } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
+import { isValidUUID } from "../utils/validation";
 
 import { updateShopProfileSchema } from "@easyprint/shared";
 
@@ -115,6 +116,11 @@ export const shopsRoutes = new Elysia()
   // ใช้ชื่อ param ":shopId" (ไม่ใช่ ":id") เพราะ Elysia/memoirist บังคับให้ทุก route ที่ path prefix ตรงกันต้องใช้ชื่อ param เดียวกัน
   // ("/shops/:shopId/services" ในไฟล์อื่นประกาศไว้ก่อนแล้ว ถ้าใช้ชื่อไม่ตรงกันจะ error ตอน compile route ทันที)
   .get("/shops/:shopId", async ({ params, set }) => {
+    if (!isValidUUID(params.shopId)) {
+      set.status = 404;
+      return { error: "ไม่พบร้านค้านี้" };
+    }
+
     const [row] = await db
       .select({
         id: shops.id,
@@ -160,9 +166,24 @@ export const shopsRoutes = new Elysia()
   .put("/shops/me", async ({ cookie, body, set }) => {
     const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
     const payload = token ? verifyAuthToken(token) : null;
-    if (!payload || payload.role !== "shop_owner") {
+    if (!payload) {
       set.status = 401;
-      return { error: "ไม่มีสิทธิ์ใช้งาน" };
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+    // ยืนยันบั๊กจริงจาก QA Phase 02 (SEC02-02) — role ผิดควรเป็น 403 (authenticated แต่ไม่มีสิทธิ์) ไม่ใช่ 401
+    // (401 ควรใช้เฉพาะตอนไม่ได้ login เท่านั้น) แก้ไปพร้อมกับ SS08-05 เพราะแก้ endpoint เดียวกัน
+    if (payload.role !== "shop_owner") {
+      set.status = 403;
+      return { error: "ต้องเป็นบัญชีร้านค้าเท่านั้น" };
+    }
+
+    // ยืนยันบั๊กจริงจาก QA Phase 08 (SS08-05) — endpoint นี้ไม่เคยเช็ค approvalStatus เลย ต่างจาก requireShopOwner()
+    // ใน services.ts ที่บล็อกร้าน pending/suspended จากการแก้ไขข้อมูลอยู่แล้ว ทำให้ร้านที่ถูกระงับยังแก้ข้อมูลร้าน
+    // (รวมถึงบัญชีธนาคาร/พร้อมเพย์) ได้ตามปกติราวกับไม่มีอะไรเกิดขึ้น — เพิ่มเช็คให้ตรงกันเพื่อความสอดคล้องทั้งระบบ
+    const [ownedShop] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.ownerId, payload.userId));
+    if (ownedShop && ownedShop.approvalStatus !== "approved") {
+      set.status = 403;
+      return { error: "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน หรือถูกระงับการใช้งานอยู่ ไม่สามารถแก้ไขข้อมูลร้านได้ในขณะนี้" };
     }
 
     const parsed = updateShopProfileSchema.safeParse(body);

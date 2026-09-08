@@ -12,7 +12,7 @@ import {
   updateProfileSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { users, passwordResetTokens, shops } from "../../drizzle/schema";
+import { users, passwordResetTokens, shops, orders, carts } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
 import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
@@ -455,10 +455,31 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
     }
 
-    // ลบผู้ใช้ และฐานข้อมูลจะลบ shop, order ที่ cascade ผูกกัน (หรือถ้าไม่มี cascade ก็ลบผ่าน API นี้)
-    // Assuming cascading deletes are setup in schema for shops referencing users.
+    // shops.owner_id / orders.customer_id ตั้งใจไม่มี ON DELETE CASCADE (กันร้านค้า/ประวัติการขายหายไปเงียบๆ ตอนเจ้าของบัญชีลบตัวเอง —
+    // ดูคอมเมนต์เดียวกันใน services.ts เรื่องลบบริการที่มี cart ผูกอยู่) เลยต้องเช็คก่อนลบเสมอ ไม่งั้น Postgres จะ throw
+    // foreign_key_violation (23503) ดิบๆ ที่ catch ไม่ทัน กลายเป็น raw 500 (ยืนยันบั๊กจริงจาก QA Phase 08 — BUG-08-01
+    // พบว่ากระทบทั้งเจ้าของร้านที่มีร้านผูกอยู่ และลูกค้าทั่วไปที่เคยสั่งซื้อแล้วอย่างน้อย 1 ครั้ง — คือเกือบทุกบัญชีที่ใช้งานจริง)
+    if (user.role === "shop_owner") {
+      const [ownedShop] = await db.select({ id: shops.id }).from(shops).where(eq(shops.ownerId, user.id));
+      if (ownedShop) {
+        set.status = 400;
+        return { error: "ไม่สามารถลบบัญชีได้ เนื่องจากยังมีร้านค้าผูกอยู่กับบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบเพื่อปิด/โอนย้ายร้านค้าก่อนลบบัญชี" };
+      }
+    }
+    const [existingOrder] = await db.select({ id: orders.id }).from(orders).where(eq(orders.customerId, user.id));
+    if (existingOrder) {
+      set.status = 400;
+      return { error: "ไม่สามารถลบบัญชีได้ เนื่องจากมีประวัติการสั่งซื้อผูกอยู่กับบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบ" };
+    }
+
+    // ล้างข้อมูลที่ไม่ใช่ประวัติสำคัญทางธุรกิจ (ตะกร้าที่ยังไม่ checkout / token รีเซ็ตรหัสผ่านเก่า) ก่อนลบผู้ใช้เสมอ —
+    // ทั้งคู่ไม่มี CASCADE เช่นกัน (carts.customer_id, password_reset_tokens.user_id) แต่ไม่ใช่ข้อมูลที่ต้องเก็บรักษาแบบ order/shop
+    // จึงลบทิ้งตรงนี้ได้เลยแทนที่จะ block การลบบัญชีเหมือน 2 เคสด้านบน (cart_items/addons/option_selections มี CASCADE ผูกกับ cart อยู่แล้ว)
+    await db.delete(carts).where(eq(carts.customerId, user.id));
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+
     await db.delete(users).where(eq(users.id, user.id));
-    
+
     cookie[COOKIE_NAME]?.remove();
 
     return { ok: true };

@@ -19,6 +19,7 @@ import {
   PhoneCall,
 } from "lucide-react";
 import { getMe, logout as logoutApi, type PublicUser } from "@/lib/api/auth";
+import CustomerNotificationDropdown from "@/components/customer/CustomerNotificationDropdown";
 
 // nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
 const NAV_LINKS: { label: string; href: string; match?: (pathname: string) => boolean }[] = [
@@ -133,6 +134,9 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
         {/* Right side (Col 3 & Mobile Toggle - Aligned Right) */}
         <div className="flex items-center justify-end gap-3 shrink-0">
           <div className="hidden lg:flex items-center gap-3">
+            {/* Notification Bell — Show ONLY when logged in (auth mode) — แก้ BUG-12-01 (QA Phase 12) */}
+            {variant === "auth" && <CustomerNotificationDropdown />}
+
             {/* Cart Icon — Show ONLY when logged in (auth mode) */}
             {variant === "auth" && (
               <Link
@@ -293,6 +297,9 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
 
           {/* Mobile Menu Toggle */}
           <div className="lg:hidden flex items-center gap-1.5">
+            {/* Notification Bell — Show ONLY when logged in (auth mode) — แก้ BUG-12-01 (QA Phase 12) */}
+            {variant === "auth" && <CustomerNotificationDropdown />}
+
             {/* Cart Icon — Show ONLY when logged in (auth mode) */}
             {variant === "auth" && (
               <Link
