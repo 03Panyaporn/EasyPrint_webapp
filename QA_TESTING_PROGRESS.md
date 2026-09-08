@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-08 (Phase 17 เสร็จสมบูรณ์ — 5/5 PASS หลังพบ+แก้ BUG-17-01 🔴 Critical, BUG-17-02 🟠 High)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 18 เสร็จสมบูรณ์ — 5/5 PASS ไม่พบบั๊กใหม่เลย)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -44,7 +44,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-08) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด**; ทุกจุดเฝ้าระวังจากรอบก่อนยืนยันซ้ำครบแล้ว |
 | 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ตัวเลขตรงกับ order จริงทุกจุด |
 | 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | ✅ DONE — 5/5 PASS (2026-09-08) | พบบั๊ก 2 จุด (**🔴 Critical BUG-17-01** checkout silent rollback, **🟠 High BUG-17-02** ลูกค้าไม่ได้ in-app notification ตอนร้านยกเลิก) — **แก้ไขและ verify แล้วทั้งหมด** |
-| 18 | UI/Responsive & Cross-cutting Edge Cases (mobile/dark-tab, refresh/back, repeated clicks) | 🟡 Medium | ⬜ NOT STARTED | ทำแทรกได้ตลอด แต่สรุปรวมท้ายสุด |
+| 18 | UI/Responsive & Cross-cutting Edge Cases (mobile/dark-tab, refresh/back, repeated clicks) | 🟡 Medium | ✅ DONE — 5/5 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — mobile 375px ไม่มี horizontal scroll ทุกหน้าหลัก, dark mode ไม่มีโดยการออกแบบ (N/A), back/forward ระหว่าง checkout flow ปลอดภัย, refresh กลางฟอร์มไม่ crash (ไม่มี draft-save แต่ยอมรับได้), loading state มี spinner ทุกหน้า |
 | 19 | Regression (สุดท้าย หลังบั๊กถูกแก้) | 🟡 Medium | ⬜ NOT STARTED | รันหลัง dev แก้บั๊กจาก 01-18 |
 
 **ลำดับแนะนำให้เริ่ม:** 01 → 02 → (03,04 คู่กัน) → 06 → 05 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19
@@ -54,12 +54,19 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 17 — End-to-End Integration
+Current Phase: 18 — UI/Responsive & Cross-cutting Edge Cases
 Phase Status: ✅ DONE — 5/5 PASS
-Test Cases Completed (Phase 17): 5/5 — ALL PASS ✅ (พบ+แก้บั๊ก 2 จุด ระหว่างทาง — BUG-17-01 🔴 Critical, BUG-17-02 🟠 High)
-Last Completed Test: E17-05 (upload→completed→cleanup cron เรียกตรง→ไฟล์ยังไม่ถูกลบเพราะไม่เกิน retention 1 วัน — deletedCount:0 ถูกต้อง)
+Test Cases Completed (Phase 18): 5/5 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
+Last Completed Test: UI18-05 (loading state ทุกหน้าหลักมี spinner/ข้อความ ไม่มีหน้าขาวเปล่า)
 Current Page/Feature: -
-NEXT ACTION: รอผู้ใช้สั่ง "ไปต่อ Phase 18" (UI/Responsive & Cross-cutting Edge Cases)
+NEXT ACTION: รอผู้ใช้สั่ง "ไปต่อ Phase 19" (Regression — phase สุดท้าย)
+
+## สรุป Phase 18 — ไม่พบบั๊กใหม่เลย (5/5 PASS)
+- **UI18-01:** Public homepage/shop detail, customer orders, shop dashboard, admin dashboard ทดสอบที่ 375px — ไม่มี horizontal scroll ระดับ page เลยสักหน้า (ตาราง/การ์ดแถวกว้างมี scroll container ของตัวเองแยกต่างหาก ซึ่งถูกต้อง)
+- **UI18-02:** ไม่มี dark mode — ยืนยันจาก `apps/web/DESIGN.md` ว่าเป็นการตัดสินใจเชิงออกแบบตั้งใจ ("no dark mode") ไม่ใช่บั๊ก — N/A
+- **UI18-03:** Back/forward ระหว่าง checkout flow (`/cart` ↔ `/cart/check-out?items=...`) ปลอดภัย data ไม่เพี้ยน ไม่ crash; contact-admin's "ตรวจสอบคำร้อง" เป็น client tab state ไม่กระทบ history
+- **UI18-04:** Refresh กลางฟอร์ม contact-admin — ไม่มี draft-save (ข้อมูลหายตามที่ยอมรับได้) ไม่ crash
+- **UI18-05:** ทุกหน้าหลักมี loading spinner + ข้อความภาษาไทยระหว่างโหลดข้อมูลจริงจาก Supabase ไม่มีหน้าขาวเปล่าเลย
 
 ## 🔴 BUG-17-01 พบระหว่าง E17-01 (สรุปสั้น — รายละเอียดเต็มใน QA_BUG_REPORT.md)
 Checkout ตอบ `200` พร้อม `order.id`/`order.code` เหมือนสำเร็จ แต่ตรวจ DB จริงพบว่า **transaction ไม่เคย commit** — order หายทั้งหมด, cart ก็ไม่ถูกเคลียร์ (ลูกค้าสั่งซ้ำได้ไอเทมปนกัน+เลขออเดอร์ซ้ำ)

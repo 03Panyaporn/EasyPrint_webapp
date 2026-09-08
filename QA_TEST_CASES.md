@@ -361,11 +361,11 @@
 
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| UI18-01 | เปิดหน้าหลักทุกกลุ่ม role บนขนาดจอมือถือ (375px) | Layout ไม่พัง, ไม่ scroll แนวนอน | | NOT TESTED |
-| UI18-02 | Dark mode (ถ้ามี) | สีถูกต้องอ่านง่าย | | NOT TESTED |
-| UI18-03 | กด Back/Forward browser ระหว่าง flow หลายขั้นตอน (checkout, contact-admin) | ไม่ค้าง/data ไม่เพี้ยน | | NOT TESTED |
-| UI18-04 | Refresh กลางฟอร์มที่กรอกยาวๆ | ตรวจว่ามี draft-save ไหม (ยอมรับ data หายได้ถ้าไม่มี) | | NOT TESTED |
-| UI18-05 | Loading state ทุกหน้าหลักตอนโหลดข้อมูลช้า (throttle network) | มี spinner/skeleton ไม่ใช่หน้าขาวเปล่า | | NOT TESTED |
+| UI18-01 | เปิดหน้าหลักทุกกลุ่ม role บนขนาดจอมือถือ (375px) | Layout ไม่พัง, ไม่ scroll แนวนอน | ทดสอบ: public homepage, public shop detail, customer orders, shop dashboard, admin dashboard — ทุกหน้า `document.documentElement.scrollWidth === clientWidth` (375=375) ไม่มี horizontal scroll ระดับ page เลย; ตาราง/การ์ดแถวแนวนอนที่กว้างเกิน (บริการยอดนิยม, คำสั่งซื้อล่าสุด, รอตรวจสอบร้านค้า) มี scroll container ของตัวเองแยกต่างหาก (overflow-x ในกรอบ) ซึ่งเป็น pattern ที่ถูกต้องอยู่แล้ว | ✅ PASS |
+| UI18-02 | Dark mode (ถ้ามี) | สีถูกต้องอ่านง่าย | ตรวจสอบโค้ด: ไม่มี `dark:`, `prefers-color-scheme`, หรือ theme toggle ใดๆ ในทั้งโปรเจกต์ และ `apps/web/DESIGN.md` ระบุชัดเจนว่า "no dark mode" เป็นการตัดสินใจเชิงออกแบบตั้งใจ | ⚪ N/A (ไม่มีฟีเจอร์นี้โดยการออกแบบ ไม่ใช่บั๊ก) |
+| UI18-03 | กด Back/Forward browser ระหว่าง flow หลายขั้นตอน (checkout, contact-admin) | ไม่ค้าง/data ไม่เพี้ยน | Checkout: `/cart` → `/cart/check-out?items=...` → back → `/cart` (เรนเดอร์ถูกต้อง) → forward → กลับมาหน้า checkout พร้อมสินค้า/ราคาครบถ้วนเหมือนเดิม ไม่มี error/data หาย; นอกจากนี้พบว่า direct-navigate ไป `/cart/check-out` โดยไม่มี query param แสดง "ไม่พบข้อมูลตะกร้า" อย่างสุภาพ (ไม่ crash) ซึ่งถูกต้องเพราะหน้านี้ต้องพึ่ง query param จากหน้า cart เสมอ; Contact-admin: แท็บ "ตรวจสอบคำร้อง" เป็น client-side tab state ไม่เปลี่ยน URL จึงไม่มีผลกับ back/forward history — เป็นพฤติกรรมที่ถูกต้องตามการออกแบบ (ไม่ใช่บั๊ก) | ✅ PASS |
+| UI18-04 | Refresh กลางฟอร์มที่กรอกยาวๆ | ตรวจว่ามี draft-save ไหม (ยอมรับ data หายได้ถ้าไม่มี) | กรอกข้อความยาวในฟอร์ม contact-admin แล้ว refresh — ไม่มี draft-save (localStorage/sessionStorage ว่างเปล่าตลอด ไม่มีการเก็บ draft ใดๆ) ข้อความหายหลัง refresh ตามที่ยอมรับได้ในเกณฑ์ทดสอบ ไม่มี crash หรือ error ใดๆ ระหว่าง refresh | ✅ PASS |
+| UI18-05 | Loading state ทุกหน้าหลักตอนโหลดข้อมูลช้า (throttle network) | มี spinner/skeleton ไม่ใช่หน้าขาวเปล่า | สังเกตระหว่างทดสอบหน้าต่างๆ (ไม่มี tool throttle network โดยตรงในชุดเครื่องมือที่ใช้ได้ แต่ latency จริงจาก Supabase ก็นานพอให้เห็น loading state ทุกครั้ง): shop detail หน้า "กำลังโหลดข้อมูลร้านค้า..." พร้อม spinner, cart หน้า "กำลังโหลดตะกร้า...", orders หน้า "กำลังโหลดประวัติสั่งพิมพ์...", shop/admin dashboard stat cards มี spinner ระหว่างรอข้อมูล — ไม่พบหน้าขาวเปล่าเลยสักหน้า | ✅ PASS |
 
 ---
 
