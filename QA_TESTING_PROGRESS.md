@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-08 (Phase 18 เสร็จสมบูรณ์ — 5/5 PASS ไม่พบบั๊กใหม่เลย)
+> อัปเดตล่าสุด: 2026-09-08 (🎉 Phase 19 เสร็จสมบูรณ์ — 23/23 PASS ไม่พบ regression เลย — **ครบทั้ง 19 phase ของแผนทดสอบแล้ว**)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -45,7 +45,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ตัวเลขตรงกับ order จริงทุกจุด |
 | 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | ✅ DONE — 5/5 PASS (2026-09-08) | พบบั๊ก 2 จุด (**🔴 Critical BUG-17-01** checkout silent rollback, **🟠 High BUG-17-02** ลูกค้าไม่ได้ in-app notification ตอนร้านยกเลิก) — **แก้ไขและ verify แล้วทั้งหมด** |
 | 18 | UI/Responsive & Cross-cutting Edge Cases (mobile/dark-tab, refresh/back, repeated clicks) | 🟡 Medium | ✅ DONE — 5/5 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — mobile 375px ไม่มี horizontal scroll ทุกหน้าหลัก, dark mode ไม่มีโดยการออกแบบ (N/A), back/forward ระหว่าง checkout flow ปลอดภัย, refresh กลางฟอร์มไม่ crash (ไม่มี draft-save แต่ยอมรับได้), loading state มี spinner ทุกหน้า |
-| 19 | Regression (สุดท้าย หลังบั๊กถูกแก้) | 🟡 Medium | ⬜ NOT STARTED | รันหลัง dev แก้บั๊กจาก 01-18 |
+| 19 | Regression (สุดท้าย หลังบั๊กถูกแก้) | 🟡 Medium | ✅ DONE — 23/23 PASS (2026-09-08) | รีเทสต์บั๊กทั้ง 24 จุดที่เคยพบ (BUG-ENV-01 ถึง BUG-17-02) — **ไม่พบ regression แม้แต่จุดเดียว** รวมถึงจุดเสี่ยงสูงสุด (BUG-05-03 concurrent checkout หลังแก้ BUG-17-01's db.ts) ก็ยังทำงานถูกต้อง |
 
 **ลำดับแนะนำให้เริ่ม:** 01 → 02 → (03,04 คู่กัน) → 06 → 05 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19
 
@@ -54,19 +54,32 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 18 — UI/Responsive & Cross-cutting Edge Cases
-Phase Status: ✅ DONE — 5/5 PASS
-Test Cases Completed (Phase 18): 5/5 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
-Last Completed Test: UI18-05 (loading state ทุกหน้าหลักมี spinner/ข้อความ ไม่มีหน้าขาวเปล่า)
+Current Phase: 19 — Regression ✅ (PHASE สุดท้าย — ครบทุก phase แล้ว)
+Phase Status: ✅ DONE — 23/23 PASS
+Test Cases Completed (Phase 19): 23/23 — ALL PASS ✅ (ไม่พบ regression แม้แต่จุดเดียว)
+Last Completed Test: RG19-23 (BUG-17-02 reverified — ลูกค้าได้ in-app notification ตอนร้านยกเลิกยังทำงานถูกต้อง)
 Current Page/Feature: -
-NEXT ACTION: รอผู้ใช้สั่ง "ไปต่อ Phase 19" (Regression — phase สุดท้าย)
+NEXT ACTION: ทุก 19 phase เสร็จสมบูรณ์แล้ว — รอผู้ใช้สั่งให้จัดทำ QA_FINAL_REPORT.md (สรุปผลรวมทั้งหมด) หรือคำสั่งอื่นถัดไป
 
-## สรุป Phase 18 — ไม่พบบั๊กใหม่เลย (5/5 PASS)
-- **UI18-01:** Public homepage/shop detail, customer orders, shop dashboard, admin dashboard ทดสอบที่ 375px — ไม่มี horizontal scroll ระดับ page เลยสักหน้า (ตาราง/การ์ดแถวกว้างมี scroll container ของตัวเองแยกต่างหาก ซึ่งถูกต้อง)
-- **UI18-02:** ไม่มี dark mode — ยืนยันจาก `apps/web/DESIGN.md` ว่าเป็นการตัดสินใจเชิงออกแบบตั้งใจ ("no dark mode") ไม่ใช่บั๊ก — N/A
-- **UI18-03:** Back/forward ระหว่าง checkout flow (`/cart` ↔ `/cart/check-out?items=...`) ปลอดภัย data ไม่เพี้ยน ไม่ crash; contact-admin's "ตรวจสอบคำร้อง" เป็น client tab state ไม่กระทบ history
-- **UI18-04:** Refresh กลางฟอร์ม contact-admin — ไม่มี draft-save (ข้อมูลหายตามที่ยอมรับได้) ไม่ crash
-- **UI18-05:** ทุกหน้าหลักมี loading spinner + ข้อความภาษาไทยระหว่างโหลดข้อมูลจริงจาก Supabase ไม่มีหน้าขาวเปล่าเลย
+## สรุป Phase 19 — รีเทสต์บั๊กเก่าทั้งหมด 24 จุด ไม่พบ regression เลย (23/23 PASS, ยกเว้น BUG-ENV-01 ที่เป็น infra ครั้งเดียว)
+จุดที่เฝ้าระวังพิเศษ: **BUG-05-03 (concurrent checkout)** — เพราะ BUG-17-01's fix แก้ที่ `apps/api/src/db.ts` (เพิ่ม `prepare: false`) ซึ่งเป็น transaction layer กลางที่กระทบทุก endpoint — ยิง checkout พร้อมกัน 5 ครั้งซ้ำอีกรอบ ยืนยันได้ order เดียวเป๊ะเหมือนเดิม ไม่มี regression จากการเปลี่ยน connection config
+
+รายละเอียดครบใน `QA_TEST_CASES.md` (RG19-01 ถึง RG19-23)
+
+---
+
+## 🎉 สรุปรวมทั้งโปรเจกต์ — ครบทั้ง 19 Phase แล้ว (2026-09-06 ถึง 2026-09-08)
+
+| Phase | ผลลัพธ์ |
+|---|---|
+| 01-16 | ทุก phase ผ่านครบ (ดูรายละเอียดในตาราง roadmap ด้านบน) |
+| 17 | End-to-End Integration — 5/5 PASS (พบ+แก้ BUG-17-01 🔴 Critical, BUG-17-02 🟠 High) |
+| 18 | UI/Responsive — 5/5 PASS (ไม่พบบั๊กใหม่) |
+| 19 | Regression — 23/23 PASS (ไม่พบ regression) |
+
+**บั๊กที่พบและแก้ไขทั้งหมดตลอดการทดสอบรอบนี้: 24 จุด** (BUG-ENV-01 ถึง BUG-17-02) — ทุกจุด **FIXED ✅** และผ่านการรีเทสต์ยืนยันใน Phase 19 แล้วว่าไม่มีจุดไหน regression กลับมาอีก
+
+รายละเอียดบั๊กทั้งหมดอยู่ใน `QA_BUG_REPORT.md`, ผลทดสอบละเอียดทุก test case อยู่ใน `QA_TEST_CASES.md`
 
 ## 🔴 BUG-17-01 พบระหว่าง E17-01 (สรุปสั้น — รายละเอียดเต็มใน QA_BUG_REPORT.md)
 Checkout ตอบ `200` พร้อม `order.id`/`order.code` เหมือนสำเร็จ แต่ตรวจ DB จริงพบว่า **transaction ไม่เคย commit** — order หายทั้งหมด, cart ก็ไม่ถูกเคลียร์ (ลูกค้าสั่งซ้ำได้ไอเทมปนกัน+เลขออเดอร์ซ้ำ)

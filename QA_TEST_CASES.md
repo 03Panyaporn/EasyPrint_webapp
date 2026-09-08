@@ -371,4 +371,32 @@
 
 ## Phase 19: Regression (รันหลังบั๊กถูกแก้)
 
-_(รอทุก phase ข้างบนเสร็จและมีบั๊กถูกแก้ก่อน — จะ list เฉพาะ retest cases ของบั๊กที่ fix แล้วตอนนั้น)_
+รีเทสต์บั๊กที่แก้ไปแล้วทั้งหมด 24 จุด (BUG-ENV-01 ถึง BUG-17-02) — เน้นพิเศษที่ BUG-05-03 (concurrent checkout) เพราะ BUG-17-01's fix (`prepare: false` ใน `db.ts`) แก้ที่ transaction layer กลางซึ่งกระทบทุก endpoint ที่ใช้ `db.transaction()` จึงมีความเสี่ยง regression สูงสุดที่จุดนี้
+
+| ID | บั๊กที่รีเทสต์ | วิธีทดสอบ | ผลจริง | Pass/Fail |
+|---|---|---|---|---|
+| RG19-01 | BUG-01-01 (register ไม่ redirect) | ตรวจโค้ด `apps/web/app/(auth)/register/page.tsx` | `router.replace("/orders")` ยังอยู่ครบ ไม่มีการแก้ไข/ลบออกตั้งแต่ Phase 01 | ✅ PASS |
+| RG19-02 | BUG-01-02 (ไม่มี client-side auth guard) | Guest (logout) เข้า `/admin` และ `/shop/dashboard` ตรงๆ | ทั้ง 2 เส้นทางถูก redirect ไป `/login` ทันที ถูกต้อง | ✅ PASS |
+| RG19-03 | BUG-01-03 (`GET /shops/me` ยิงซ้ำซ้อน ~8 ครั้ง) | Login shop owner → โหลด `/shop/dashboard` → นับ resource timing entries ของ `/shops/me` | เหลือ 2 ครั้งต่อการโหลดหน้า (ลดจาก ~8 เดิมมาก) | ✅ PASS |
+| RG19-04 | BUG-02-01 (address ownership bypass) | ลูกค้า A สร้างที่อยู่ → ลูกค้า B พยายาม `DELETE`/`PATCH default` | ทั้ง 2 การกระทำได้ `404 "ไม่พบที่อยู่นี้"` ถูกต้อง (กันไว้แล้ว) | ✅ PASS |
+| RG19-05 | BUG-02-02 (non-UUID address id → 500) | `DELETE /addresses/not-a-uuid` | ได้ `400` ไม่ใช่ `500` | ✅ PASS |
+| RG19-06 | BUG-04-01 (guest เข้า public shop ไม่ได้) | Guest (ไม่มี cookie) `GET /shops/:id` | ได้ `200` เห็นข้อมูลร้านปกติ | ✅ PASS |
+| RG19-07 | BUG-04-02 (non-UUID shop id → 500) | `GET /shops/not-a-uuid` | ได้ `404` ไม่ใช่ `500` | ✅ PASS |
+| RG19-08 | BUG-05-01 (page count ไม่ผูกกับ duplex) | ตรวจโค้ด `packages/shared/src/pricing/engine.ts` + `cart.ts` | Logic `by_sheet` rounding และการ override `printingSideDuplex` จาก `isDuplex` ยังอยู่ครบทั้ง 2 จุด (add-to-cart line 165, checkout line 702) | ✅ PASS |
+| RG19-09 | BUG-05-02 (บริการราคา ฿0 ในระบบจริง) | Query DB บริการ active ทั้งหมด กรอง `basePrice = 0` | พบ 0 รายการ | ✅ PASS |
+| RG19-10 | **BUG-05-03 (checkout พร้อมกันสร้าง order ซ้ำ) — จุดเสี่ยงสูงสุด** | ยิง `POST .../cart/checkout` พร้อมกัน 5 ครั้งจากตะกร้าเดียว หลังแก้ BUG-17-01 (`prepare:false`) | สำเร็จ **1/5** เท่านั้น, DB มี order เดียวจริง — savepoint retry mechanism ยังทำงานถูกต้องแม้เปลี่ยน connection config | ✅ PASS (ยืนยันไม่มี regression จาก BUG-17-01's fix) |
+| RG19-11 | BUG-06-01 (ลบบริการที่มี cart item ผูก → 500) | ลบบริการที่มีลูกค้าเพิ่มไว้ในตะกร้า | ได้ `400` พร้อมข้อความสุภาพ ไม่ใช่ raw `500` | ✅ PASS |
+| RG19-12 | BUG-06-02 (PATCH เฉพาะ addOns → 500) | `PATCH` service ส่งแค่ `availableAddOnIds` | ได้ `200` ไม่ error | ✅ PASS |
+| RG19-13 | BUG-08-01 (`DELETE /auth/me` → 500) | ลบบัญชีทดสอบทิ้งจริง | ได้ `200 {"ok":true}` ไม่ error | ✅ PASS |
+| RG19-14 | BUG-08-02 (`PUT /shops/me` ไม่เช็ค suspended) | รีเทสต์ซ้ำใน Phase 17 (E17-03) แล้ว — ร้าน suspended ถูกบล็อกทุก endpoint รวม `PUT /shops/me` | อ้างอิงผล E17-03: บล็อกถูกต้อง | ✅ PASS (reverified in Phase 17) |
+| RG19-15 | BUG-08-03 (`PUT /shops/me` role ผิด → 401 แทน 403) | Customer เรียก `PUT /shops/me` | ได้ `403` ถูกต้อง | ✅ PASS |
+| RG19-16 | BUG-10-01 (ข้อความ JSON-like ถูกตีความเป็นไฟล์แนบ) | ส่งข้อความแชทที่ content หน้าตาเหมือน JSON ไฟล์แนบ (ไม่ผ่าน `filePath`) | `isFileAttachment: false` ถูกต้อง (คอลัมน์ DB เป็นตัวตัดสิน ไม่ใช่การ parse หน้าตา) | ✅ PASS |
+| RG19-17 | BUG-11-01 (error message ผิดบริบทตอน pending/suspended) | รีเทสต์ซ้ำใน Phase 17 (E17-03) แล้ว | อ้างอิงผล E17-03: ข้อความถูกต้อง | ✅ PASS (reverified in Phase 17) |
+| RG19-18 | BUG-12-01 (ลูกค้าไม่มี notification UI) | ใช้งานจริงตลอด Phase 17-18 (bell/dropdown/toast) | ทำงานถูกต้องต่อเนื่องทุกครั้งที่ทดสอบ | ✅ PASS (reverified throughout Phase 17-18) |
+| RG19-19 | BUG-13-01 (reinstate message ผิด) | รีเทสต์ซ้ำใน Phase 17 (E17-03) แล้ว | อ้างอิงผล E17-03: ข้อความแยกถูกต้อง | ✅ PASS (reverified in Phase 17) |
+| RG19-20 | BUG-15-01 (`POST /uploads` body ว่าง → 500) | ยิง `POST /uploads` ไม่มี body | ได้ `400` ไม่ใช่ `500` | ✅ PASS |
+| RG19-21 | BUG-15-02 (ไฟล์แนบแชทมองไม่เห็นใน admin storage) | `GET /admin/storage/files` | มีไฟล์ `source:"chat"` ปรากฏถูกต้อง ไม่ error | ✅ PASS |
+| RG19-22 | BUG-17-01 (checkout silent rollback) | รีเทสต์ซ้ำ 6 ครั้งใน Phase 17 + ยืนยันซ้ำผ่าน RG19-10 | Order ปรากฏถูกต้องครบทุกครั้ง | ✅ PASS |
+| RG19-23 | BUG-17-02 (ลูกค้าไม่ได้ in-app notification ตอนร้านยกเลิก) | รีเทสต์ซ้ำใน Phase 17 (E17-04) แล้ว | อ้างอิงผล E17-04: notification typeId:17 มาถูกต้อง | ✅ PASS (reverified in Phase 17) |
+
+**สรุป: 23/23 PASS — ไม่พบ regression แม้แต่จุดเดียว** (BUG-ENV-01 เป็นปัญหา infra ครั้งเดียวตอนเริ่มทดสอบ ไม่ต้องรีเทสต์)
