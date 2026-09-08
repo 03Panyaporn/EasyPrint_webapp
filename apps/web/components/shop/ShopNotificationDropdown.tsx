@@ -61,6 +61,7 @@ export const NOTIFICATION_TYPES = {
   14: { icon: Store, color: "text-green-500", bg: "bg-green-50" }, // ร้านเปิดอัตโนมัติ
   15: { icon: Unlock, color: "text-blue-500", bg: "bg-blue-50" }, // พ้นช่วงปิดชั่วคราว
   16: { icon: Package, color: "text-blue-500", bg: "bg-blue-50" }, // อัปเดตสถานะออเดอร์ (ลูกค้า) — เพิ่มพร้อม BUG-12-01 follow-up (QA Phase 12)
+  17: { icon: XCircle, color: "text-red-500", bg: "bg-red-50" }, // ออเดอร์ถูกยกเลิกโดยร้าน (ลูกค้า) — เพิ่มแก้ BUG-17-02 (QA Phase 17)
 };
 
 // Mock Data

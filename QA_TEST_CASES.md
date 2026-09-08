@@ -349,11 +349,11 @@
 
 | ID | Flow | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| E17-01 | สมัครร้าน → admin approve → สร้างบริการ → ลูกค้าสั่งซื้อ → ร้านอัปเดตสถานะจนถึง completed → ลูกค้ารีวิว | ครบทุก layer, notification ถูกต้องทุกจุด | | NOT TESTED |
-| E17-02 | ลูกค้า/ร้าน Contact Admin → admin ตอบ → เห็นผลอีกฝั่ง | ครบ | | NOT TESTED |
-| E17-03 | ร้านถูก suspend → หายจาก public listing → contact-admin/services ถูกบล็อก → reinstate → กลับมาใช้งานได้ปกติ | ครบ ไม่มี inconsistency (บั๊กเดิม E2E-05: `PUT /shops/me` ไม่ถูกบล็อก) | | NOT TESTED |
-| E17-04 | Order lifecycle เต็ม → cancel กลางทาง → คืนสถานะ/แจ้งเตือนถูกต้อง | | | NOT TESTED |
-| E17-05 | Upload → Storage → Order completed → cleanup cron (เรียกตรง) → ไฟล์ถูกลบจริง | | | NOT TESTED |
+| E17-01 | สมัครร้าน → admin approve → สร้างบริการ → ลูกค้าสั่งซื้อ → ร้านอัปเดตสถานะจนถึง completed → ลูกค้ารีวิว | ครบทุก layer, notification ถูกต้องทุกจุด | **พบ BUG-17-01 🔴 Critical กลางทาง** (checkout ตอบ 200 แต่ order ไม่ commit ลง DB จริง — root cause: postgres.js prepared statements ชนกับ Supabase transaction-mode pooler) **แก้แล้ว** — หลังแก้ไล่ lifecycle เต็ม pending_review→accepted→in_progress→completed สำเร็จ, notification typeId:16 มาครบทุกสถานะ (BUG-12-01 follow-up), `finishedAt` ถูกตั้งค่าถูกต้อง, ลูกค้ารีวิวสำเร็จ | ✅ PASS (หลังแก้บั๊ก) |
+| E17-02 | ลูกค้า/ร้าน Contact Admin → admin ตอบ → เห็นผลอีกฝั่ง | ครบ | ลูกค้าส่งข้อความ → admin ตอบ → ลูกค้าเห็นคำตอบผ่าน `GET /users/contact-admin` ถูกต้อง + ได้ in-app notification (typeId:4) แจ้งว่า admin ตอบแล้ว ลิงก์ถูกต้อง ครบทุกจุด | ✅ PASS |
+| E17-03 | ร้านถูก suspend → หายจาก public listing → contact-admin/services ถูกบล็อก → reinstate → กลับมาใช้งานได้ปกติ | ครบ ไม่มี inconsistency (บั๊กเดิม E2E-05: `PUT /shops/me` ไม่ถูกบล็อก) | Suspend: public detail 404, สร้างบริการ/contact-admin ถูกบล็อก 403 ข้อความถูกต้อง (BUG-11-01); Reinstate: public detail กลับมา 200, สร้างบริการ/contact-admin ทำได้ปกติ, ได้ notification ข้อความ reinstate ที่ถูกต้อง แยกจากข้อความอนุมัติร้านใหม่ (BUG-13-01) — ไม่พบ inconsistency ใหม่ | ✅ PASS |
+| E17-04 | Order lifecycle เต็ม → cancel กลางทาง → คืนสถานะ/แจ้งเตือนถูกต้อง | | ลูกค้ายกเลิกตอน `in_progress` ถูกบล็อกถูกต้อง ("ยกเลิกออเดอร์เองได้เฉพาะตอนที่ร้านยังไม่ยืนยันรับงานเท่านั้น"); ร้านยกเลิกกลางทางสำเร็จ status→cancelled, `finishedAt` ถูกตั้ง — **พบ BUG-17-02 🟠 High** (ลูกค้าได้แค่อีเมล ไม่มี in-app notification ตอนร้านยกเลิก ไม่สมมาตรกับตอนลูกค้ายกเลิก) **แก้แล้ว** — เพิ่ม typeId:17 verify ทั้ง 2 เคส (ยกเลิกกลางทาง/ปฏิเสธสลิปตอน pending_review) ข้อความถูกต้องทั้งคู่ | ✅ PASS (หลังแก้บั๊ก) |
+| E17-05 | Upload → Storage → Order completed → cleanup cron (เรียกตรง) → ไฟล์ถูกลบจริง | ไฟล์ยังไม่ถูกลบเพราะยังไม่เกิน retention 1 วัน (เสริม ST15-07 ที่ทดสอบไฟล์ที่หมดอายุแล้ว) | อัปโหลดไฟล์จริง → สร้างบริการ requiresFileUpload → checkout แนบไฟล์ → เดิน lifecycle จนถึง completed (`finishedAt`=ตอนนี้) → เรียก cleanup cron ตรง → `deletedCount:0` ถูกต้อง ไฟล์ยังอยู่ครบ (`fileUrl` ยังคืนค่าปกติใน order detail) | ✅ PASS |
 
 ---
 

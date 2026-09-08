@@ -1,6 +1,6 @@
 # QA_BUG_REPORT.md — บั๊กที่พบ (รอบทดสอบใหม่ทั้งหมด เริ่ม 2026-09-06)
 
-> อัปเดตล่าสุด: 2026-09-08 (Phase 17 ระหว่างทดสอบ — พบ+แก้ **BUG-17-01 (🔴 Critical)**: checkout ตอบสำเร็จแต่ order ไม่ถูก commit ลง DB จริง เกิดจาก postgres.js client ไม่ได้ปิด prepared statements ตอนต่อผ่าน Supabase transaction-mode pooler)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 17 เสร็จสมบูรณ์ 5/5 PASS — พบ+แก้ **BUG-17-01 (🔴 Critical)**: checkout ตอบสำเร็จแต่ order ไม่ถูก commit ลง DB จริง เกิดจาก postgres.js client ไม่ได้ปิด prepared statements ตอนต่อผ่าน Supabase transaction-mode pooler, และ **BUG-17-02 (🟠 High)**: ลูกค้าไม่ได้ in-app notification ตอนร้านยกเลิกออเดอร์ มีแค่อีเมล)
 > ไฟล์นี้จะถูกเติมบั๊กใหม่ทันทีที่เจอระหว่างทดสอบ Phase 01-19 ตาม `QA_TESTING_PROGRESS.md`
 > ใช้ฟอร์แมต: Bug ID `BUG-[PHASE]-[NUMBER]` เช่น `BUG-10-01` (Phase 10, บั๊กที่ 1)
 
@@ -427,6 +427,22 @@
 - **Root Cause:** `apps/api/src/db.ts` สร้าง postgres.js client ต่อ Supabase ผ่าน **connection pooler โหมด "transaction" ของ PgBouncer (พอร์ต 6543)** โดยไม่ได้ปิด prepared statements (`prepare: false`) — ค่า default ของ postgres.js คือเปิด prepared statements ไว้ ซึ่ง Supabase เตือนไว้ชัดเจนว่า **ห้ามใช้ร่วมกับ transaction-mode pooler** เพราะโหมดนี้ PgBouncer สลับ physical backend connection ให้แต่ละ logical transaction ได้ตลอดเวลา ถ้ามี query แบบ prepared statement (เช่น `createNotification()` ใน `apps/api/src/utils/notification.ts` ที่เรียก `db.insert()`/`db.select()` ด้วย client กลาง ไม่ใช่ `tx` — ทำงานคู่ขนานไปกับ `db.transaction()` ของ checkout ที่ยังเปิดอยู่) ไปชนกับ transaction อื่นที่ pooler assign ไปยัง physical connection เดียวกันโดยบังเอิญ ทำให้เกิด silent rollback ของ transaction หลัก — client ฝั่ง postgres.js ยังคิดว่า `INSERT ... RETURNING` สำเร็จ (เพราะได้ค่ากลับมาจริงในช่วงที่ transaction ยังไม่ commit) แต่สุดท้าย transaction ทั้งก้อนถูก rollback แบบเงียบๆ ไม่มี error โผล่ใน server log เลย
 - **Fix Applied (2026-09-08):** [`apps/api/src/db.ts`](apps/api/src/db.ts) — เพิ่ม `{ prepare: false }` ตอนสร้าง postgres client (`postgres(connectionString, { prepare: false })`) ตามคำแนะนำอย่างเป็นทางการของ Supabase สำหรับการต่อผ่าน transaction-mode pooler
 - **Verification:** รี-โปรดิวซ์ปัญหาด้วยร้าน/ลูกค้า/บริการทดสอบชุดใหม่ (throwaway, สร้าง+ลบเฉพาะ user ทดสอบ ไม่กระทบข้อมูลจริง) — ก่อนแก้ยังคงพบปัญหาเดิม (order หายจาก DB จริง, cart ไม่ถูกเคลียร์); หลังแก้และรีสตาร์ท API แล้ว รัน checkout ซ้ำ **6 ครั้งติดต่อกัน** ด้วยชุดข้อมูลทดสอบใหม่ทุกครั้ง → ทุกครั้งได้ `200`, ออเดอร์ปรากฏถูกต้องครบทั้ง 3 query path (`GET /orders/:id`, `GET /shops/:id/orders`, `GET /customers/orders`) และตรงกับที่ตรวจสอบตรง DB ทุกครั้ง, ตะกร้าถูกเคลียร์เหลือ 0 รายการทุกครั้ง — ยืนยันว่าแก้ไขสำเร็จและเสถียร
+- **Status: FIXED ✅**
+
+### BUG-17-02: ร้านยกเลิก/ปฏิเสธการชำระเงินออเดอร์ ลูกค้าได้แค่อีเมล ไม่มี in-app notification เลย (ไม่สมมาตรกับฝั่งร้าน)
+- **Phase:** 17 — End-to-End Integration (E17-04)
+- **Page/Endpoint:** `apps/api/src/routes/orders.ts` — `PATCH /orders/:id/status` (บล็อกแจ้งเตือนตอน `nextStatus === "cancelled"`)
+- **Severity:** 🟠 High (ลูกค้าไม่รู้ว่าออเดอร์ถูกยกเลิกจนกว่าจะเปิดอีเมลหรือเข้าไปเช็คหน้าออเดอร์เอง ทั้งที่ระบบ in-app notification ของลูกค้าเพิ่งถูกสร้างขึ้นมาเพื่อแก้ปัญหานี้โดยเฉพาะใน Phase 12)
+- **Steps to Reproduce:**
+  1. ลูกค้าสั่งซื้อ → ร้านรับงาน (`accepted`) → ร้านเปลี่ยนสถานะเป็น `in_progress`
+  2. ร้านยกเลิกออเดอร์กลางทาง (`PATCH /orders/:id/status` `{status:"cancelled", cancelReason:"..."}`)
+  3. เช็ค `GET /notifications` ฝั่งลูกค้าทันที
+- **Expected Result:** ลูกค้าควรได้ in-app notification (bell/toast) แจ้งว่าออเดอร์ถูกยกเลิก เหมือนที่ฝั่งร้านได้ notification ทันทีเวลาลูกค้าเป็นคนกดยกเลิก (`typeId: 2`)
+- **Actual Result (ก่อนแก้):** ลูกค้าได้แค่อีเมล (`notifyOrderCancelled()`) — ไม่มี `createNotification()` เรียกให้ลูกค้าเลยในเส้นทาง "ร้านยกเลิก/ปฏิเสธ" ทั้งที่เส้นทาง "ร้านเปลี่ยนสถานะเดินหน้าปกติ" (accepted/in_progress/shipping/completed) มี in-app notification ให้ลูกค้าอยู่แล้ว (`typeId: 16` จาก BUG-12-01 follow-up) — คือทุกสถานะได้ in-app notification ยกเว้น "cancelled" ซึ่งเป็นสถานะที่สำคัญที่สุดที่ลูกค้าควรรู้ทันที
+- **Fix Applied (2026-09-08):**
+  1. [`apps/api/src/routes/orders.ts`](apps/api/src/routes/orders.ts) — เพิ่ม `createNotification()` เรียกให้ลูกค้า (`typeId: 17`) ในบล็อกเดียวกับที่ส่งอีเมลยกเลิก (`nextStatus === "cancelled" && !isCustomerOwner && row.customer && effectiveCancelReason`) — ข้อความแยกคำพูดตามสถานะก่อนยกเลิกเหมือนอีเมล ("ปฏิเสธการชำระเงิน" ถ้ายกเลิกตอน `pending_review`, "ยกเลิก" ถ้ายกเลิกตอนอื่น)
+  2. [`apps/web/components/shop/ShopNotificationDropdown.tsx`](apps/web/components/shop/ShopNotificationDropdown.tsx) — เพิ่ม `17: { icon: XCircle, ... }` ใน `NOTIFICATION_TYPES` (ใช้ร่วมกันทั้งฝั่งร้าน/ลูกค้า)
+- **Verification:** ทดสอบยกเลิกออเดอร์ 2 แบบ: (1) ยกเลิกตอน `in_progress` (กลางทาง) → ได้ notification `typeId:17` ข้อความ "ร้าน... ยกเลิกออเดอร์ #0004 — เหตุผล: ร้านไม่สามารถให้บริการได้ตามคำขอ" ถูกต้อง; (2) ปฏิเสธสลิปตอน `pending_review` → ได้ notification ข้อความ "ปฏิเสธการชำระเงินของออเดอร์ #0005" ถูกต้องตามที่ตั้งใจแยกคำพูดไว้ — ทั้ง 2 กรณีอีเมลก็ยังถูกส่งตามปกติ ไม่กระทบของเดิม
 - **Status: FIXED ✅**
 
 <!--
