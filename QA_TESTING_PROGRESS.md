@@ -1,7 +1,7 @@
 # QA_TESTING_PROGRESS.md — สถานะการทดสอบ EasyPrint
 
 > **นี่คือ Single Source of Truth ของการทดสอบทั้งหมด** — Claude session ใหม่ทุกตัวต้องอ่านไฟล์นี้ก่อนเริ่มงาน
-> อัปเดตล่าสุด: 2026-09-08 (Phase 15 เสร็จสมบูรณ์)
+> อัปเดตล่าสุด: 2026-09-08 (Phase 16 เสร็จสมบูรณ์)
 > **หมายเหตุสำคัญ:** ตามคำขอของผู้ใช้ (2026-09-06) — รอบนี้คือ **การวางแผนทดสอบใหม่ทั้งหมดทุกจุด** ไม่ยึดผลจากรอบก่อนว่า "ผ่านแล้ว" อีกต่อไป เอกสารเดิม [`docs/qa/test-plan.md`](docs/qa/test-plan.md) (รันเมื่อ 2026-08-25 บนโค้ดเก่ากว่าปัจจุบันมาก) ใช้เป็นแค่ **ข้อมูลอ้างอิงประกอบ** เท่านั้น (เช่น รู้ว่าเคยเจอบั๊กอะไรที่ไหนมาก่อน) ไม่ใช่ baseline ที่ข้ามได้
 
 ---
@@ -42,7 +42,7 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 | 13 | Admin: Shop Management (approve/reject/suspend/reinstate/edit/delete + admin dashboard) | 🔴 Critical | ✅ DONE — 6/6 PASS (2026-09-08) | พบบั๊ก 1 จุด (Medium) — **แก้ไขและ verify แล้ว** |
 | 14 | Admin: System Settings & Users page | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ยืนยัน Users page เป็น static placeholder จริง |
 | 15 | File Upload & Storage (ทุก upload type, storage dashboard, quota, auto-delete cron) | 🔴 Critical | ✅ DONE — 8/8 PASS (2026-09-08) | พบบั๊ก 2 จุด (Medium) — **แก้ไขและ verify แล้วทั้งหมด**; ทุกจุดเฝ้าระวังจากรอบก่อนยืนยันซ้ำครบแล้ว |
-| 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ⬜ NOT STARTED | ต้องมีข้อมูล order จริงจาก 07 |
+| 16 | Reports/Analytics (shop reports page, admin dashboard stats) | 🟡 Medium | ✅ DONE — 4/4 PASS (2026-09-08) | ไม่พบบั๊กใหม่เลย — ตัวเลขตรงกับ order จริงทุกจุด |
 | 17 | End-to-End Integration (order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ) | 🔴 Critical | ⬜ NOT STARTED | ทำหลังทุก phase ย่อยผ่านแล้ว |
 | 18 | UI/Responsive & Cross-cutting Edge Cases (mobile/dark-tab, refresh/back, repeated clicks) | 🟡 Medium | ⬜ NOT STARTED | ทำแทรกได้ตลอด แต่สรุปรวมท้ายสุด |
 | 19 | Regression (สุดท้าย หลังบั๊กถูกแก้) | 🟡 Medium | ⬜ NOT STARTED | รันหลัง dev แก้บั๊กจาก 01-18 |
@@ -54,12 +54,12 @@ Priority: 🔴 Critical, 🟠 High, 🟡 Medium, ⚪ Low
 ## 3) 📍 สถานะปัจจุบัน (ต้องอัปเดตทุกครั้งที่หยุด)
 
 ```
-Current Phase: 16 — Reports/Analytics
+Current Phase: 17 — End-to-End Integration
 Phase Status: NOT STARTED
-Test Cases Completed (Phase 15): 8/8 — ALL PASS ✅ (พบ+แก้บั๊ก 2 จุด: BUG-15-01, BUG-15-02)
-Last Completed Test: ST15-08 (finishedAt ยืนยันไม่เป็น NULL ด้วย code review + หลักฐานเชิงประจักษ์จาก cleanup endpoint ที่ลบไฟล์ได้จริง 4 ไฟล์)
+Test Cases Completed (Phase 16): 4/4 — ALL PASS ✅ (ไม่พบบั๊กใหม่เลย)
+Last Completed Test: RP16-04 (ร้านไม่มี order เลย → รายงานคืน 200 empty state ถูกต้อง ไม่ crash)
 Current Page/Feature: -
-NEXT ACTION: เริ่ม Phase 16 (Reports/Analytics) — shop reports page, admin dashboard stats
+NEXT ACTION: เริ่ม Phase 17 (End-to-End Integration) — order lifecycle เต็ม, contact-admin lifecycle, shop suspend→reinstate ผลกระทบข้ามระบบ (ทำหลังทุก phase ย่อยผ่านแล้ว — ตอนนี้ผ่านครบ 01-16 แล้ว)
   บัญชีทดสอบที่มีอยู่แล้วพร้อมใช้:
   - qa2.customer1@example.com / QaTest#2026 (customer, ไม่มี address)
   - qa2.customer2@example.com / FreshPass#2026 (customer, มี address 1 รายการ, มี order history 9 ใบ: #0001 completed, #0002 completed,
@@ -90,6 +90,11 @@ NEXT ACTION: เริ่ม Phase 16 (Reports/Analytics) — shop reports page,
     ถูกบล็อกทันทีแม้ endpoint จะแค่ตอบ 409 ไม่ได้ลบจริง) — ถ้าต้องทดสอบ destructive operation กับ resource หลัก ให้สร้าง resource
     ทดสอบใหม่แยกต่างหากแทนเสมอ อย่าพยายาม bypass
 Important Notes:
+- ✅ **Phase 16 ไม่พบบั๊กใหม่เลย** — เทียบตัวเลขรายงาน (`GET /shops/:shopId/reports`) กับ order จริงของร้านทดสอบ (ground truth จาก
+  `GET /shops/:shopId/orders`) ตรงกันเป๊ะทุกจุด: totalRevenue/totalOrders/completedOrders, หมวดสินค้า (categories, เปอร์เซ็นต์รวม
+  100% พอดี), แจกแจงตามสถานะ (ordersByStatus ครบทุกสถานะรวมที่ไม่มีออเดอร์เลย), รายละเอียด export (`/reports/orders`) ก็ตรงกันทุกฟิลด์;
+  ร้านไม่มี order เลย → empty state คืน 200 ถูกต้องไม่ crash — **หมายเหตุ:** ยืนยันสูตร % change ถูกต้องด้วย code review + edge case
+  หารด้วยศูนย์ (คืน null ถูกต้อง) แต่ไม่ได้ทดสอบ scenario ที่มีค่า % จริง (ไม่ null) แบบ live เพราะข้อมูลทดสอบทั้งหมดอายุแค่ไม่กี่วัน
 - ✅ **Phase 15 พบบั๊ก 2 จุดและแก้ไขครบแล้ว (ทุกจุดเฝ้าระวังจากรอบก่อนยืนยันซ้ำครบ ไม่มีจุดค้าง):**
   - **BUG-15-01 (Medium, ยืนยันซ้ำจากรอบก่อน SEC9-05c): `POST /uploads` body ว่างเปล่าได้ raw 500** (`Cannot destructure property 'file'
     from null or undefined value`) → FIXED (เช็ค `body` เป็น object ก่อน destructure) — พบเพิ่ม: error message ของ

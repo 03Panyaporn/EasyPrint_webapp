@@ -334,12 +334,14 @@
 **หน้า:** `(shop)/shop/reports`
 **API:** `GET /shops/:shopId/reports`, `/reports/orders`
 
+**สถานะ: ✅ เสร็จสมบูรณ์ (2026-09-08)** — ทดสอบผ่าน API ตรง เทียบกับ order จริงของร้านทดสอบ (ground truth จาก `GET /shops/:shopId/orders`) — **ไม่พบบั๊กใหม่เลย**
+
 | ID | สถานการณ์ทดสอบ | ผลที่คาดหวัง | ผลจริง | Pass/Fail |
 |---|---|---|---|---|
-| RP16-01 | ดูรายงานรายได้ตามช่วงเวลา | ตัวเลขตรงกับ order จริง | | NOT TESTED |
-| RP16-02 | เปรียบเทียบช่วงเวลา (% change) | คำนวณถูกต้อง | | NOT TESTED |
-| RP16-03 | กรองตามสถานะ order | ถูกต้อง | | NOT TESTED |
-| RP16-04 | ร้านไม่มี order เลย เปิดหน้ารายงาน | แสดง empty state ไม่ crash | | NOT TESTED |
+| RP16-01 | ดูรายงานรายได้ตามช่วงเวลา | ตัวเลขตรงกับ order จริง | เทียบ `GET /shops/:shopId/reports?period=30days` กับ order จริง 10 ใบ (completed 3, cancelled 3, pending_review 4) — `totalRevenue=฿42` ตรงกับผลรวม order completed จริง (฿36+฿3+฿3) เป๊ะ; `totalOrders=7` ตรงกับจำนวน order ที่ไม่ถูกยกเลิกเป๊ะ; `completedOrders=3` ถูกต้อง; หมวดสินค้า (`categories`) แยกค่าจัดส่ง (฿30, 71.4%) กับบริการ (฿12, 28.6%) ถูกต้องครบ, เปอร์เซ็นต์รวมกันได้ 100% พอดี; `GET /reports/orders` (รายละเอียดสำหรับ export) ก็ตรงกับ order จริงทุกฟิลด์ (subtotal+shippingFee=totalRevenue ถูกต้องทุกใบ) | **PASS** |
+| RP16-02 | เปรียบเทียบช่วงเวลา (% change) | คำนวณถูกต้อง | ยืนยัน edge case สำคัญ: ช่วงก่อนหน้าไม่มีข้อมูลเลย (ร้านทดสอบเพิ่งเปิด) → ทุกค่า `*Change` เป็น `null` ถูกต้อง (กันหารด้วยศูนย์ ไม่ error/ไม่แสดง `Infinity`/`NaN`) — ตรวจสูตรคำนวณ `pctChange()` ด้วย code review ยืนยันว่าถูกต้อง (`(current-previous)/previous*100` ปัดเศษ) แต่ไม่สามารถทดสอบ scenario ที่มีค่า % จริง (ไม่ null) แบบ end-to-end ได้ในรอบนี้ เพราะข้อมูล order ของร้านทดสอบทั้งหมดอยู่ในช่วงไม่กี่วันที่ผ่านมา ไม่มีข้อมูลเก่าพอให้ตกอยู่ใน "ช่วงก่อนหน้า" ที่มีค่าไม่เป็นศูนย์ | **PASS** (ยืนยัน edge case + สูตรถูกต้องจาก code review, ไม่ได้ทดสอบ non-null % แบบ live เพราะข้อจำกัดของอายุข้อมูลทดสอบ) |
+| RP16-03 | กรองตามสถานะ order | ถูกต้อง | ไม่มี query param กรองสถานะจริง (เช็ค schema แล้วมีแค่ `period`) — ฟีเจอร์นี้คือ `ordersByStatus` breakdown ในตัว (แจกแจงทุกสถานะพร้อมกันเสมอ) เทียบกับข้อมูลจริง: `pending_review` count=4 revenue=฿7 ถูกต้อง, `completed` count=3 revenue=฿42 ถูกต้อง, `cancelled` count=3 revenue=฿7 ถูกต้อง, สถานะที่ไม่มีออเดอร์เลย (accepted/in_progress/shipping) แสดง count=0 revenue=0 ถูกต้อง ไม่ตกหล่น | **PASS** |
+| RP16-04 | ร้านไม่มี order เลย เปิดหน้ารายงาน | แสดง empty state ไม่ crash | ร้านทดสอบใหม่ (ไม่มี order เลย) → `200` สำเร็จ ไม่ crash — `metrics` ทุกค่าเป็น 0/null ถูกต้อง, `categories:[]`, `series` สร้าง bucket ครบตามช่วงเวลาแต่ revenue เป็น 0 ทุกจุด (ไม่ error ตอนไม่มีข้อมูล), `ordersByStatus` แสดงครบทุกสถานะที่ 0; `GET /reports/orders` คืน `orders:[]` ถูกต้อง | **PASS** |
 
 ---
 
