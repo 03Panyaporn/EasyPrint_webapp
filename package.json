@@ -12,6 +12,6 @@
     "db:studio": "bun --cwd apps/api drizzle-kit studio"
   },
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "typescript": "^5.5.0"
   }
 }

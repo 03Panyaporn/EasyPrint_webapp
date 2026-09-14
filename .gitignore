@@ -26,3 +26,8 @@ npm-debug.log*
 Thumbs.db
 
 .next/
+
+# Cloudflare (opennextjs-cloudflare / wrangler)
+.open-next/
+.wrangler/
+.dev.vars

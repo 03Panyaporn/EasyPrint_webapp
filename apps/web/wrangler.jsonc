@@ -1,0 +1,29 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "easyprint-web",
+	"compatibility_date": "2025-12-01",
+	// nodejs_compat จำเป็นเพราะ apps/web ยังพึ่ง Node API บางส่วนผ่าน library (เช่น exceljs) แม้จะรันฝั่ง client เป็นหลัก
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			// Self-reference service binding, the service name must match the worker name
+			// see https://opennext.js.org/cloudflare/caching
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "easyprint-web"
+		}
+	],
+	"r2_buckets": [
+		// ใช้เป็น incremental cache ของ Next.js (ISR/data cache) — ต้องสร้าง bucket นี้ใน Cloudflare
+		// dashboard ก่อน deploy ครั้งแรก: `wrangler r2 bucket create easyprint-web-cache`
+		{
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			"bucket_name": "easyprint-web-cache"
+		}
+	]
+	// หมายเหตุ: ไม่ได้เปิด "images" binding (Cloudflare Image Optimization) เพราะ apps/web ไม่ได้ใช้ next/image เลย — ไม่จำเป็นต้องตั้งค่าเพิ่ม
+}
