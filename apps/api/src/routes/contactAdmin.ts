@@ -12,7 +12,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
 import { createAdminNotification } from "../adminNotifications";
 import { createNotification } from "../utils/notification";
-import { supabaseAdmin } from "../storage";
+import { objectStorage } from "../storage";
 
 const shopOwnerUsers = alias(users, "shop_owner_users");
 
@@ -22,7 +22,7 @@ async function signStoragePaths(paths: string[] | null | undefined): Promise<str
     paths.map(async (path) => {
       // If it's already a full URL (e.g. public bucket or old format), return as is
       if (path.startsWith("http")) return path;
-      const { data } = await supabaseAdmin.storage.from("contact-admin-attachments").createSignedUrl(path, 3600);
+      const { data } = await objectStorage.from("contact-admin-attachments").createSignedUrl(path, 3600);
       return data?.signedUrl ?? path;
     })
   );

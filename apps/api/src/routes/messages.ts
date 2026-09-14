@@ -4,7 +4,7 @@ import { db } from "../db";
 import { messages, orders, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { createNotification } from "../utils/notification";
-import { supabaseAdmin } from "../storage";
+import { objectStorage } from "../storage";
 
 // คืน order พร้อม ownerId ของร้าน (join shops) — ใช้ตรวจสิทธิ์แชทของออเดอร์นี้
 // ⚠️ ต้อง join shops เพื่อเทียบ ownerId เสมอ ห้ามเทียบ payload.userId กับ order.shopId ตรงๆ
@@ -45,7 +45,7 @@ function parseFileAttachment(content: string, isFileAttachment: boolean): FileAt
 }
 
 async function signOrderFilePath(path: string, expiresInSeconds = 3600): Promise<string | null> {
-  const { data } = await supabaseAdmin.storage.from("order-files").createSignedUrl(path, expiresInSeconds);
+  const { data } = await objectStorage.from("order-files").createSignedUrl(path, expiresInSeconds);
   return data?.signedUrl ?? null;
 }
 

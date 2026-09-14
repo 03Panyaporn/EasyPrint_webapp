@@ -4,7 +4,7 @@ import { rejectShopSchema, suspendShopSchema, adminUpdateShopSchema, type AdminD
 import { db } from "../db";
 import { shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
-import { supabaseAdmin } from "../storage";
+import { objectStorage } from "../storage";
 import { createNotification } from "../utils/notification";
 
 // เช็คว่า request มี JWT ที่ login เป็น admin จริง — คืน { error } (ตั้ง set.status ให้แล้ว) ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
@@ -139,7 +139,7 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     // id-cards เป็น private bucket ไม่มี public URL ตรงๆ ต้องออก signed URL ให้แอดมินดูชั่วคราว (10 นาที)
     let idCardSignedUrl: string | null = null;
     if (row.shop.idCardUrl) {
-      const { data } = await supabaseAdmin.storage
+      const { data } = await objectStorage
         .from("id-cards")
         .createSignedUrl(row.shop.idCardUrl, 600);
       idCardSignedUrl = data?.signedUrl ?? null;

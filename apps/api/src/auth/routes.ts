@@ -101,7 +101,10 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       value: token,
       httpOnly: true,
       secure: isProd,
-      sameSite: "lax",
+      // dev: frontend/backend อยู่ localhost คนละพอร์ต แต่ registrable domain เดียวกัน "lax" ก็พอ
+      // prod: frontend (pages.dev) กับ backend (onrender.com) คนละโดเมนกันจริง ต้องเป็น "none" cookie ถึงจะแนบไปกับ
+      // cross-site request ได้ (ต้องคู่กับ secure:true เสมอ ไม่งั้นเบราว์เซอร์ปฏิเสธ cookie นี้ทิ้ง — isProd=true ที่นี่ก็ทำให้ secure เป็น true อยู่แล้ว)
+      sameSite: isProd ? "none" : "lax",
       path: "/",
       maxAge: 60 * 60 * 24, // 1 วัน
     });
@@ -179,7 +182,10 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       value: token,
       httpOnly: true,
       secure: isProd,
-      sameSite: "lax",
+      // dev: frontend/backend อยู่ localhost คนละพอร์ต แต่ registrable domain เดียวกัน "lax" ก็พอ
+      // prod: frontend (pages.dev) กับ backend (onrender.com) คนละโดเมนกันจริง ต้องเป็น "none" cookie ถึงจะแนบไปกับ
+      // cross-site request ได้ (ต้องคู่กับ secure:true เสมอ ไม่งั้นเบราว์เซอร์ปฏิเสธ cookie นี้ทิ้ง — isProd=true ที่นี่ก็ทำให้ secure เป็น true อยู่แล้ว)
+      sameSite: isProd ? "none" : "lax",
       path: "/",
       maxAge: 60 * 60 * 24, // 1 วัน
     });
@@ -207,7 +213,10 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       value: token,
       httpOnly: true,
       secure: isProd,
-      sameSite: "lax",
+      // dev: frontend/backend อยู่ localhost คนละพอร์ต แต่ registrable domain เดียวกัน "lax" ก็พอ
+      // prod: frontend (pages.dev) กับ backend (onrender.com) คนละโดเมนกันจริง ต้องเป็น "none" cookie ถึงจะแนบไปกับ
+      // cross-site request ได้ (ต้องคู่กับ secure:true เสมอ ไม่งั้นเบราว์เซอร์ปฏิเสธ cookie นี้ทิ้ง — isProd=true ที่นี่ก็ทำให้ secure เป็น true อยู่แล้ว)
+      sameSite: isProd ? "none" : "lax",
       path: "/",
       maxAge: parsed.data.rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24,
     });

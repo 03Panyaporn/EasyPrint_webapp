@@ -29,7 +29,7 @@ import {
   users,
 } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
-import { supabaseAdmin } from "../storage";
+import { objectStorage } from "../storage";
 import { createNotification } from "../utils/notification";
 import { generateOrderCode, generateOrderRef, serializeOrder, assertShopAcceptingOrders } from "./orders";
 import { notifyOrderCreated } from "../notifications";
@@ -37,7 +37,7 @@ import { notifyOrderCreated } from "../notifications";
 // นับจำนวนหน้าจริงจากไฟล์ PDF ที่อัปโหลดไว้ใน Storage — ใช้เสมอตอนเพิ่ม/แก้ไขรายการ pricingModel = per_page
 // ⚠️ ห้ามรับ pageCount จาก client มาใช้คำนวณราคาโดยตรงเด็ดขาด (กัน customer แก้ตัวเลขใน request เพื่อกดราคาถูกลง)
 async function countPdfPages(path: string) {
-  const { data, error } = await supabaseAdmin.storage.from("order-files").download(path);
+  const { data, error } = await objectStorage.from("order-files").download(path);
   if (error || !data) {
     throw new Error("ไม่พบไฟล์ที่อัปโหลด กรุณาอัปโหลดไฟล์ใหม่อีกครั้ง");
   }

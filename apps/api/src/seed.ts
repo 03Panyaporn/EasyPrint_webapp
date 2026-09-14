@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { orders, shops, users } from "../drizzle/schema";
 import { hashPassword } from "./auth/password";
-import { supabaseAdmin } from "./storage";
+import { objectStorage } from "./storage";
 
 // สคริปต์นี้ไว้ใส่ "ออเดอร์จำลอง" ตรงลง database เพื่อทดสอบ endpoint ฝั่งร้านค้า (list/detail/เปลี่ยนสถานะ/ยกเลิก/อนุมัติสลิป)
 // โดยไม่ต้องรอหน้าฟอร์มสั่งซื้อของลูกค้า (ยังไม่ได้ทำ) — รันซ้ำได้ ไม่สร้างข้อมูลซ้ำ (เช็คด้วยอีเมลก่อนสร้างทุกครั้ง)
@@ -13,7 +13,7 @@ const SEED_SHOP_OWNER_EMAIL = "seed-shop@easyprint.test";
 const SEED_PASSWORD = "Seed1234!"; // ใช้ทดสอบเท่านั้น ไม่ใช่บัญชีจริง
 
 async function ensureSlipBucket() {
-  const { error } = await supabaseAdmin.storage.createBucket("payment-slips", { public: false });
+  const { error } = await objectStorage.from("payment-slips").createBucket();
   if (error && !error.message.includes("already exists")) {
     console.warn("สร้าง bucket payment-slips ไม่สำเร็จ (อาจมีอยู่แล้ว):", error.message);
   }

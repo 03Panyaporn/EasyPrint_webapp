@@ -17,7 +17,7 @@ import { requireShopOwner } from "./services";
 import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
 import { createAdminNotification } from "../adminNotifications";
 import { createNotification } from "../utils/notification";
-import { supabaseAdmin } from "../storage";
+import { objectStorage } from "../storage";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -219,7 +219,7 @@ export function serializeOrder(
 // เพราะ path ดิบที่เก็บใน DB เปิดดูตรงๆ ไม่ได้ (ไม่ใช่ URL สาธารณะ)
 async function signStoragePath(bucket: string, path: string | null | undefined, expiresInSeconds = 3600): Promise<string | null> {
   if (!path) return null;
-  const { data } = await supabaseAdmin.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
+  const { data } = await objectStorage.from(bucket).createSignedUrl(path, expiresInSeconds);
   return data?.signedUrl ?? null;
 }
 
