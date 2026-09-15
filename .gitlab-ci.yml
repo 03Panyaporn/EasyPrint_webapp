@@ -68,6 +68,9 @@ build_api:
 
 deploy_api:
   stage: deploy
+  # image เฉพาะ job นี้ (แทน oven/bun:1 ของ global) เพราะแค่ยิง HTTP POST เดียว ไม่ต้องมี bun เลย
+  # และ oven/bun:1 ไม่มี curl ติดตั้งมาด้วย (เจอจริง: "curl: command not found", exit code 127)
+  image: curlimages/curl:latest
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   script:
@@ -78,14 +81,5 @@ deploy_api:
       fi
       curl -sf -X POST "$RENDER_DEPLOY_HOOK"
 
-deploy_web:
-  stage: deploy
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-  script:
-    - |
-      if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
-        echo "ยังไม่ได้ตั้งค่า CI/CD variable VERCEL_DEPLOY_HOOK (Settings > CI/CD > Variables) — ข้าม deploy"
-        exit 0
-      fi
-      curl -sf -X POST "$VERCEL_DEPLOY_HOOK"
+# deploy_web ตัดออกแล้ว — เปลี่ยนจาก Vercel มาใช้ Cloudflare Pages/Workers ซึ่งเชื่อม Git integration ตรงกับ
+# GitHub เอง (auto-deploy ทุกครั้งที่ push เข้า main) ไม่ผ่าน deploy hook แบบ curl เหมือน Vercel/Render แล้ว
