@@ -50,7 +50,10 @@ function nowInBangkok(): { y: number; m: number; d: number; hour: number; minute
 }
 
 function findTodayEntry(openingHours: ShopOpeningHours[] | null): ShopOpeningHours | null {
-  if (!openingHours || openingHours.length === 0) return null;
+  // ข้อมูลเก่าบางร้านถูกบันทึก openingHours เป็น object (keyed by day) แทนที่จะเป็น array ตาม type จริง
+  // (เจอจาก production data จริงหลัง deploy — ทำให้ .find() ด้านล่าง throw "e.find is not a function"
+  // และพังทั้งหน้าแรกที่ลิสต์ร้านทั้งหมด) เช็ค Array.isArray กันไว้ก่อน แทนที่จะพึ่ง TypeScript type เฉยๆ
+  if (!openingHours || !Array.isArray(openingHours) || openingHours.length === 0) return null;
   const todayThai = THAI_DAY_BY_JS_INDEX[nowInBangkok().weekdayIndex];
   return (
     openingHours.find(
