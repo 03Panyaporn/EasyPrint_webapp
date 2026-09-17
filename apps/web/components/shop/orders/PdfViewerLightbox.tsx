@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Maximize2, Minimize2, FileText, Download, ExternalLink } from "lucide-react";
 import { Order } from "./types";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 interface PdfViewerLightboxProps {
   order: Order | null;
@@ -11,6 +12,7 @@ interface PdfViewerLightboxProps {
 
 export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,6 +20,11 @@ export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxP
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  // รีเซ็ต loading state ทุกครั้งที่เปลี่ยนไฟล์/เปิด lightbox ใหม่
+  useEffect(() => {
+    setIframeLoaded(false);
+  }, [order?.rawFileUrl]);
 
   if (!order) return null;
 
@@ -60,13 +67,21 @@ export default function PdfViewerLightbox({ order, onClose }: PdfViewerLightboxP
         </div>
 
         {/* Body — ใช้ตัวแสดง PDF ในตัวของเบราว์เซอร์ แสดงไฟล์งานจริงที่ลูกค้าอัปโหลด (ไม่ใช่ mock) */}
-        <div className="flex-1 min-h-0 bg-gray-100">
+        <div className="flex-1 min-h-0 bg-gray-100 relative">
           {order.rawFileUrl ? (
-            <iframe
-              src={order.rawFileUrl}
-              title={order.file.name}
-              className="w-full h-full border-0"
-            />
+            <>
+              {!iframeLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100" aria-live="polite" aria-busy="true">
+                  <LoadingSection label="กำลังโหลดไฟล์..." />
+                </div>
+              )}
+              <iframe
+                src={order.rawFileUrl}
+                title={order.file.name}
+                className="w-full h-full border-0"
+                onLoad={() => setIframeLoaded(true)}
+              />
+            </>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-400">
               <FileText size={32} />

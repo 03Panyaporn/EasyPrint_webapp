@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import ChatPage from "@/components/chat/chatpage";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 export default function ShopChatPage() {
   return (
@@ -22,7 +23,7 @@ export default function ShopChatPage() {
         </div>
       </div>
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<LoadingSection label="กำลังโหลดแชท..." />}>
         <ShopChatContent />
       </Suspense>
     </div>

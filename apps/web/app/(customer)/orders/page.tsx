@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ShoppingBag,
-  Loader2,
   ArrowRight,
   Clock,
   AlertCircle,
@@ -27,6 +26,8 @@ import { createReview, getOrderReview } from "@/lib/api/reviews";
 import type { ReviewResponse } from "@easyprint/shared";
 import { statusConfig } from "@/components/shop/orders/statusConfig";
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { SkeletonRow } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 // ── Star Rating Component ──────────────────────────────
 function StarRating({
@@ -247,11 +248,31 @@ export default function CustomerOrdersPage() {
   // ── Loading ───────────────────────────────────────────
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto flex max-w-4xl items-center justify-center py-20">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 size={30} className="animate-spin text-orange-500" />
-            <p className="text-sm text-slate-500">กำลังโหลดประวัติสั่งพิมพ์...</p>
+      <main className="min-h-screen bg-slate-50 px-4 py-6 md:px-6 md:py-8">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-sm">
+                  <Package size={21} />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-semibold text-slate-800 md:text-2xl"> ติดตามคำสั่งซื้อ </h1>
+                  <p className="mt-0.5 text-xs text-slate-400 md:text-sm"> ตรวจสอบสถานะงานพิมพ์ของคุณ </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-5" aria-live="polite" aria-busy="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg"
+              >
+                <SkeletonRow />
+              </div>
+            ))}
           </div>
         </div>
       </main>
@@ -340,7 +361,7 @@ export default function CustomerOrdersPage() {
             EMPTY / NO-MATCH STATES
         ================================= */}
         {orders.length === 0 ? (
-          <div className="rounded-3xl border border-slate-100 bg-white px-6 py-14 text-center shadow-sm">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
               <ShoppingBag size={30} />
             </div>
@@ -350,7 +371,7 @@ export default function CustomerOrdersPage() {
             </p>
             <Link
               href="/dashboard"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm text-white shadow-sm transition hover:bg-orange-600"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-md"
             >
               ค้นหาร้านถ่ายเอกสาร
               <ArrowRight size={16} />
@@ -358,7 +379,7 @@ export default function CustomerOrdersPage() {
           </div>
 
         ) : filteredOrders.length === 0 ? (
-          <div className="rounded-3xl border border-slate-100 bg-white px-6 py-12 text-center shadow-sm">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
               <Package size={26} />
             </div>
@@ -367,7 +388,7 @@ export default function CustomerOrdersPage() {
             <button
               type="button"
               onClick={() => setSelectedStatus("all")}
-              className="mt-5 rounded-xl bg-orange-50 px-4 py-2.5 text-xs font-medium text-orange-600 transition hover:bg-orange-100"
+              className="mt-5 rounded-xl bg-orange-50 px-4 py-2.5 text-xs font-medium text-orange-600 transition-all duration-200 hover:bg-orange-100"
             >
               ดูคำสั่งซื้อทั้งหมด
             </button>
@@ -400,7 +421,7 @@ export default function CustomerOrdersPage() {
               return (
                 <div
                   key={order.id}
-                  className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg transition hover:shadow-xl"
+                  className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg transition-all duration-200 hover:shadow-xl"
                 >
                   {/* ORDER HEADER */}
                   <div className="border-b border-slate-100 px-5 py-4 md:px-6">
@@ -617,7 +638,7 @@ export default function CustomerOrdersPage() {
                 type="button"
                 disabled={cancelling}
                 onClick={() => setCancelOrder(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ไม่ยกเลิก
               </button>
@@ -625,11 +646,11 @@ export default function CustomerOrdersPage() {
                 type="button"
                 disabled={cancelling}
                 onClick={handleConfirmCancel}
-                className="flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 text-sm text-white transition hover:bg-red-600 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 text-sm text-white transition hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelling ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
+                    <Spinner size="sm" />
                     กำลังยกเลิก
                   </>
                 ) : (
@@ -727,11 +748,11 @@ export default function CustomerOrdersPage() {
                     type="button"
                     disabled={!chatMessage.trim() || chatSending}
                     onClick={handleSendChat}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-orange-600 disabled:opacity-50"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {chatSending ? (
                       <>
-                        <Loader2 size={16} className="animate-spin" />
+                        <Spinner size="sm" />
                         กำลังส่ง...
                       </>
                     ) : (
@@ -820,7 +841,7 @@ export default function CustomerOrdersPage() {
                   type="button"
                   disabled={submittingReview}
                   onClick={() => setReviewOrder(null)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ข้ามไปก่อน
                 </button>
@@ -828,11 +849,11 @@ export default function CustomerOrdersPage() {
                   type="button"
                   disabled={submittingReview}
                   onClick={handleSubmitReview}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submittingReview ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Spinner size="sm" />
                       กำลังส่ง
                     </>
                   ) : (

@@ -23,6 +23,7 @@ import {
 } from "@/lib/api/contactAdmin";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 function formatThaiDateTime(iso: string): string {
   const date = new Date(iso);
@@ -187,10 +188,13 @@ export default function AdminContactMessagesPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-20 text-center text-gray-500">
-                    <Loader2 size={24} className="animate-spin mx-auto mb-2" />
-                    กำลังโหลด...
+                <tr aria-live="polite" aria-busy="true">
+                  <td colSpan={7} className="p-0">
+                    <div className="divide-y divide-gray-100">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <SkeletonRow key={i} />
+                      ))}
+                    </div>
                   </td>
                 </tr>
               ) : filteredMessages.length === 0 ? (

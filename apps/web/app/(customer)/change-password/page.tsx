@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { changePassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -109,12 +110,13 @@ export default function ChangePasswordPage() {
             <button
               type="submit"
               disabled={!isFormValid || isSubmitting}
-              className={`px-5 py-2.5 rounded-full text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
+              className={`flex items-center px-5 py-2.5 rounded-full text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
                 isFormValid && !isSubmitting
                   ? "bg-orange-500 text-white hover:bg-orange-600 cursor-pointer"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
               }`}
             >
+              {isSubmitting && <Spinner size="sm" className="mr-2" />}
               {isSubmitting ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}
             </button>
             <Link href="/orders" className="text-sm font-semibold text-slate-500 hover:text-slate-700 transition">

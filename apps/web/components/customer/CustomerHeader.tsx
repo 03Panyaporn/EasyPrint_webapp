@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { getMe, logout as logoutApi, type PublicUser } from "@/lib/api/auth";
 import CustomerNotificationDropdown from "@/components/customer/CustomerNotificationDropdown";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 // nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
 const NAV_LINKS: { label: string; href: string; match?: (pathname: string) => boolean }[] = [
@@ -40,6 +41,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [user, setUser] = useState<PublicUser | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
 
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +54,8 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
     if (variant === "auth") {
       getMe()
         .then((res) => setUser(res.user))
-        .catch(() => setUser(null));
+        .catch(() => setUser(null))
+        .finally(() => setUserLoading(false));
     }
   }, [variant]);
 
@@ -171,20 +174,32 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   <div className="absolute right-0 mt-2.5 w-64 sm:w-72 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-100 p-3 z-50 origin-top-right transition-all duration-200 animate-in fade-in zoom-in-95">
                     {/* User Profile Header Banner (Dynamic) */}
                     <div className="p-3 bg-gradient-to-r from-orange-50/80 to-amber-50/80 rounded-2xl border border-orange-100/60 flex items-center gap-3 mb-2">
-                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black text-base flex items-center justify-center shadow-md shadow-orange-200 shrink-0">
-                        {avatarInitial}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-black text-slate-900 truncate">{displayName}</h4>
-                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-orange-500 text-white rounded-full shrink-0">
-                            สมาชิก
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">
-                          {displayEmail}
-                        </p>
-                      </div>
+                      {userLoading ? (
+                        <>
+                          <Skeleton className="w-11 h-11 rounded-2xl shrink-0" />
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <Skeleton className="h-3 w-2/3" />
+                            <Skeleton className="h-2.5 w-4/5" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black text-base flex items-center justify-center shadow-md shadow-orange-200 shrink-0">
+                            {avatarInitial}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-xs font-black text-slate-900 truncate">{displayName}</h4>
+                              <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-orange-500 text-white rounded-full shrink-0">
+                                สมาชิก
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">
+                              {displayEmail}
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {/* Menu Items */}
@@ -346,13 +361,25 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
               <div className="space-y-2.5">
                 {/* User Profile Card Header in Light Cream Background */}
                 <div className="p-3 pr-8 bg-gradient-to-r from-orange-50/90 to-amber-50/70 rounded-2xl border border-orange-100/80 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black text-sm flex items-center justify-center shadow-md shadow-orange-200 shrink-0">
-                    {avatarInitial}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">{displayName}</h4>
-                    <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{displayEmail}</p>
-                  </div>
+                  {userLoading ? (
+                    <>
+                      <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-2.5 w-4/5" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black text-sm flex items-center justify-center shadow-md shadow-orange-200 shrink-0">
+                        {avatarInitial}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">{displayName}</h4>
+                        <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{displayEmail}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Navigation List Items */}

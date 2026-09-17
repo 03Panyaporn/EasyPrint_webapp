@@ -4,7 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { getMyShopProfile, updateShopProfile, type MyShopProfile, type ShopOpeningHours } from "@/lib/api/shops";
 import { isShopOpenNow, isShopTempClosed } from "@/lib/shopHours";
 import { uploadFile } from "@/lib/api/uploads";
-import { Store, Camera, Loader2, MapPin, Clock, Info, ExternalLink, FileText, Save, AlertTriangle, Calendar } from "lucide-react";
+import { Store, Camera, MapPin, Clock, Info, ExternalLink, FileText, Save, AlertTriangle, Calendar } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 const DAYS = [
   { id: "mon", label: "จันทร์" },
@@ -398,9 +400,50 @@ export default function ShopProfileForm() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-gray-400">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <p>กำลังโหลดข้อมูล...</p>
+      <div className="max-w-7xl mx-auto pb-12" aria-live="polite" aria-busy="true">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-3.5 w-56" />
+            </div>
+          </div>
+          <Skeleton className="h-12 w-40 rounded-xl" />
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="md:col-span-1">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-full flex flex-col items-center">
+              <Skeleton className="h-6 w-40 self-start mb-6" />
+              <Skeleton className="w-full max-w-[240px] aspect-[4/3] rounded-2xl" />
+              <Skeleton className="h-10 w-full mt-6 rounded-xl" />
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-full space-y-5">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mt-6 space-y-4">
+          <Skeleton className="h-6 w-28" />
+          <div className="grid md:grid-cols-2 gap-x-8 gap-y-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mt-6 space-y-3">
+          <Skeleton className="h-6 w-32" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -497,8 +540,9 @@ export default function ShopProfileForm() {
                 type="button" 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="mt-6 w-full py-2.5 px-4 rounded-xl border border-orange-200 text-orange-600 font-medium text-sm hover:bg-orange-50 transition"
+                className="mt-6 w-full py-2.5 px-4 rounded-xl border border-orange-200 text-orange-600 font-medium text-sm hover:bg-orange-50 transition flex items-center justify-center gap-2"
               >
+                {uploadingPhoto && <Spinner size="sm" />}
                 {uploadingPhoto ? "กำลังอัปโหลด..." : "เปลี่ยนรูปภาพ"}
               </button>
             </div>
@@ -737,7 +781,7 @@ export default function ShopProfileForm() {
         >
           {saving ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Spinner size="sm" />
               <span>กำลังบันทึก...</span>
             </>
           ) : (

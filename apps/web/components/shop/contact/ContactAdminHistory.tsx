@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, User, Calendar, Loader2, Paperclip, Download } from "lucide-react";
+import { Clock, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, User, Calendar, Paperclip, Download } from "lucide-react";
 import { getMyShopProfile } from "@/lib/api/shops";
 import { getShopContactAdminMessages } from "@/lib/api/contactAdmin";
 import type { ContactAdminMessageItem, ContactAdminStatus } from "@easyprint/shared";
 import { ApiError } from "@/lib/api/client";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 function formatThaiDateTime(iso: string): string {
   return new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -101,22 +102,36 @@ export default function ContactAdminHistory() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p>กำลังโหลดข้อมูล...</p>
+      <div className="w-full space-y-4" aria-live="polite" aria-busy="true">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 md:p-5 flex items-center justify-between">
+              <div className="flex-1 min-w-0 pr-4 space-y-2">
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+              <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   if (loadError) {
-    return <div className="bg-red-50 text-red-600 border border-red-200 rounded-xl p-4 text-sm">{loadError}</div>;
+    return (
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-3">
+        <p className="text-red-500 font-semibold text-xs sm:text-base">{loadError}</p>
+      </div>
+    );
   }
 
   if (messages.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-400">
-        <MessageSquare className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-        <p className="text-sm">ยังไม่มีคำร้องที่เคยส่งไป</p>
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 space-y-3">
+        <MessageSquare className="w-10 h-10 mx-auto text-slate-300" />
+        <p className="text-slate-500 font-semibold text-xs sm:text-base">ยังไม่มีคำร้องที่เคยส่งไป</p>
       </div>
     );
   }

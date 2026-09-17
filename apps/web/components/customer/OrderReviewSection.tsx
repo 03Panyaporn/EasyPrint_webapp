@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, Loader2, MessageSquare, Trash2, Send } from "lucide-react";
+import { Star, MessageSquare, Trash2, Send } from "lucide-react";
 import { createReview, getOrderReview, deleteReview } from "@/lib/api/reviews";
 import { ApiError } from "@/lib/api/client";
 import type { ReviewResponse } from "@easyprint/shared";
+import { Spinner } from "@/components/ui/Spinner";
+import { Skeleton, SkeletonText } from "@/components/ui/Skeleton";
 
 interface OrderReviewSectionProps {
   orderId: string;
@@ -63,9 +65,15 @@ export default function OrderReviewSection({ orderId }: OrderReviewSectionProps)
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-md md:p-6 flex items-center justify-center gap-2 text-slate-400 text-sm">
-        <Loader2 size={16} className="animate-spin" />
-        กำลังโหลดรีวิว...
+      <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-md md:p-6 space-y-4" aria-live="polite" aria-busy="true">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+        <SkeletonText lines={2} />
       </div>
     );
   }
@@ -105,9 +113,11 @@ export default function OrderReviewSection({ orderId }: OrderReviewSectionProps)
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-600 disabled:opacity-50"
+            className={`inline-flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-600 transition ${
+              deleting ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
-            {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            {deleting ? <Spinner size="sm" /> : <Trash2 size={13} />}
             ลบรีวิวนี้
           </button>
         </div>
@@ -142,9 +152,11 @@ export default function OrderReviewSection({ orderId }: OrderReviewSectionProps)
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition disabled:opacity-50"
+            className={`inline-flex items-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all ${
+              submitting ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
-            {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+            {submitting ? <Spinner size="sm" /> : <Send size={15} />}
             ส่งรีวิว
           </button>
         </div>

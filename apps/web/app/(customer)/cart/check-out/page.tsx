@@ -22,13 +22,18 @@ import {
     createAddress as createAddressApi,
     type Address
 } from "@/lib/api/addresses";
+import { LoadingSection, Spinner } from "@/components/ui/Spinner";
 
 export default function CheckoutPage() {
     return (
         <Suspense
             fallback={
-                <div className="p-10 text-center">
-                    กำลังโหลด...
+                <div
+                    className="w-full lg:max-w-4xl mx-auto px-4 sm:px-6 pb-10"
+                    aria-live="polite"
+                    aria-busy="true"
+                >
+                    <LoadingSection label="กำลังโหลด..." />
                 </div>
             }
         >
@@ -157,16 +162,24 @@ function CheckoutContent() {
     }, [itemsParam]);
     if (loading) {
         return (
-            <div className="p-10 text-center">
-                กำลังโหลด...
+            <div
+                className="w-full lg:max-w-4xl mx-auto px-4 sm:px-6 pb-10"
+                aria-live="polite"
+                aria-busy="true"
+            >
+                <LoadingSection label="กำลังโหลดข้อมูลการชำระเงิน..." />
             </div>
         );
     }
 
     if (!cart) {
         return (
-            <div className="p-10 text-center">
-                ไม่พบข้อมูลตะกร้า
+            <div className="w-full lg:max-w-4xl mx-auto px-4 sm:px-6 pb-10">
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
+                    <p className="text-slate-500 font-semibold text-xs sm:text-base">
+                        ไม่พบข้อมูลตะกร้า
+                    </p>
+                </div>
             </div>
         );
     }
@@ -774,7 +787,7 @@ function CheckoutContent() {
                         }
 
                     }}
-                    className={`flex-1 h-11 rounded-xl text-sm text-white transition
+                    className={`flex-1 h-11 rounded-xl text-sm text-white transition-all
           ${agreeTerms &&
                             slip &&
                             !submitting &&
@@ -788,9 +801,14 @@ function CheckoutContent() {
                         }
         `}
                 >
-                    {submitting
-                        ? "กำลังสั่งซื้อ..."
-                        : "ยืนยันคำสั่งซื้อ"}
+                    {submitting ? (
+                        <span className="inline-flex items-center justify-center gap-2">
+                            <Spinner size="sm" />
+                            กำลังสั่งซื้อ...
+                        </span>
+                    ) : (
+                        "ยืนยันคำสั่งซื้อ"
+                    )}
                 </button>
 
             </div>

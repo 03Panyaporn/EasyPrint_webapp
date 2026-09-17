@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, Clock, UserCog, Package, CheckCircle2, XCircle, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { Wallet, Clock, UserCog, Package, CheckCircle2, XCircle, ArrowUp, ArrowDown } from "lucide-react";
 import { getMyShop } from "@/lib/api/services";
 import { listShopOrders } from "@/lib/api/orders";
 import { toOrder } from "@/lib/ordersAdapter";
 import { Order } from "../orders/types";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 // แปลงเป็นวันที่ "YYYY-MM-DD" ตามเวลาไทย (Asia/Bangkok) เสมอ — ห้ามใช้ toISOString().split('T')[0] ตรงๆ
 // เพราะนั่นคือวันที่แบบ UTC ซึ่งจะผิดในช่วง 00:00-06:59 น. เวลาไทย (ตอนนั้นวันที่ UTC ยังเป็นเมื่อวาน)
@@ -176,13 +177,32 @@ export default function StatCards() {
     return () => window.removeEventListener("order-status-updated", handleOrderUpdate);
   }, []);
 
+  if (loading) {
+    return (
+      <div
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div
+            key={idx}
+            className="rounded-2xl p-4 sm:p-5 border bg-white border-gray-100 shadow-sm flex flex-col justify-between"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+              <Skeleton className="h-3.5 w-20" />
+            </div>
+            <Skeleton className="h-7 w-16 mb-2" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 relative">
-      {loading && (
-        <div className="absolute inset-0 z-10 bg-white/50 flex items-center justify-center rounded-2xl">
-          <Loader2 size={24} className="animate-spin text-orange-500" />
-        </div>
-      )}
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       {stats.map((stat, idx) => {
         const Icon = stat.icon;
         const TrendIcon = stat.trend === "up" ? ArrowUp : ArrowDown;

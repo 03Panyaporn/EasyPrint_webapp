@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Store, XCircle, MessageCircle, CheckCheck, Loader2 } from "lucide-react";
+import { Bell, Store, XCircle, MessageCircle, CheckCheck } from "lucide-react";
 import type { AdminNotificationItem, AdminNotificationType } from "@easyprint/shared";
 import { getAdminNotifications, markAdminNotificationRead, markAllAdminNotificationsRead } from "@/lib/api/notifications";
 import { ApiError } from "@/lib/api/client";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 const NOTIF_META: Record<AdminNotificationType, { icon: typeof Store; iconBg: string; iconColor: string; label: string }> = {
   shop_registered: { icon: Store, iconBg: "bg-emerald-50 border border-emerald-200/80", iconColor: "text-emerald-600", label: "ร้านค้าใหม่" },
@@ -98,9 +99,10 @@ export default function AdminNotificationsPage() {
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-          <Loader2 size={24} className="animate-spin" />
-          <p className="text-sm">กำลังโหลด...</p>
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-2xs divide-y divide-gray-50 overflow-hidden" aria-live="polite" aria-busy="true">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-2xl p-10 shadow-2xs text-center text-sm text-gray-400">

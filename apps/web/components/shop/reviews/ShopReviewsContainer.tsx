@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Star, Loader2, AlertCircle, MessageSquare, Send } from "lucide-react";
+import { Star, AlertCircle, MessageSquare, Send } from "lucide-react";
 import { getMyShopProfile } from "@/lib/api/shops";
 import { getShopReviews, replyToReview } from "@/lib/api/reviews";
 import { ApiError } from "@/lib/api/client";
 import type { ReviewResponse, ShopReviewsResponse } from "@easyprint/shared";
+import { Skeleton, SkeletonText } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
@@ -63,9 +65,44 @@ export default function ShopReviewsContainer() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-        <Loader2 size={28} className="animate-spin text-orange-500" />
-        <p className="text-sm">กำลังโหลดรีวิว...</p>
+      <div className="space-y-5 pb-10" aria-live="polite" aria-busy="true">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-sm flex items-center gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <Skeleton className="h-8 w-12" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <div className="flex-1 space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-1.5 w-full rounded-full" />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-3.5 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <Skeleton className="h-3.5 w-20 shrink-0" />
+              </div>
+              <SkeletonText lines={2} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -122,8 +159,8 @@ export default function ShopReviewsContainer() {
       </div>
 
       {reviews.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-10 text-center text-slate-400 text-sm">
-          ยังไม่มีรีวิวสำหรับร้านนี้
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 space-y-3">
+          <p className="text-slate-500 font-semibold text-xs sm:text-base">ยังไม่มีรีวิวสำหรับร้านนี้</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -167,7 +204,7 @@ export default function ShopReviewsContainer() {
                     disabled={replyingId === review.id || !(replyDrafts[review.id] ?? "").trim()}
                     className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 px-3 py-2 text-xs font-bold text-white transition"
                   >
-                    {replyingId === review.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    {replyingId === review.id ? <Spinner size="sm" /> : <Send size={13} />}
                     ตอบกลับ
                   </button>
                 </div>

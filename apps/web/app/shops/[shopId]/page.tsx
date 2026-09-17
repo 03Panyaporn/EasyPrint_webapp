@@ -8,7 +8,6 @@ import {
   MapPin,
   Clock,
   Star,
-  Loader2,
   AlertTriangle,
   Phone,
   Tag,
@@ -29,6 +28,7 @@ import type { ReviewResponse, ShopReviewsResponse } from "@easyprint/shared";
 import type { MainService } from "@/components/shop/services/types";
 import { SERVICE_CATEGORIES } from "@/components/customer/ServiceCategoryGrid";
 import CustomerHeader from "@/components/customer/CustomerHeader";
+import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 
 const PRICING_MODEL_SUFFIX: Record<MainService["pricingModel"], string> = {
   per_page: "/หน้า",
@@ -210,16 +210,44 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
       />
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-400">
-          <Loader2 size={24} className="animate-spin" />
-          <p className="text-sm">กำลังโหลดข้อมูลร้านค้า...</p>
+        <div aria-live="polite" aria-busy="true">
+          {/* Hero skeleton */}
+          <section className="relative overflow-hidden bg-[#fdf5ee] border-b border-orange-100">
+            <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+              <div className="flex items-center gap-4 sm:gap-6">
+                <Skeleton className="w-20 h-20 sm:w-32 sm:h-32 rounded-2xl shrink-0" />
+                <div className="flex-1 min-w-0 space-y-2.5 sm:space-y-3">
+                  <Skeleton className="h-5 sm:h-7 w-2/3 max-w-xs" />
+                  <Skeleton className="h-3 sm:h-4 w-full max-w-md" />
+                  <Skeleton className="h-3 w-1/2 max-w-xs" />
+                  <Skeleton className="h-3 w-1/3 max-w-[160px]" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Services skeleton */}
+          <main className="bg-slate-50/80 pb-14">
+            <section className="max-w-6xl mx-auto pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <Skeleton className="h-5 sm:h-6 w-40" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            </section>
+          </main>
         </div>
       ) : loadError || !shop ? (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-2 text-center px-4">
-          <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบร้านค้านี้"}</p>
-          <Link href="/" className="text-orange-500 text-sm font-bold hover:underline">
-            กลับหน้าแรก
-          </Link>
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-2">
+            <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบร้านค้านี้"}</p>
+            <Link href="/" className="text-orange-500 text-sm font-bold hover:underline">
+              กลับหน้าแรก
+            </Link>
+          </div>
         </div>
       ) : (
         <>

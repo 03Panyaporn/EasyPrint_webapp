@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShoppingBag, CheckCircle, Loader2, RefreshCw } from "lucide-react";
+import { ShoppingBag, CheckCircle, RefreshCw } from "lucide-react";
 import OrderStatusCards from "@/components/shop/orders/OrderStatusCards";
 import OrdersTable from "@/components/shop/orders/OrdersTable";
 import UpdateStatusModal from "@/components/shop/orders/UpdateStatusModal";
@@ -14,6 +14,8 @@ import { getMyShop } from "@/lib/api/services";
 import { listShopOrders, updateOrderStatus } from "@/lib/api/orders";
 import { toOrder } from "@/lib/ordersAdapter";
 import { ApiError } from "@/lib/api/client";
+import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function OrdersPage() {
   const [shopId, setShopId] = useState<string | null>(null);
@@ -127,17 +129,74 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-400">
-        <Loader2 size={24} className="animate-spin" />
-        <p className="text-sm">กำลังโหลดข้อมูล...</p>
+      <div className="space-y-6 pb-12" aria-live="polite" aria-busy="true">
+        {/* Page Heading */}
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-200">
+              <ShoppingBag size={20} />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              รายการคำสั่งซื้อ
+            </h1>
+          </div>
+        </div>
+
+        {/* Status Summary Cards skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+              <Skeleton className="w-11 h-11 rounded-xl shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-4 w-10" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Orders table skeleton */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_32px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.8)] overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-100">
+            <Skeleton className="h-5 w-40" />
+          </div>
+          <div className="divide-y divide-gray-100">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (loadError || !shopId) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center px-4">
-        <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบร้านค้าของบัญชีนี้"}</p>
+      <div className="space-y-6 pb-12">
+        {/* Page Heading */}
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-200">
+              <ShoppingBag size={20} />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              รายการคำสั่งซื้อ
+            </h1>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-2">
+          <p className="text-red-500 font-semibold text-sm sm:text-base">
+            {loadError || "ไม่พบร้านค้าของบัญชีนี้"}
+          </p>
+          <button
+            onClick={() => loadOrders()}
+            className="inline-flex items-center gap-1.5 text-orange-500 font-bold text-xs sm:text-sm hover:text-orange-600 transition-colors"
+          >
+            <RefreshCw size={14} />
+            ลองใหม่อีกครั้ง
+          </button>
+        </div>
       </div>
     );
   }
@@ -161,6 +220,12 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
             รายการคำสั่งซื้อ
           </h1>
+          {isRefreshing && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium" aria-live="polite">
+              <Spinner size="sm" />
+              กำลังอัปเดต...
+            </span>
+          )}
         </div>
       </div>
 

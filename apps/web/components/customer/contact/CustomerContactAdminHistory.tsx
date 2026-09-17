@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, User, Calendar, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, User, Calendar } from "lucide-react";
 import { getCustomerContactMessages } from "@/lib/api/contactAdmin";
 import type { ContactAdminMessageItem, ContactAdminStatus } from "@easyprint/shared";
 import { ApiError } from "@/lib/api/client";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 function formatThaiDateTime(iso: string): string {
   return new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -44,22 +45,27 @@ export default function CustomerContactAdminHistory() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p>กำลังโหลดข้อมูล...</p>
+      <div className="w-full space-y-4" aria-live="polite" aria-busy="true">
+        <SkeletonRow className="rounded-2xl border border-slate-200 bg-white" />
+        <SkeletonRow className="rounded-2xl border border-slate-200 bg-white" />
+        <SkeletonRow className="rounded-2xl border border-slate-200 bg-white" />
       </div>
     );
   }
 
   if (loadError) {
-    return <div className="bg-red-50 text-red-600 border border-red-200 rounded-xl p-4 text-sm">{loadError}</div>;
+    return (
+      <div className="bg-white rounded-2xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200">
+        <p className="text-red-500 font-semibold text-sm">{loadError}</p>
+      </div>
+    );
   }
 
   if (messages.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-400">
+      <div className="bg-white rounded-2xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
         <MessageSquare className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-        <p className="text-sm">ยังไม่มีคำร้องที่เคยส่งไป</p>
+        <p className="text-sm text-slate-400">ยังไม่มีคำร้องที่เคยส่งไป</p>
       </div>
     );
   }

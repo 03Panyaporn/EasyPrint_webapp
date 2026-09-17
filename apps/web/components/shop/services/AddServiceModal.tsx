@@ -17,9 +17,10 @@ import {
   QuantityTier,
   ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL,
 } from "./types";
-import { Sparkles, X, Upload, Layers, AlertCircle, Loader2, Plus, Trash2, ListPlus, Palette } from "lucide-react";
+import { Sparkles, X, Upload, Layers, AlertCircle, Plus, Trash2, ListPlus, Palette } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
+import { Spinner } from "@/components/ui/Spinner";
 
 const PRICING_MODEL_OPTIONS: { value: PricingModel; label: string; hint: string; priceLabel: string }[] = [
   { value: "per_page", label: "📄 คิดตามจำนวนหน้า (เช่น เอกสาร, ชีทเรียน)", hint: "ระบบจะนับจำนวนหน้าจากไฟล์ PDF ที่ลูกค้าอัปโหลดให้อัตโนมัติ", priceLabel: "ราคาเริ่มต้นต่อหน้า (บาท) — ขาวดำ" },
@@ -1543,7 +1544,7 @@ export default function AddServiceModal({
               disabled={isUploading}
               className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl shadow-md shadow-orange-200 transition flex items-center gap-1.5"
             >
-              {isUploading && <Loader2 size={14} className="animate-spin" />}
+              {isUploading && <Spinner size="sm" />}
               {isUploading ? "กำลังอัปโหลดรูป..." : "บันทึกบริการ"}
             </button>
           </div>

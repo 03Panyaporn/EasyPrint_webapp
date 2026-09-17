@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { ImageIcon, Upload, X, Loader2, Check } from "lucide-react";
+import { ImageIcon, Upload, X, Check } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
 import { SERVICE_TEMPLATES, BLANK_TEMPLATE, type ServiceTemplate } from "./serviceTemplates";
+import { Spinner } from "@/components/ui/Spinner";
 
 // สถานะบริการมีแค่ 2 แบบ — เปิดใช้งาน (ลูกค้าเห็น) กับ แบบร่าง (ซ่อนจากลูกค้า ร้านกลับมาแก้ไข/เปิดใช้งานทีหลังได้)
 // ตรงกับ backend ที่มีแค่ main_services.is_active (boolean) เดียว ไม่มีสถานะที่ 3 แยกต่างหาก
@@ -153,7 +154,7 @@ export default function Step1BasicInfo({ data, onChange, onNext, onBack, mode, o
           />
           {uploading ? (
             <div className="flex flex-col items-center gap-2 text-orange-400">
-              <Loader2 size={28} className="animate-spin" />
+              <Spinner size="lg" />
               <span className="text-xs font-medium">กำลังอัปโหลด...</span>
             </div>
           ) : data.imageUrl ? (

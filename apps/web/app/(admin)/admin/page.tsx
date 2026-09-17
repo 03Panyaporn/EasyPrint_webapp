@@ -11,11 +11,12 @@ import {
   FileText,
   ShieldAlert,
   Plus,
-  Loader2,
 } from "lucide-react";
 import { getAdminDashboard, approveShop } from "@/lib/api/admin";
 import type { AdminDashboardResponse, AdminDashboardPendingShop } from "@easyprint/shared";
 import { ApiError } from "@/lib/api/client";
+import { Skeleton, SkeletonRow, SkeletonText } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 // ─────────────────────────────────────────────────────────
 // Types & Mock Data (เฉพาะส่วนที่ยังไม่มี backend รองรับ — ดูแผนเฟส 2/3 ในแชท)
@@ -162,9 +163,39 @@ export default function AdminDashboardPage() {
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-          <Loader2 size={24} className="animate-spin" />
-          <p className="text-sm">กำลังโหลดข้อมูล...</p>
+        <div className="space-y-2.5" aria-live="polite" aria-busy="true">
+          {/* Skeleton: Stat Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white border border-gray-100 rounded-2xl p-2.5 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="w-8 h-8 rounded-xl" />
+                </div>
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="h-5 w-12" />
+              </div>
+            ))}
+          </div>
+
+          {/* Skeleton: Main Layout Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+            <div className="lg:col-span-8">
+              <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs overflow-hidden space-y-2">
+                <Skeleton className="h-3.5 w-40" />
+                <div className="divide-y divide-gray-50">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <SkeletonRow key={i} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-4">
+              <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs space-y-2.5">
+                <Skeleton className="h-3.5 w-32" />
+                <SkeletonText lines={4} />
+              </div>
+            </div>
+          </div>
         </div>
       ) : dashboard ? (
         <>
@@ -458,9 +489,10 @@ export default function AdminDashboardPage() {
               <button
                 onClick={() => handleApproveFromModal(selectedShopModal)}
                 disabled={isApproving}
-                className="flex-1 py-2 rounded-xl bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition shadow-2xs disabled:opacity-60"
+                className="flex-1 py-2 rounded-xl bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition shadow-2xs disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
-                {isApproving ? "กำลังอนุมัติ..." : "อนุมัติร้านค้า"}
+                {isApproving && <Spinner size="sm" />}
+                <span>{isApproving ? "กำลังอนุมัติ..." : "อนุมัติร้านค้า"}</span>
               </button>
             </div>
           </div>

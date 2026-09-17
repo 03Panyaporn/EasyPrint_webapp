@@ -30,6 +30,8 @@ import type { MockShop } from "@/lib/mock/adminShops";
 import { ApiError } from "@/lib/api/client";
 import ShopStatusBadge from "@/components/admin/shops/ShopStatusBadge";
 import NotificationToast, { type ToastType } from "@/components/admin/shops/NotificationToast";
+import { SkeletonRow } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 const PAGE_SIZE = 8;
 
@@ -469,9 +471,10 @@ export default function AdminManageShopsPage() {
       {/* Main Shops Table */}
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-            <Loader2 size={32} className="animate-spin text-orange-500" />
-            <p className="text-sm">กำลังโหลดข้อมูลร้านค้า...</p>
+          <div className="divide-y divide-slate-100" aria-live="polite" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
           </div>
         ) : paginatedShops.length === 0 ? (
           <div className="text-center py-16 px-4">
@@ -887,12 +890,13 @@ export default function AdminManageShopsPage() {
                     type="button"
                     disabled={actionLoading}
                     onClick={handleConfirmAction}
-                    className={`px-5 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition disabled:opacity-50 ${actionModal.action === "suspend"
+                    className={`px-5 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition disabled:opacity-50 flex items-center justify-center gap-1.5 ${actionModal.action === "suspend"
                       ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
                       : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
                       }`}
                   >
-                    {actionLoading ? "กำลังดำเนินการ..." : "ยืนยันทำรายการ"}
+                    {actionLoading && <Spinner size="sm" />}
+                    <span>{actionLoading ? "กำลังดำเนินการ..." : "ยืนยันทำรายการ"}</span>
                   </button>
                 </div>
               </div>

@@ -10,8 +10,9 @@ import {
   FileSpreadsheet,
   TrendingUp,
   TrendingDown,
-  Loader2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import {
   ResponsiveContainer,
   PieChart,
@@ -232,7 +233,7 @@ export default function ReportsPage() {
             disabled={exporting || !report}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
           >
-            <FileSpreadsheet size={14} />
+            {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={14} />}
             <span>{exporting ? "ส่งออก..." : "Export Excel"}</span>
           </button>
         </div>
@@ -245,9 +246,45 @@ export default function ReportsPage() {
       )}
 
       {loading && !report ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-          <Loader2 size={24} className="animate-spin" />
-          <p className="text-sm">กำลังโหลดรายงาน...</p>
+        <div className="space-y-2.5" aria-live="polite" aria-busy="true">
+          {/* KPI stat tiles */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs flex items-center gap-3">
+                <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Charts row */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+            <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs">
+              <Skeleton className="h-3.5 w-40 mb-3" />
+              <Skeleton className="h-36 w-full rounded-xl" />
+            </div>
+            <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs">
+              <Skeleton className="h-3.5 w-40 mb-3" />
+              <Skeleton className="h-36 w-full rounded-xl" />
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs space-y-1">
+            <Skeleton className="h-3.5 w-56 mb-2" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <Skeleton className="h-3 w-1/4" />
+                <Skeleton className="h-3 w-1/6" />
+                <Skeleton className="h-3 w-1/6" />
+                <Skeleton className="h-3 w-1/6" />
+                <Skeleton className="h-3 w-1/6" />
+              </div>
+            ))}
+          </div>
         </div>
       ) : metrics ? (
         <>
@@ -361,8 +398,8 @@ export default function ReportsPage() {
           )}
 
           {categories.length === 0 ? (
-            <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-2xs text-center text-sm text-gray-400">
-              ยังไม่มีออเดอร์ที่เสร็จสิ้นในช่วงเวลานี้
+            <div className="bg-white rounded-2xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 space-y-3">
+              <p className="text-slate-500 font-semibold text-xs sm:text-base">ยังไม่มีออเดอร์ที่เสร็จสิ้นในช่วงเวลานี้</p>
             </div>
           ) : (
             <>
@@ -581,7 +618,11 @@ export default function ReportsPage() {
             </>
           )}
         </>
-      ) : null}
+      ) : (
+        <div className="bg-white rounded-2xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 space-y-3">
+          <p className="text-slate-500 font-semibold text-xs sm:text-base">ไม่พบข้อมูลรายงานสำหรับช่วงเวลานี้</p>
+        </div>
+      )}
     </div>
   );
 }
