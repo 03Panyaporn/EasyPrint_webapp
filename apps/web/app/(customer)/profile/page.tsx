@@ -27,6 +27,7 @@ import {
     deleteAddress as deleteAddressApi,
     setDefaultAddress as setDefaultAddressApi,
 } from "@/lib/api/addresses";
+import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
 export interface Address {
     id: string;
@@ -58,6 +59,7 @@ export default function ProfilePage() {
     };
 
     const [addresses, setAddresses] = useState<Address[]>([]);
+    const [addressesLoading, setAddressesLoading] = useState(true);
     const [formAddress, setFormAddress] = useState<Address>(emptyAddress);
     const [openModal, setOpenModal] = useState(false);
     const [profile, setProfile] = useState<PublicUser | null>(null);
@@ -78,6 +80,8 @@ export default function ProfilePage() {
             setAddresses(sortedAddresses);
         } catch (error) {
             console.error("LOAD ADDRESSES ERROR:", error);
+        } finally {
+            setAddressesLoading(false);
         }
     }
 
@@ -262,10 +266,10 @@ export default function ProfilePage() {
                     )}
 
                     {!profile ? (
-                        <div className="animate-pulse grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
-                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
-                            <div className="h-16 bg-slate-100 rounded-2xl"></div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-live="polite" aria-busy="true">
+                            <Skeleton className="h-16 rounded-2xl" />
+                            <Skeleton className="h-16 rounded-2xl" />
+                            <Skeleton className="h-16 rounded-2xl" />
                         </div>
                     ) : editingProfile ? (
                         <div className="space-y-4">
@@ -314,8 +318,11 @@ export default function ProfilePage() {
                                     type="button"
                                     disabled={savingProfile}
                                     onClick={handleSaveProfile}
-                                    className="px-5 py-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 active:scale-95 shadow-sm transition text-xs disabled:opacity-50 cursor-pointer"
+                                    className="flex items-center px-5 py-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 active:scale-95 shadow-sm transition text-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
+                                    {savingProfile && (
+                                        <span className="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    )}
                                     {savingProfile ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
                                 </button>
                             </div>
@@ -376,7 +383,12 @@ export default function ProfilePage() {
                         </button>
                     </div>
 
-                    {addresses.length === 0 ? (
+                    {addressesLoading ? (
+                        <div className="space-y-3.5" aria-live="polite" aria-busy="true">
+                            <SkeletonRow className="rounded-2xl border border-slate-200/80 bg-white" />
+                            <SkeletonRow className="rounded-2xl border border-slate-200/80 bg-white" />
+                        </div>
+                    ) : addresses.length === 0 ? (
                         <div className="text-center py-12 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
                             <MapPin size={28} className="mx-auto text-slate-300 mb-2" />
                             <p className="text-slate-700 text-sm ">ยังไม่มีที่อยู่จัดส่ง</p>
@@ -604,8 +616,11 @@ export default function ProfilePage() {
                                             createAddress();
                                         }
                                     }}
-                                    className="px-5 py-2.5 rounded-xl bg-orange-500 text-white  hover:bg-orange-600 active:scale-95 shadow-sm transition text-xs disabled:opacity-50 cursor-pointer"
+                                    className="flex items-center px-5 py-2.5 rounded-xl bg-orange-500 text-white  hover:bg-orange-600 active:scale-95 shadow-sm transition text-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
+                                    {isSubmitting && (
+                                        <span className="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    )}
                                     {isSubmitting ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
                                 </button>
                             </div>

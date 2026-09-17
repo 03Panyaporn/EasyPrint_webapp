@@ -15,13 +15,13 @@ import {
   ShieldCheck,
   Building2,
   Sliders,
-  Loader2,
   AlertCircle,
 } from "lucide-react";
 import { getAdminSettings, updateAdminSettings } from "@/lib/api/admin";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 import type { AdminSettingsResponse, NotificationToggles } from "@easyprint/shared";
+import { Spinner, LoadingSection } from "@/components/ui/Spinner";
 
 const DEFAULT_NOTIFICATIONS: NotificationToggles = {
   newShop: true,
@@ -178,12 +178,7 @@ export default function AdminSettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-        <Loader2 size={32} className="animate-spin text-orange-500" />
-        <p className="text-sm">กำลังโหลดการตั้งค่าระบบ...</p>
-      </div>
-    );
+    return <LoadingSection label="กำลังโหลดการตั้งค่าระบบ..." className="py-24" />;
   }
 
   return (
@@ -249,7 +244,7 @@ export default function AdminSettingsPage() {
               className="w-48 h-48 sm:w-52 sm:h-52 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-orange-400 transition-all flex flex-col items-center justify-center p-4 text-center cursor-pointer group relative overflow-hidden"
             >
               {uploadingLogo ? (
-                <Loader2 size={32} className="animate-spin text-orange-500" />
+                <Spinner size="lg" />
               ) : logoUrl ? (
                 <img
                   src={logoUrl}
@@ -561,7 +556,7 @@ export default function AdminSettingsPage() {
           onClick={handleSave}
           className="px-6 py-2.5 rounded-xl bg-orange-500 text-white text-xs hover:bg-orange-600 active:scale-95 transition shadow-md shadow-orange-500/25 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
         >
-          <Lock size={15} />
+          {isSaving ? <Spinner size="sm" /> : <Lock size={15} />}
           <span>{isSaving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}</span>
         </button>
       </div>

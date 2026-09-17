@@ -7,7 +7,6 @@ import {
     ArrowRight,
     CheckCircle2,
     Clock,
-    Loader2,
     Package,
     ShoppingBag,
     Star,
@@ -19,6 +18,7 @@ import {
     type ApiOrder,
 } from "@/lib/api/orders";
 import { ApiError } from "@/lib/api/client";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 type HistoryOrder = ApiOrder;
 
@@ -57,16 +57,33 @@ export default function OrderHistoryPage() {
 
     if (loading) {
         return (
-            <main className="min-h-screen bg-slate-50 px-4 py-8">
-                <div className="mx-auto flex max-w-4xl items-center justify-center py-24">
-                    <div className="flex flex-col items-center gap-3">
-                        <Loader2
-                            size={30}
-                            className="animate-spin text-orange-500"
-                        />
-                        <p className="text-sm text-slate-500">
-                            กำลังโหลดประวัติการสั่งซื้อ...
-                        </p>
+            <main className="min-h-screen bg-slate-50 px-4 py-6 md:px-6 md:py-8">
+                <div className="mx-auto max-w-4xl">
+                    <div className="mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-sm">
+                                <Package size={21} />
+                            </div>
+                            <div>
+                                <h1 className="text-xl text-slate-800 md:text-2xl">
+                                    ประวัติการสั่งซื้อ
+                                </h1>
+                                <p className="mt-0.5 text-xs text-slate-400 md:text-sm">
+                                    งานที่เสร็จสิ้นเรียบร้อยแล้ว
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4" aria-live="polite" aria-busy="true">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm"
+                            >
+                                <SkeletonRow />
+                            </div>
+                        ))}
                     </div>
                 </div>
             </main>
@@ -115,8 +132,8 @@ export default function OrderHistoryPage() {
 
                 {/* ERROR */}
                 {error && (
-                    <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
-                        {error}
+                    <div className="mb-5 bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200">
+                        <p className="text-red-500 font-semibold text-xs sm:text-base">{error}</p>
                     </div>
                 )}
 
@@ -167,7 +184,7 @@ export default function OrderHistoryPage() {
 
                 {/* EMPTY */}
                 {orders.length === 0 ? (
-                    <div className="rounded-3xl border border-slate-100 bg-white px-6 py-16 text-center shadow-sm">
+                    <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
                         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
                             <ShoppingBag size={30} />
                         </div>
@@ -183,7 +200,7 @@ export default function OrderHistoryPage() {
 
                         <Link
                             href="/orders"
-                            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm text-white shadow-sm transition hover:bg-orange-600"
+                            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-md"
                         >
                             ดูคำสั่งซื้อ
                             <ArrowRight size={16} />
@@ -212,7 +229,7 @@ export default function OrderHistoryPage() {
                             return (
                                 <div
                                     key={order.id}
-                                    className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition hover:shadow-md"
+                                    className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition-all duration-200 hover:shadow-md"
                                 >
                                     {/* HEADER */}
                                     <div className="border-b border-slate-100 px-5 py-4 md:px-6">
@@ -317,7 +334,7 @@ export default function OrderHistoryPage() {
                                     <div className="border-t border-slate-100 bg-slate-50/70 p-4">
                                         <Link
                                             href={`/orders/${order.id}`}
-                                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-xs text-white shadow-sm transition hover:bg-orange-600"
+                                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-xs text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-md"
                                         >
                                             ดูรายละเอียดคำสั่งซื้อ
                                             <ArrowRight size={15} />

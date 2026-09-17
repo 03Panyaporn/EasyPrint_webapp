@@ -7,6 +7,7 @@ import { isShopOpenNow, isShopTempClosed } from "@/lib/shopHours";
 import ShopSearchHero from "@/components/customer/ShopSearchHero";
 import ServiceCategoryGrid from "@/components/customer/ServiceCategoryGrid";
 import ShopCard from "@/components/customer/ShopCard";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
   const [shops, setShops] = useState<PublicShopListItem[]>([]);
@@ -212,8 +213,10 @@ export default function DashboardPage() {
 
         {/* Shop Grid */}
         {loading ? (
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-slate-200">
-            <p className="text-slate-500 font-semibold text-xs sm:text-base">กำลังโหลดร้านค้า...</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-5" aria-live="polite" aria-busy="true">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : loadError ? (
           <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200">

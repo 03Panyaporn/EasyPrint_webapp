@@ -122,7 +122,7 @@ export default function MainServicesList({
 
       {/* Empty state */}
       {paginated.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <div className="flex flex-col items-center justify-center py-14 sm:py-20 gap-4 text-center border-2 border-dashed border-gray-200 rounded-2xl sm:rounded-3xl">
           <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-300">
             <FileText size={30} />
           </div>

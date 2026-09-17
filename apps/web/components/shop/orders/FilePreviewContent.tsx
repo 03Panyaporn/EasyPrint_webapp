@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, Landmark, QrCode, Image as ImageIcon, FileText } from "lucide-react";
 import { Order, OrderFileAttachment } from "./types";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 export const MOCK_WIDTH = 288; // = w-72 (18rem) — ความกว้างอ้างอิงสำหรับคำนวณ scale ตอนย่อเป็น thumbnail
 
@@ -22,24 +24,38 @@ function pickGradient(seed: string) {
 
 /** สลิปโอนเงินจริงที่ลูกค้าอัปโหลด (ดึงจาก rawSlipUrl signed URL) — object-contain กันรูปสลิปยาวๆ ถูกครอปหาย */
 export function SlipImage({ url, name }: { url: string; name: string }) {
+  const [loaded, setLoaded] = useState(false);
   return (
     <div
       style={{ width: MOCK_WIDTH }}
-      className="rounded-2xl overflow-hidden shadow-lg select-none bg-gray-50 flex items-center justify-center"
+      className="relative rounded-2xl overflow-hidden shadow-lg select-none bg-gray-50 flex items-center justify-center"
     >
-      <img src={url} alt={name} className="w-full h-auto max-h-[420px] object-contain" />
+      {!loaded && <Skeleton className="absolute inset-0 w-full h-full rounded-none" />}
+      <img
+        src={url}
+        alt={name}
+        onLoad={() => setLoaded(true)}
+        className={`w-full h-auto max-h-[420px] object-contain transition-opacity ${loaded ? "opacity-100" : "opacity-0"}`}
+      />
     </div>
   );
 }
 
 /** รูปไฟล์งานจริงที่ลูกค้าอัปโหลด (jpg/png — ดึงจาก rawFileUrl signed URL) */
 export function PhotoImage({ url, name }: { url: string; name: string }) {
+  const [loaded, setLoaded] = useState(false);
   return (
     <div
       style={{ width: MOCK_WIDTH, aspectRatio: "1 / 1" }}
-      className="bg-white rounded-lg shadow-lg border-4 border-white ring-1 ring-gray-200 overflow-hidden select-none flex flex-col"
+      className="relative bg-white rounded-lg shadow-lg border-4 border-white ring-1 ring-gray-200 overflow-hidden select-none flex flex-col"
     >
-      <img src={url} alt={name} className="w-full h-full object-cover" />
+      {!loaded && <Skeleton className="absolute inset-0 w-full h-full rounded-none" />}
+      <img
+        src={url}
+        alt={name}
+        onLoad={() => setLoaded(true)}
+        className={`w-full h-full object-cover transition-opacity ${loaded ? "opacity-100" : "opacity-0"}`}
+      />
     </div>
   );
 }
@@ -63,6 +79,7 @@ export function PdfFileCard({ name }: { name: string }) {
 export function PdfLiveThumbnail({ url, name }: { url: string; name: string }) {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -92,14 +109,27 @@ export function PdfLiveThumbnail({ url, name }: { url: string; name: string }) {
       } catch (err) {
         console.error("Failed to generate PDF thumbnail:", err);
         if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
       }
     };
     generate();
     return () => { active = false; };
   }, [url]);
 
-  if (error || !thumbnailUrl) {
+  if (error) {
     return <PdfFileCard name={name} />;
+  }
+
+  if (loading || !thumbnailUrl) {
+    return (
+      <div
+        style={{ width: MOCK_WIDTH, aspectRatio: "3 / 4" }}
+        className="bg-white rounded-lg shadow-lg border border-gray-200 select-none overflow-hidden flex items-center justify-center"
+      >
+        <Spinner size="md" />
+      </div>
+    );
   }
 
   return (

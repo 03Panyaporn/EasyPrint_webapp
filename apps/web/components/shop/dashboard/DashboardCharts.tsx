@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
-import { Loader2, BarChart3, TrendingUp } from "lucide-react";
+import { BarChart3, TrendingUp } from "lucide-react";
 import { getMyShop } from "@/lib/api/services";
 import { getShopReport } from "@/lib/api/reports";
 import type { ShopReportResponse } from "@easyprint/shared";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 // สีวนตามลำดับหมวด — หมวดมาจาก serviceNameSnapshot จริงของแต่ละร้าน (ไม่ตายตัว) เหมือนที่ใช้ในหน้า /shop/reports
 const CATEGORY_COLORS = ["#8b5cf6", "#06b6d4", "#10b981", "#f97316", "#ec4899", "#6366f1", "#f59e0b"];
@@ -44,8 +45,8 @@ export default function DashboardCharts() {
         <h2 className="text-base font-bold text-slate-800 mb-4">รายได้วันนี้ (แยกตามประเภทสินค้า)</h2>
 
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-slate-300">
-            <Loader2 size={22} className="animate-spin" />
+          <div className="flex-1" aria-live="polite" aria-busy="true">
+            <LoadingSection label="กำลังโหลดข้อมูล..." className="h-full" />
           </div>
         ) : categories.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
@@ -114,8 +115,8 @@ export default function DashboardCharts() {
         </div>
 
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-slate-300">
-            <Loader2 size={22} className="animate-spin" />
+          <div className="flex-1" aria-live="polite" aria-busy="true">
+            <LoadingSection label="กำลังโหลดข้อมูล..." className="h-full" />
           </div>
         ) : series.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">

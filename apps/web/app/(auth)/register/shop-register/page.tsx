@@ -30,6 +30,7 @@ import { SHOP_SERVICE_TYPES, SHOP_DELIVERY_METHODS } from "@easyprint/shared";
 import { registerShop } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { uploadFile } from "@/lib/api/uploads";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface DaySchedule {
   day: string;
@@ -220,7 +221,7 @@ export default function ShopRegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-teal-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur border-b border-slate-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="group flex items-center gap-2">
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition">
             <Printer className="w-5 h-5" />
           </div>
@@ -727,8 +728,10 @@ export default function ShopRegisterPage() {
           <button
             type="submit"
             disabled={isSubmitting}
+            aria-busy={isSubmitting}
             className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black rounded-2xl py-3.5 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all text-base mt-2"
           >
+            {isSubmitting && <Spinner size="sm" />}
             {submitStage === "uploading"
               ? "กำลังอัปโหลดไฟล์..."
               : submitStage === "registering"

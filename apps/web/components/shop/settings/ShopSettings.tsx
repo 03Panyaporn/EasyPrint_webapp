@@ -4,11 +4,12 @@ import { useEffect, useState, useRef } from "react";
 import { getMyShopProfile, updateShopProfile, type MyShopProfile } from "@/lib/api/shops";
 import { changeEmail, changePassword, deleteAccount } from "@/lib/api/auth";
 import { uploadFile } from "@/lib/api/uploads";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import {
   CreditCard,
   Bell,
   Shield,
-  Loader2,
   Save,
   Image as ImageIcon,
   AlertTriangle,
@@ -62,9 +63,31 @@ export default function ShopSettings() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-400">
-        <Loader2 size={24} className="animate-spin" />
-        <p className="text-sm">กำลังโหลดข้อมูล...</p>
+      <div className="space-y-6 pb-12" aria-live="polite" aria-busy="true">
+        <div className="flex items-center gap-2.5">
+          <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-3.5 w-64" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex border-b border-gray-100 gap-6 px-6 py-4">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-5 w-28" />
+          </div>
+          <div className="p-6 md:p-8 space-y-6">
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+            <Skeleton className="h-10 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -408,7 +431,7 @@ function PaymentSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null; onS
               >
                 <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   {uploadingQr ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Spinner size="md" />
                   ) : (
                     <Upload className="w-5 h-5" />
                   )}
@@ -429,7 +452,7 @@ function PaymentSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null; onS
           disabled={saving}
           className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
         >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? <Spinner size="sm" /> : <Save className="w-4 h-4" />}
           บันทึกข้อมูล
         </button>
       </div>
@@ -611,7 +634,7 @@ function NotificationSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null
           disabled={saving}
           className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
         >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? <Spinner size="sm" /> : <Save className="w-4 h-4" />}
           บันทึกข้อมูล
         </button>
       </div>
@@ -830,8 +853,9 @@ function SecuritySettingsTab({ shopName, onDeleted, onSaved }: { shopName: strin
               <button
                 type="submit"
                 disabled={emailSaving || !newEmail || !emailCurrentPwd}
-                className="px-6 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
               >
+                {emailSaving && <Spinner size="sm" />}
                 {emailSaving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนอีเมล"}
               </button>
             </div>
@@ -922,8 +946,9 @@ function SecuritySettingsTab({ shopName, onDeleted, onSaved }: { shopName: strin
               <button
                 type="submit"
                 disabled={pwdSaving || !oldPassword || !newPassword || !confirmPassword}
-                className="px-6 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50 whitespace-nowrap"
               >
+                {pwdSaving && <Spinner size="sm" />}
                 {pwdSaving ? "กำลังบันทึก..." : "อัปเดตรหัสผ่าน"}
               </button>
             </div>

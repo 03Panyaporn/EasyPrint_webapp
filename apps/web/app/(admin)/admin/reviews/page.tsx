@@ -5,6 +5,7 @@ import { Star, Loader2, AlertCircle, MessageSquare, Trash2, Search } from "lucid
 import { getAdminReviews, deleteReview } from "@/lib/api/reviews";
 import { ApiError } from "@/lib/api/client";
 import type { AdminReviewResponse } from "@easyprint/shared";
+import { Skeleton, SkeletonText } from "@/components/ui/Skeleton";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -67,9 +68,30 @@ export default function AdminReviewsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-        <Loader2 size={32} className="animate-spin text-orange-500" />
-        <p className="text-sm">กำลังโหลดรีวิวทั้งหมด...</p>
+      <div className="space-y-5 pb-10">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-sm">
+            <MessageSquare size={21} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">รีวิวทั้งหมดในระบบ</h1>
+            <p className="mt-0.5 text-xs text-slate-400 md:text-sm">ตรวจสอบและลบรีวิวที่ไม่เหมาะสมได้จากทุกร้านค้า</p>
+          </div>
+        </div>
+        <div className="space-y-3" aria-live="polite" aria-busy="true">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <Skeleton className="h-3.5 w-1/3" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              </div>
+              <SkeletonText lines={2} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

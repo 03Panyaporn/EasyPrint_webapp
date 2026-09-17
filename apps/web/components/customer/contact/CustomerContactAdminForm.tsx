@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, CheckCircle2, AlertCircle, Loader2, Mail, Info, Pencil } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle, Mail, Info, Pencil } from "lucide-react";
 import { getMe } from "@/lib/api/auth";
 import { submitCustomerContactMessage } from "@/lib/api/contactAdmin";
 import { ApiError } from "@/lib/api/client";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 export default function CustomerContactAdminForm() {
   const [fullName, setFullName] = useState("");
@@ -61,9 +62,8 @@ export default function CustomerContactAdminForm() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p>กำลังโหลดข้อมูล...</p>
+      <div aria-live="polite" aria-busy="true">
+        <LoadingSection label="กำลังโหลดข้อมูล..." />
       </div>
     );
   }
@@ -182,7 +182,7 @@ export default function CustomerContactAdminForm() {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     กำลังส่งข้อความ...
                   </>
                 ) : (

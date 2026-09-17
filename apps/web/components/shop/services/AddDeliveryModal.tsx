@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { DeliveryOption } from "./types";
-import { X, Upload, AlertCircle, Loader2 } from "lucide-react";
+import { X, Upload, AlertCircle } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface AddDeliveryModalProps {
   isOpen: boolean;
@@ -281,7 +282,7 @@ export default function AddDeliveryModal({
               disabled={isUploading}
               className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl shadow-md shadow-orange-200 transition flex items-center gap-1.5"
             >
-              {isUploading && <Loader2 size={14} className="animate-spin" />}
+              {isUploading && <Spinner size="sm" />}
               {isUploading ? "กำลังอัปโหลดโลโก้..." : "บันทึกการจัดส่ง"}
             </button>
           </div>

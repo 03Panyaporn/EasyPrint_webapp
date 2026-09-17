@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import ServiceBuilderWizard from "@/components/shop/services/wizard/ServiceBuilderWizard";
 import { getMyShop, getMainServices, getAddOnServices } from "@/lib/api/services";
 import { ApiError } from "@/lib/api/client";
 import type { AddOnService, MainService } from "@/components/shop/services/types";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 export default function EditServicePage() {
   const params = useParams<{ serviceId: string }>();
@@ -41,17 +41,18 @@ export default function EditServicePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen gap-2 text-gray-400">
-        <Loader2 size={20} className="animate-spin" />
-        <span className="text-sm">กำลังโหลดข้อมูลบริการ...</span>
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSection label="กำลังโหลดข้อมูลบริการ..." />
       </div>
     );
   }
 
   if (error || !shopId || !service) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-sm text-red-500">{error || "ไม่พบข้อมูลบริการ"}</p>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-3 max-w-md">
+          <p className="text-sm sm:text-base text-red-500 font-semibold">{error || "ไม่พบข้อมูลบริการ"}</p>
+        </div>
       </div>
     );
   }

@@ -28,6 +28,7 @@ import {
   markAllNotificationsAsRead,
 } from "../../lib/api/notifications";
 import { useRouter } from "next/navigation";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // Notification Data Types
 export type NotificationCategory = "all" | "chat" | "general";
@@ -87,6 +88,7 @@ export default function ShopNotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NotificationCategory>("all");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -99,10 +101,12 @@ export default function ShopNotificationDropdown() {
         }
       } catch (err) {
         console.error("Failed to load notifications", err);
+      } finally {
+        setLoading(false);
       }
     }
     load();
-    
+
     // Optional: poll every 30s
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
@@ -216,8 +220,14 @@ export default function ShopNotificationDropdown() {
           </div>
 
           {/* List */}
-          <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
-            {filteredNotifications.length > 0 ? (
+          <div className="max-h-[420px] overflow-y-auto custom-scrollbar" aria-live="polite" aria-busy={loading}>
+            {loading ? (
+              <div className="flex flex-col divide-y divide-gray-50">
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow />
+              </div>
+            ) : filteredNotifications.length > 0 ? (
               <div className="flex flex-col divide-y divide-gray-50">
                 {filteredNotifications.map((notif) => {
                   // fallback กัน crash ถ้าเจอ typeId ที่ไม่มีใน NOTIFICATION_TYPES (เช่นเพิ่ม type ใหม่ฝั่ง backend
