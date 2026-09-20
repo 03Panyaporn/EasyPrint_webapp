@@ -19,6 +19,7 @@ import { sendPasswordResetEmail } from "../email";
 import { createNotification } from "../utils/notification";
 import { createAdminNotification } from "../adminNotifications";
 import { getSystemSettings } from "../systemSettings";
+import { isUniqueViolation } from "../utils/validation";
 
 // เช็คความยาวรหัสผ่านขั้นต่ำตามค่าที่แอดมินตั้งไว้ (system_settings.minPasswordLength) — เสริมจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว
 // คืน error message ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
@@ -83,18 +84,31 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: parsed.data.email,
-        passwordHash,
-        role: "customer",
-        firstname: parsed.data.firstname,
-        lastname: parsed.data.lastname,
-        phone: parsed.data.phone,
-        address: parsed.data.address,
-      })
-      .returning();
+    // เช็ค existing ข้างบนกัน duplicate email แบบทั่วไปได้ แต่ไม่ atomic — ถ้ามี 2 request ชนกัน
+    // (เช่น กด submit ซ้ำเร็วๆ/double-click) ทั้งคู่อาจผ่าน SELECT ก่อนที่ INSERT ตัวแรกจะ commit
+    // แล้วตัวที่สองไปชน unique constraint ตอน INSERT จริง ต้อง catch แล้วแปลงเป็น 409 ที่สุภาพ
+    // แทน raw 500 (ยืนยันบั๊กจริงจาก QA: BUG-P01-02) — pattern เดียวกับที่ใช้ใน services.ts (BUG-06-01/06-02)
+    let user: typeof users.$inferSelect;
+    try {
+      [user] = await db
+        .insert(users)
+        .values({
+          email: parsed.data.email,
+          passwordHash,
+          role: "customer",
+          firstname: parsed.data.firstname,
+          lastname: parsed.data.lastname,
+          phone: parsed.data.phone,
+          address: parsed.data.address,
+        })
+        .returning();
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        set.status = 409;
+        return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
+      }
+      throw err;
+    }
 
     const token = signAuthToken({ userId: user.id, role: user.role }, false);
     cookie[COOKIE_NAME]?.set({
@@ -136,38 +150,50 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     const passwordHash = await hashPassword(parsed.data.password);
     const address = formatShopAddress(parsed.data);
 
-    const { user, shop } = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({
-          email: parsed.data.email,
-          passwordHash,
-          role: "shop_owner",
-          firstname: parsed.data.firstname,
-          lastname: parsed.data.lastname,
-          phone: parsed.data.phone,
-        })
-        .returning();
+    let txResult: { user: typeof users.$inferSelect; shop: typeof shops.$inferSelect };
+    try {
+      txResult = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(users)
+          .values({
+            email: parsed.data.email,
+            passwordHash,
+            role: "shop_owner",
+            firstname: parsed.data.firstname,
+            lastname: parsed.data.lastname,
+            phone: parsed.data.phone,
+          })
+          .returning();
 
-      const [shop] = await tx
-        .insert(shops)
-        .values({
-          ownerId: user.id,
-          name: parsed.data.shopName,
-          phone: parsed.data.phone,
-          address,
-          serviceTypes: parsed.data.serviceTypes,
-          deliveryMethods: parsed.data.deliveryMethods,
-          googleMapLink: parsed.data.googleMapLink,
-          idCardUrl: parsed.data.idCardUrl,
-          shopPhotoUrl: parsed.data.shopPhotoUrl,
-          socialMedia: parsed.data.socialMedia,
-          openingHours: parsed.data.openingHours,
-        })
-        .returning();
+        const [shop] = await tx
+          .insert(shops)
+          .values({
+            ownerId: user.id,
+            name: parsed.data.shopName,
+            phone: parsed.data.phone,
+            address,
+            serviceTypes: parsed.data.serviceTypes,
+            deliveryMethods: parsed.data.deliveryMethods,
+            googleMapLink: parsed.data.googleMapLink,
+            idCardUrl: parsed.data.idCardUrl,
+            shopPhotoUrl: parsed.data.shopPhotoUrl,
+            socialMedia: parsed.data.socialMedia,
+            openingHours: parsed.data.openingHours,
+          })
+          .returning();
 
-      return { user, shop };
-    });
+        return { user, shop };
+      });
+    } catch (err) {
+      // เช็ค existing ข้างบนกัน duplicate email แบบทั่วไปได้ แต่ไม่ atomic — เหมือนกับ /auth/register
+      // ด้านบน (ดู comment ที่นั่นสำหรับรายละเอียดเต็ม BUG-P01-02)
+      if (isUniqueViolation(err)) {
+        set.status = 409;
+        return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
+      }
+      throw err;
+    }
+    const { user, shop } = txResult;
 
     // แจ้งเตือนแอดมินว่ามีร้านสมัครใหม่รอตรวจสอบ — best-effort เสมอ ไม่ทำให้การสมัครร้าน (ที่บันทึกลง DB สำเร็จแล้ว) fail ไปด้วยถ้าแจ้งเตือนพลาด
     createAdminNotification({
@@ -225,7 +251,21 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
   })
 
   .post("/logout", ({ cookie }) => {
-    cookie[COOKIE_NAME]?.remove();
+    // ⚠️ ห้ามใช้ cookie[...]?.remove() เฉยๆ — Elysia's remove() ไม่ preserve secure/sameSite/path
+    // ที่ตั้งไว้ตอน login (ดู login/register ด้านบน) ทำให้ Set-Cookie ตอน logout ไม่มี "Secure; SameSite=None"
+    // เบราว์เซอร์จะมองว่านี่เป็น cookie คนละใบกับที่ set มาจาก cross-site response (frontend เป็น pages.dev,
+    // backend เป็น onrender.com คนละโดเมนกันจริง) แล้วเงียบๆ ไม่ยอมรับ Set-Cookie นี้เลย — ผลคือ cookie เดิม
+    // ที่ set ไว้ตอน login ยังคงใช้งานได้ต่อแม้กด logout แล้ว (ยืนยันบั๊กจริงจาก QA: BUG-P01-01, Critical)
+    // ต้อง set ด้วย attribute ชุดเดียวกับตอน login/register เป๊ะๆ เพื่อให้เบราว์เซอร์ overwrite cookie เดิมจริง
+    cookie[COOKIE_NAME]?.set({
+      value: "",
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      path: "/",
+      maxAge: 0,
+      expires: new Date(0),
+    });
     return { ok: true };
   })
 
