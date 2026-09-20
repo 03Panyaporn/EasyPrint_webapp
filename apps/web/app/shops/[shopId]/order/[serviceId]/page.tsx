@@ -7,7 +7,6 @@ import {
   Upload,
   AlertCircle,
   AlertTriangle,
-  Loader2,
   LogIn,
   ChevronLeft,
   ChevronRight,
@@ -59,6 +58,8 @@ import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 import type { MainService, AddOnService, AllowedFileType, PriceScope } from "@/components/shop/services/types";
 import CustomerHeader from "@/components/customer/CustomerHeader";
+import { Spinner } from "@/components/ui/Spinner";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 // suffix แสดงขอบเขตราคา AddOn
 const ADDON_SCOPE_SUFFIX: Record<PriceScope, string> = {
@@ -168,9 +169,37 @@ export default function ServiceOrderPage({ params }: { params: { shopId: string;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-3 text-slate-400">
-        <Loader2 size={24} className="animate-spin" />
-        <p className="text-sm font-semibold">กำลังโหลดข้อมูลสั่งพิมพ์...</p>
+      <div className="min-h-screen bg-gradient-to-br from-amber-50/40 via-sky-50/30 to-rose-50/40 font-sans pb-28 lg:pb-12" aria-live="polite" aria-busy="true">
+        <div className="w-full bg-white border-b-2 border-sky-200/80 px-4 sm:px-6 lg:px-12 py-3.5 shadow-xs">
+          <div className="max-w-6xl mx-auto flex items-center gap-3.5">
+            <Skeleton className="w-12 h-12 rounded-2xl shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-64" />
+            </div>
+          </div>
+        </div>
+        <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 lg:py-6 space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_370px] gap-6 items-start">
+            <div className="space-y-5">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border-2 border-sky-200/80 p-4 sm:p-5 shadow-xs space-y-3">
+                  <Skeleton className="h-3.5 w-1/3" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+            <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+              <Skeleton className="h-14 w-full rounded-none" />
+              <div className="p-5 space-y-3">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-10 w-full rounded-xl mt-4" />
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -178,10 +207,12 @@ export default function ServiceOrderPage({ params }: { params: { shopId: string;
   if (loadError || !shop || !mainService) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-2 text-center px-4">
-        <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบข้อมูล"}</p>
-        <Link href={`/shops/${params.shopId}`} className="text-orange-500 text-sm font-bold hover:underline">
-          กลับหน้าร้านค้า
-        </Link>
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-2">
+          <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบข้อมูล"}</p>
+          <Link href={`/shops/${params.shopId}`} className="text-orange-500 text-sm font-bold hover:underline">
+            กลับหน้าร้านค้า
+          </Link>
+        </div>
       </div>
     );
   }
@@ -846,8 +877,8 @@ function OrderBuilderForm({
                       {/* Display Canvas */}
                       <div className="flex-1 min-h-[260px] bg-slate-100/60 p-4 flex items-center justify-center relative overflow-hidden">
                         {pdfLoading ? (
-                          <div className="flex flex-col items-center gap-2 text-slate-400">
-                            <Loader2 size={24} className="animate-spin text-orange-500" />
+                          <div className="flex flex-col items-center gap-2 text-slate-400" aria-live="polite" aria-busy="true">
+                            <Spinner size="lg" />
                             <span className="text-xs font-semibold">กำลังโหลดตัวอย่าง...</span>
                           </div>
                         ) : pdfError ? (
@@ -1167,9 +1198,11 @@ function OrderBuilderForm({
                   <button
                     type="submit"
                     disabled={isSubmitting || shopClosed}
-                    className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-orange-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className={`w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-md shadow-orange-200 transition-all flex items-center justify-center gap-2 ${
+                      isSubmitting || shopClosed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                    }`}
                   >
-                    <ShoppingCart size={18} />
+                    {isSubmitting ? <Spinner size="sm" /> : <ShoppingCart size={18} />}
                     <span>
                       {shopClosed
                         ? "ร้านปิดทำการอยู่ขณะนี้"

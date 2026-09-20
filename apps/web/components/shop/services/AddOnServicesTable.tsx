@@ -84,9 +84,11 @@ export default function AddOnServicesTable({
           <tbody className="divide-y divide-gray-100">
             {paginatedAddOns.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-400">
-                  <Layers size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm font-medium">ไม่พบข้อมูลบริการเสริม</p>
+                <td colSpan={6} className="p-4 sm:p-6">
+                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
+                    <Layers size={32} className="opacity-50" />
+                    <p className="text-sm font-medium">ไม่พบข้อมูลบริการเสริม</p>
+                  </div>
                 </td>
               </tr>
             ) : (

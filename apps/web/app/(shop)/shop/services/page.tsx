@@ -37,7 +37,9 @@ import type {
   CreateAddOnServiceInput,
   CreateDeliveryOptionInput,
 } from "@easyprint/shared";
-import { Wrench, CheckCircle, Loader2 } from "lucide-react";
+import { Wrench, CheckCircle } from "lucide-react";
+import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 function toMainServiceInput(service: MainService): CreateMainServiceInput {
   return {
@@ -366,17 +368,36 @@ function ServicesContent() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-400">
-        <Loader2 size={24} className="animate-spin" />
-        <p className="text-sm">กำลังโหลดข้อมูล...</p>
+      <div className="space-y-6 max-w-7xl mx-auto pb-12" aria-live="polite" aria-busy="true">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="w-9 h-9 rounded-xl" />
+              <Skeleton className="h-6 w-40" />
+            </div>
+            <Skeleton className="h-3.5 w-72 mt-2" />
+          </div>
+        </div>
+        <div className="flex gap-2 sm:gap-6 border-b border-gray-200 pb-3.5">
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-28" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (loadError || !shop) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center px-4">
-        <p className="text-sm text-red-500 font-semibold">{loadError || "ไม่พบร้านค้าของบัญชีนี้"}</p>
+      <div className="max-w-7xl mx-auto pb-12 px-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200 space-y-3">
+          <p className="text-sm sm:text-base text-red-500 font-semibold">{loadError || "ไม่พบร้านค้าของบัญชีนี้"}</p>
+        </div>
       </div>
     );
   }
@@ -540,7 +561,7 @@ function ServicesContent() {
 
 export default function ServicesPage() {
   return (
-    <Suspense fallback={<div className="p-10 text-center">กำลังโหลด...</div>}>
+    <Suspense fallback={<LoadingSection label="กำลังโหลดหน้าบริการ..." />}>
       <ServicesContent />
     </Suspense>
   );

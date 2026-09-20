@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Loader2,
   Store,
   Truck,
   AlertCircle,
@@ -21,6 +20,7 @@ import {
   cancelReasonLabels,
 } from "@/components/shop/orders/statusConfig";
 import { ApiError } from "@/lib/api/client";
+import { Skeleton, SkeletonText } from "@/components/ui/Skeleton";
 
 
 const STEPS: Array<{
@@ -90,16 +90,49 @@ export default function OrderStatusPage({
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto flex max-w-4xl items-center justify-center">
-          <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-5 shadow-sm">
-            <Loader2
-              size={20}
-              className="animate-spin text-orange-500"
-            />
-            <p className="text-sm text-slate-500">
-              กำลังโหลดรายละเอียดออเดอร์...
-            </p>
+      <main className="min-h-screen bg-slate-50 px-4 py-6 md:px-4 md:py-6" aria-live="polite" aria-busy="true">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-6">
+            <Skeleton className="h-4 w-24 mb-4" />
+            <Skeleton className="h-7 w-56 mx-auto mb-5" />
+            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-md md:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2 flex-1">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+                <Skeleton className="h-8 w-24 rounded-full shrink-0" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-5 rounded-3xl border border-slate-100 bg-white p-5 shadow-md md:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="h-2.5 w-12" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-5 rounded-3xl border border-slate-100 bg-white p-5 shadow-md md:p-6">
+            <Skeleton className="h-4 w-32 mb-4" />
+            <SkeletonText lines={4} />
+          </div>
+
+          <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-md md:p-6">
+            <Skeleton className="h-4 w-40 mb-4" />
+            <SkeletonText lines={3} />
           </div>
         </div>
       </main>
@@ -110,7 +143,7 @@ export default function OrderStatusPage({
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-md">
-          <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border-2 border-dashed border-red-200">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
               <AlertCircle size={28} />
             </div>
@@ -125,7 +158,7 @@ export default function OrderStatusPage({
 
             <Link
               href="/orders"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm  text-white transition hover:bg-orange-600"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm  text-white transition-all duration-200 hover:bg-orange-600 hover:shadow-md"
             >
               <ArrowLeft size={16} />
               ย้อนกลับ

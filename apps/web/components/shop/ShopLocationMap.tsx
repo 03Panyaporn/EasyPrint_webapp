@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { LoadingSection } from "@/components/ui/Spinner";
 
 interface ShopLocationMapProps {
   address: string;
@@ -136,8 +137,8 @@ export default function ShopLocationMap({ address, shopName, className }: ShopLo
     <div className={`relative ${className ?? ""}`}>
       <div ref={containerRef} className="w-full h-full" />
       {status === "loading" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-slate-400 text-sm">
-          กำลังโหลดแผนที่...
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-50" aria-live="polite" aria-busy="true">
+          <LoadingSection label="กำลังโหลดแผนที่..." />
         </div>
       )}
       {status === "not-found" && (

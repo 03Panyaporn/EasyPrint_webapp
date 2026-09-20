@@ -208,13 +208,13 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             collapsed ? "justify-center" : "",
             active && collapsed
               ? "bg-orange-50 text-orange-600"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-700",
+              : "text-gray-500 hover:bg-orange-50 hover:text-orange-600",
           ].join(" ")}
         >
           <Icon
             size={20}
             className={`shrink-0 ${
-              active ? "text-orange-500" : "text-gray-400 group-hover:text-gray-600"
+              active ? "text-orange-500" : "text-gray-400 group-hover:text-orange-500"
             }`}
           />
           {!collapsed && (

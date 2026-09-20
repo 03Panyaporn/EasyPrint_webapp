@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, BellOff, Loader2 } from "lucide-react";
+import { ChevronRight, BellOff } from "lucide-react";
 import { getNotifications } from "@/lib/api/notifications";
 import type { NotificationItem } from "../ShopNotificationDropdown";
 import { NOTIFICATION_TYPES } from "../ShopNotificationDropdown";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 function formatTimeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
@@ -42,8 +43,12 @@ export default function DashboardNotifications() {
       </div>
 
       {loading ? (
-        <div className="flex-1 flex items-center justify-center text-slate-300">
-          <Loader2 size={22} className="animate-spin" />
+        <div className="flex-1 -mx-2 px-2" aria-live="polite" aria-busy="true">
+          <div className="flex flex-col divide-y divide-slate-50">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
         </div>
       ) : notifications.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-300">

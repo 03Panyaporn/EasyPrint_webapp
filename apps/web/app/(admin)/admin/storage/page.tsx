@@ -34,6 +34,7 @@ import {
 } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import type { AdminStorageOverviewResponse, AdminStorageShopSummary, AdminStorageFile, StorageStatus } from "@easyprint/shared";
+import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
 const STATUS_LABEL: Record<StorageStatus, string> = { normal: "ปกติ", warning: "ใกล้เต็ม", danger: "ใกล้เต็มมาก" };
 const LARGE_FILE_MB = 1024; // 1 GB
@@ -210,9 +211,39 @@ export default function AdminStoragePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-        <Loader2 size={32} className="animate-spin text-orange-500" />
-        <p className="text-sm">กำลังโหลดข้อมูลพื้นที่จัดเก็บ...</p>
+      <div className="space-y-4 pb-6" aria-live="polite" aria-busy="true">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                <HardDrive size={18} />
+              </div>
+              <span>จัดการไฟล์และพื้นที่จัดเก็บ</span>
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              จัดการไฟล์ ตรวจสอบพื้นที่ใช้งาน และจัดการข้อมูลของแต่ละร้านค้าในระบบ
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="w-8 h-8 rounded-lg" />
+              </div>
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-1.5 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden divide-y divide-slate-100">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
+        </div>
       </div>
     );
   }

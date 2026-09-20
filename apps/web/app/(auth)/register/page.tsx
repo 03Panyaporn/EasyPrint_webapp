@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { register } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { Spinner } from "@/components/ui/Spinner";
 
 const PASSWORD_REVEAL_MS = 10000;
 
@@ -350,12 +351,14 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={!isFormValid || isSubmitting}
-                className={`w-full py-2.5 text-[13px] font-bold rounded-2xl shadow-lg transition-all duration-300 ${
+                aria-busy={isSubmitting}
+                className={`w-full py-2.5 text-[13px] font-bold rounded-2xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 ${
                   isFormValid && !isSubmitting
                     ? "bg-[#F46A2F] text-white hover:bg-[#E05B22] hover:-translate-y-0.5 active:translate-y-0 shadow-[#F46A2F]/20 cursor-pointer"
-                    : "bg-slate-300 text-white cursor-not-allowed"
+                    : "bg-slate-300 text-white opacity-60 cursor-not-allowed"
                 }`}
               >
+                {isSubmitting && <Spinner size="sm" />}
                 {isSubmitting ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
               </button>
             </div>

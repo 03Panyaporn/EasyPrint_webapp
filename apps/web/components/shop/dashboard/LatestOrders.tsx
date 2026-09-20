@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import OrdersTable from "../orders/OrdersTable";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 import UpdateStatusModal from "@/components/shop/orders/UpdateStatusModal";
 import CancelOrderModal from "@/components/shop/orders/CancelOrderModal";
 import OrderDetailModal from "@/components/shop/orders/OrderDetailModal";
@@ -124,26 +125,44 @@ export default function LatestOrders() {
         </div>
       )}
 
-      {loading && (
-        <div className="absolute inset-0 z-10 bg-white/50 flex items-center justify-center rounded-2xl">
-          <Loader2 size={24} className="animate-spin text-orange-500" />
+      {loading ? (
+        <div
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-800">คำสั่งซื้อล่าสุด</h2>
+            <Link
+              href="/shop/orders"
+              className="text-xs font-semibold text-orange-500 hover:text-orange-600 flex items-center gap-1 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              ดูทั้งหมด <ChevronRight size={14} />
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
         </div>
+      ) : (
+        <OrdersTable
+          orders={orders}
+          onOpenStatusModal={setStatusModalOrder}
+          onOpenDetail={setDetailOrder}
+          onPreviewFile={(order, kind) => setPreviewFile({ order, kind })}
+          title="คำสั่งซื้อล่าสุด"
+          headerAction={
+            <Link
+              href="/shop/orders"
+              className="text-xs font-semibold text-orange-500 hover:text-orange-600 flex items-center gap-1 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              ดูทั้งหมด <ChevronRight size={14} />
+            </Link>
+          }
+        />
       )}
-      <OrdersTable 
-        orders={orders}
-        onOpenStatusModal={setStatusModalOrder}
-        onOpenDetail={setDetailOrder}
-        onPreviewFile={(order, kind) => setPreviewFile({ order, kind })}
-        title="คำสั่งซื้อล่าสุด"
-        headerAction={
-          <Link 
-            href="/shop/orders" 
-            className="text-xs font-semibold text-orange-500 hover:text-orange-600 flex items-center gap-1 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            ดูทั้งหมด <ChevronRight size={14} />
-          </Link>
-        }
-      />
 
       {/* Update Status Modal */}
       <UpdateStatusModal

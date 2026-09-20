@@ -19,7 +19,6 @@ import {
   Link2,
   Share2,
   Calendar,
-  Loader2,
 } from "lucide-react";
 import { type MockShop } from "@/lib/mock/adminShops";
 import { getAdminShop, approveShop, rejectShop } from "@/lib/api/admin";
@@ -30,6 +29,7 @@ import DocumentViewer from "@/components/admin/shops/DocumentViewer";
 import ApproveModal from "@/components/admin/shops/ApproveModal";
 import RejectModal from "@/components/admin/shops/RejectModal";
 import NotificationToast, { type ToastType } from "@/components/admin/shops/NotificationToast";
+import { Skeleton, SkeletonText } from "@/components/ui/Skeleton";
 
 type ModalType = "documents" | "approve" | "reject" | null;
 
@@ -90,9 +90,37 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-400">
-        <Loader2 size={24} className="animate-spin" />
-        <p className="text-sm">กำลังโหลดข้อมูล...</p>
+      <div className="space-y-6" aria-live="polite" aria-busy="true">
+        <Skeleton className="h-4 w-40" />
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+            <Skeleton className="w-20 h-20 rounded-2xl shrink-0" />
+            <div className="flex-1 min-w-0 space-y-2 pt-1">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-3.5 w-32" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <Skeleton className="h-3.5 w-32 mb-3" />
+              <SkeletonText lines={4} />
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <Skeleton className="h-3.5 w-32 mb-3" />
+              <SkeletonText lines={2} />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <Skeleton className="h-3.5 w-24 mb-3" />
+              <SkeletonText lines={3} />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { resetPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { LoadingSection, Spinner } from "@/components/ui/Spinner";
 
 function getPasswordStrength(pass: string) {
   if (!pass) return { score: 0, label: "", colorClass: "bg-slate-200" };
@@ -225,12 +226,14 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={!isFormValid || isSubmitting}
+          aria-busy={isSubmitting}
           className={`w-full py-3.5 font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${
             isFormValid && !isSubmitting
               ? "bg-gradient-to-r from-[#F46A2F] via-[#FF8A50] to-[#FFB273] text-white border border-white/40 shadow-lg shadow-[#F46A2F]/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-              : "bg-slate-200 text-slate-400 cursor-not-allowed"
+              : "bg-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
           }`}
         >
+          {isSubmitting && <Spinner size="sm" />}
           {isSubmitting ? "กำลังเปลี่ยนรหัสผ่าน..." : "เปลี่ยนรหัสผ่าน"}
           {!isSubmitting && (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -258,7 +261,13 @@ export default function ResetPasswordPage() {
         <div className="absolute -bottom-4 -left-4 w-2/3 h-1/2 bg-gradient-to-tr from-[#FFE4D1] to-[#F3DADA]/60 rounded-[32px] -z-10"></div>
 
         <div className="relative bg-white rounded-[28px] shadow-xl shadow-slate-200/50 p-8 sm:p-10 space-y-7">
-          <Suspense fallback={<div className="text-center text-sm text-slate-400">กำลังโหลด...</div>}>
+          <Suspense
+            fallback={
+              <div aria-live="polite" aria-busy="true">
+                <LoadingSection label="กำลังโหลด..." />
+              </div>
+            }
+          >
             <ResetPasswordForm />
           </Suspense>
         </div>

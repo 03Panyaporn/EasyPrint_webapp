@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Trash2,
-  Loader2,
   LogIn,
   ShoppingCart,
   Minus,
@@ -27,6 +26,8 @@ import { getAddresses } from "@/lib/api/addresses";
 import { ApiError } from "@/lib/api/client";
 import type { DeliveryOption } from "@/components/shop/services/types";
 import { useRouter } from "next/navigation";
+import { SkeletonRow } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function CartPage() {
   const router = useRouter();
@@ -337,17 +338,21 @@ export default function CartPage() {
         </div>
         {loading ? (
 
-          <div className="min-h-[55vh] flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center">
-              <Loader2
-                size={24}
-                className="animate-spin text-orange-500 "
-              />
-            </div>
-
-            <p className="text-sm text-slate-500">
-              กำลังโหลดตะกร้า...
-            </p>
+          <div className="space-y-5" aria-live="polite" aria-busy="true">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <section
+                key={i}
+                className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-md shadow-slate-200"
+              >
+                <div className="px-4 sm:px-5 py-4">
+                  <SkeletonRow className="p-0" />
+                </div>
+                <div className="divide-y divide-slate-100">
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </div>
+              </section>
+            ))}
           </div>
 
         ) : needsLogin ? (
@@ -612,14 +617,13 @@ export default function CartPage() {
                                 hover:text-red-500
                                 flex items-center justify-center
                                 transition
+                                disabled:opacity-60
+                                disabled:cursor-not-allowed
                               "
                               >
                                 {busyItemId ===
                                   item.id ? (
-                                  <Loader2
-                                    size={14}
-                                    className="animate-spin"
-                                  />
+                                  <Spinner size="sm" />
                                 ) : (
                                   <Trash2 size={15} />
                                 )}
@@ -771,7 +775,9 @@ export default function CartPage() {
                                   flex items-center justify-center
                                   text-orange-500
                                   hover:bg-orange-100
+                                  transition
                                   disabled:opacity-30
+                                  disabled:cursor-not-allowed
                                 "
                                 >
                                   <Minus size={13} />
@@ -779,11 +785,16 @@ export default function CartPage() {
 
                                 <span className="
                                 w-8
+                                flex items-center justify-center
                                 text-center
                                 text-xs
                                 text-slate-700
                               ">
-                                  {item.quantity}
+                                  {busyItemId === item.id ? (
+                                    <Spinner size="sm" />
+                                  ) : (
+                                    item.quantity
+                                  )}
                                 </span>
 
                                 <button
@@ -802,7 +813,9 @@ export default function CartPage() {
                                   flex items-center justify-center
                                   text-orange-500
                                   hover:bg-orange-100
+                                  transition
                                   disabled:opacity-30
+                                  disabled:cursor-not-allowed
                                 "
                                 >
                                   <Plus size={13} />

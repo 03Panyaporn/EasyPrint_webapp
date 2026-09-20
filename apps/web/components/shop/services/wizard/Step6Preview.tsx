@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { FileText, Loader2, Upload, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Upload, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { buildLineItemBreakdown, type ScopedAmount, type PricingModel } from "@easyprint/shared";
 import type { WizardFormData } from "./ServiceBuilderWizard";
 import type { AddOnService, AllowedFileType } from "../types";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface Step6PreviewProps {
   data: WizardFormData;
@@ -242,9 +243,16 @@ export default function Step6Preview({
                     <FileText size={20} className="text-orange-500 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-gray-700 font-medium truncate">{file.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                        {pdfLoading ? " · กำลังนับหน้า..." : pricingModel === "per_page" && rawPageCount > 0 ? ` · ${rawPageCount} หน้า` : ""}
+                      <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                        <span>
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                          {!pdfLoading && pricingModel === "per_page" && rawPageCount > 0 ? ` · ${rawPageCount} หน้า` : ""}
+                        </span>
+                        {pdfLoading && (
+                          <span className="flex items-center gap-1">
+                            <Spinner size="sm" /> กำลังนับหน้า...
+                          </span>
+                        )}
                       </p>
                     </div>
                   </>
@@ -518,7 +526,7 @@ export default function Step6Preview({
         >
           {isSaving ? (
             <>
-              <Loader2 size={16} className="animate-spin" />
+              <Spinner size="sm" />
               กำลังบันทึก...
             </>
           ) : (

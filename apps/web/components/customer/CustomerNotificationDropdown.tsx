@@ -9,6 +9,7 @@ import {
   markAllNotificationsAsRead,
 } from "@/lib/api/notifications";
 import { NOTIFICATION_TYPES, type NotificationItem } from "@/components/shop/ShopNotificationDropdown";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // แก้ BUG-12-01 (QA Phase 12): bell icon + dropdown แจ้งเตือนฝั่งลูกค้า — คู่ขนานของ ShopNotificationDropdown
 // ใช้ backend endpoint เดียวกันทุกจุด (GET/PUT /notifications*) เพราะ endpoint เหล่านี้ scope ด้วย userId ของ JWT
@@ -17,6 +18,7 @@ import { NOTIFICATION_TYPES, type NotificationItem } from "@/components/shop/Sho
 export default function CustomerNotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -29,6 +31,8 @@ export default function CustomerNotificationDropdown() {
         }
       } catch (err) {
         console.error("Failed to load notifications", err);
+      } finally {
+        setIsLoading(false);
       }
     }
     load();
@@ -110,7 +114,13 @@ export default function CustomerNotificationDropdown() {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
-            {notifications.length > 0 ? (
+            {isLoading ? (
+              <div className="p-2 space-y-1" aria-live="polite" aria-busy="true">
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow />
+              </div>
+            ) : notifications.length > 0 ? (
               <div className="flex flex-col divide-y divide-gray-50">
                 {notifications.map((notif) => {
                   const typeData = NOTIFICATION_TYPES[notif.typeId as keyof typeof NOTIFICATION_TYPES];

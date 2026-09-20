@@ -9,9 +9,10 @@ import {
     ArrowLeft,
     FileText,
     Download,
-    Loader2,
 } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
+import { SkeletonRow } from "@/components/ui/Skeleton";
+import { Spinner, LoadingSection } from "@/components/ui/Spinner";
 import { getMe } from "@/lib/api/auth";
 import {
     getChatRooms,
@@ -220,9 +221,11 @@ export default function ChatPage({
 
                 <div className="flex-1 overflow-y-auto">
                     {roomsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400">
-                            <Loader2 size={20} className="animate-spin" />
-                            <p className="text-xs">กำลังโหลด...</p>
+                        <div className="py-1" aria-live="polite" aria-busy="true">
+                            <SkeletonRow />
+                            <SkeletonRow />
+                            <SkeletonRow />
+                            <SkeletonRow />
                         </div>
                     ) : rooms.length === 0 && !selectedRoom ? (
                         <div className="flex flex-col items-center justify-center py-16 px-4 text-center text-slate-400">
@@ -312,8 +315,8 @@ export default function ChatPage({
                         <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-5 py-5">
                             <div className="max-w-[920px] mx-auto space-y-4">
                                 {messagesLoading ? (
-                                    <div className="flex items-center justify-center py-10 text-slate-400">
-                                        <Loader2 size={20} className="animate-spin" />
+                                    <div aria-live="polite" aria-busy="true">
+                                        <LoadingSection label="กำลังโหลดข้อความ..." className="py-6" />
                                     </div>
                                 ) : messages.length === 0 ? (
                                     <div className="text-center text-xs text-slate-400 py-10">
@@ -406,7 +409,7 @@ export default function ChatPage({
                                     className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-slate-400 hover:bg-orange-50 hover:text-orange-500 disabled:opacity-50 transition"
                                     title="แนบไฟล์ / รูปภาพ"
                                 >
-                                    {uploading ? <Loader2 size={17} className="animate-spin text-orange-500" /> : <Paperclip size={17} />}
+                                    {uploading ? <Spinner size="sm" className="text-orange-500" /> : <Paperclip size={17} />}
                                 </button>
 
                                 <div className="flex-1 min-w-0 h-9 rounded-lg bg-slate-50 flex items-center px-3 gap-2 focus-within:bg-orange-50/40">
@@ -423,7 +426,7 @@ export default function ChatPage({
                                     disabled={!text.trim() || sending}
                                     className="w-9 h-9 shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white flex items-center justify-center shadow-md transition active:scale-95"
                                 >
-                                    {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                                    {sending ? <Spinner size="sm" /> : <Send size={15} />}
                                 </button>
                             </form>
                         </div>

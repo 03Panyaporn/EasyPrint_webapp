@@ -92,7 +92,7 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
           <button
             id="topbar-profile"
             onClick={() => setProfileOpen((p) => !p)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-orange-50 transition-colors"
             aria-haspopup="true"
             aria-expanded={profileOpen}
           >

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, CheckCircle2, AlertCircle, Loader2, Mail, Info, Pencil, UploadCloud } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle, Mail, Info, Pencil, UploadCloud } from "lucide-react";
 import { getMyShopProfile } from "@/lib/api/shops";
 import { submitContactAdminMessage } from "@/lib/api/contactAdmin";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 import { useToast } from "@/contexts/ToastContext";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function ContactAdminForm() {
   const { addToast } = useToast();
@@ -115,9 +117,33 @@ export default function ContactAdminForm() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p>กำลังโหลดข้อมูล...</p>
+      <div className="w-full flex flex-col h-full" aria-live="polite" aria-busy="true">
+        <div className="bg-white rounded-2xl rounded-b-none shadow-sm border border-slate-200 overflow-hidden flex-1">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-5 flex items-center gap-3">
+            <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          </div>
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+            <div className="flex justify-end">
+              <Skeleton className="h-11 w-32 rounded-xl" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -297,7 +323,7 @@ export default function ContactAdminForm() {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Spinner size="sm" />
                     กำลังส่งข้อความ...
                   </>
                 ) : (

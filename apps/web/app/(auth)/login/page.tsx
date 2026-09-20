@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { LoadingSection, Spinner } from "@/components/ui/Spinner";
 
 const ROLE_HOME: Record<string, string> = {
   customer: "/Dashboard",
@@ -19,9 +20,21 @@ function safeRedirectPath(raw: string | null): string | null {
   return raw;
 }
 
+function LoginPageFallback() {
+  return (
+    <main
+      className="min-h-screen bg-slate-50 flex items-center justify-center"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <LoadingSection />
+    </main>
+  );
+}
+
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoginPageFallback />}>
       <LoginForm />
     </Suspense>
   );
@@ -224,7 +237,7 @@ function LoginForm() {
                 />
                 จดจำฉันไว้
               </label>
-              <Link href="/forgot-password" className="text-[#F46A2F] hover:underline">
+              <Link href="/forgot-password" className="text-[#F46A2F] hover:underline transition-colors duration-200">
                 ลืมรหัสผ่าน?
               </Link>
             </div>
@@ -239,11 +252,13 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={!isFormValid || isSubmitting}
-                className={`w-full py-3.5 font-bold rounded-full shadow-lg transition-all duration-300 ${isFormValid && !isSubmitting
+                aria-busy={isSubmitting}
+                className={`w-full py-3.5 font-bold rounded-full shadow-lg transition-all duration-300 flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
                     ? "bg-[#F46A2F] text-white hover:bg-[#E05B22] hover:-translate-y-0.5 active:translate-y-0 shadow-[#F46A2F]/20 cursor-pointer"
-                    : "bg-slate-300 text-white cursor-not-allowed"
+                    : "bg-slate-300 text-white opacity-60 cursor-not-allowed"
                   }`}
               >
+                {isSubmitting && <Spinner size="sm" />}
                 {isSubmitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
               </button>
             </div>

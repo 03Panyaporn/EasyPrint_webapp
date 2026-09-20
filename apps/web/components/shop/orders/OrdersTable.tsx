@@ -150,9 +150,11 @@ export default function OrdersTable({
           {orders.length === 0 ? (
             <tbody className="divide-y divide-gray-200">
               <tr>
-                <td colSpan={10} className="py-12 text-center text-gray-400">
-                  <Inbox size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm font-medium">ไม่พบรายการคำสั่งซื้อ</p>
+                <td colSpan={10} className="p-6 sm:p-10">
+                  <div className="mx-auto max-w-md text-center border-2 border-dashed border-gray-200 rounded-2xl p-6 sm:p-8 space-y-1">
+                    <Inbox size={32} className="mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm font-semibold text-gray-500">ไม่พบรายการคำสั่งซื้อ</p>
+                  </div>
                 </td>
               </tr>
             </tbody>

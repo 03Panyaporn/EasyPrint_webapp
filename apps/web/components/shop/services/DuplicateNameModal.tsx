@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Copy, Loader2 } from "lucide-react";
+import { X, Copy } from "lucide-react";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface DuplicateNameModalProps {
   isOpen: boolean;
@@ -117,7 +118,7 @@ export default function DuplicateNameModal({
           >
             {loading ? (
               <>
-                <Loader2 size={15} className="animate-spin" />
+                <Spinner size="sm" />
                 คัดลอก...
               </>
             ) : (

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, FileText, ChevronLeft, ChevronRight, Filter, Calendar, Loader2 } from "lucide-react";
+import { Search, FileText, ChevronLeft, ChevronRight, Filter, Calendar } from "lucide-react";
 import { type MockShop, type ShopStatus } from "@/lib/mock/adminShops";
 import { listAdminShops, approveShop, rejectShop } from "@/lib/api/admin";
 import { toMockShop } from "@/lib/adminShopAdapter";
@@ -13,6 +13,7 @@ import DocumentViewer from "@/components/admin/shops/DocumentViewer";
 import ApproveModal from "@/components/admin/shops/ApproveModal";
 import RejectModal from "@/components/admin/shops/RejectModal";
 import NotificationToast, { type ToastType } from "@/components/admin/shops/NotificationToast";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // ─── Constants ───────────────────────────────────────────
 const PAGE_SIZE = 5;
@@ -254,10 +255,13 @@ export default function AdminShopsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center text-gray-400 text-sm">
-                    <Loader2 size={20} className="inline-block animate-spin mr-2" />
-                    กำลังโหลดข้อมูล...
+                <tr aria-live="polite" aria-busy="true">
+                  <td colSpan={7} className="p-0">
+                    <div className="divide-y divide-gray-50">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <SkeletonRow key={i} />
+                      ))}
+                    </div>
                   </td>
                 </tr>
               ) : loadError ? (
