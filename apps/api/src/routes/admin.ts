@@ -182,6 +182,24 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
         set.status = 404;
         return { error: "ไม่พบร้านค้านี้" };
       }
+
+      // ลบไฟล์ id-card/shop-photo ที่ผูกกับร้านนี้ทิ้งด้วย — กันไฟล์ตกค้างถาวรใน R2 (ยืนยันบั๊กจริงจาก QA: A3-10/BUG-P13-07
+      // เดิมลบแค่แถวใน DB แต่ไฟล์ยังอยู่ใน bucket ตลอดไป และหาไม่เจอผ่าน admin storage dashboard เลยเพราะ query
+      // ที่นั่น join กับตาราง shops ที่ถูกลบไปแล้ว) — shopPhotoUrl เก็บเป็น public URL เต็ม ต้องตัดเอาแค่ path
+      // (ชื่อไฟล์ท้าย URL) ก่อนส่งให้ R2, ส่วน idCardUrl เก็บเป็น path เปล่าอยู่แล้ว (bucket private ไม่มี public URL)
+      // ทำแบบ best-effort ไม่ block การลบร้าน (ที่ลบ DB สำเร็จแล้ว) ถ้าลบไฟล์พลาดแค่ log ไว้ให้แอดมินตามไปลบเองทีหลัง
+      const filesToDelete: Promise<unknown>[] = [];
+      if (shop.idCardUrl) {
+        filesToDelete.push(objectStorage.from("id-cards").remove([shop.idCardUrl]));
+      }
+      if (shop.shopPhotoUrl) {
+        const photoPath = shop.shopPhotoUrl.split("/").pop();
+        if (photoPath) filesToDelete.push(objectStorage.from("shop-photos").remove([photoPath]));
+      }
+      Promise.all(filesToDelete).catch((err) =>
+        console.error(`ลบไฟล์ id-card/shop-photo ของร้าน ${shop.id} ที่ถูกลบไม่สำเร็จ (orphan ใน R2):`, err)
+      );
+
       return { message: `ลบร้านค้า "${shop.name}" เรียบร้อยแล้ว` };
     } catch (err) {
       if (isForeignKeyViolation(err)) {

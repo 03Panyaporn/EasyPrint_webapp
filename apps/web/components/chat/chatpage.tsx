@@ -5,6 +5,7 @@ import {
     Search,
     Paperclip,
     Send,
+    Check,
     CheckCheck,
     ArrowLeft,
     FileText,
@@ -373,7 +374,7 @@ export default function ChatPage({
                                                         <span className="text-[9px]">
                                                             {new Date(message.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
                                                         </span>
-                                                        {isMine && <CheckCheck size={11} />}
+                                                        {isMine && (message.isRead ? <CheckCheck size={11} /> : <Check size={11} />)}
                                                     </div>
                                                 </div>
                                             </div>
