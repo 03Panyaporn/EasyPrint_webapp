@@ -59,6 +59,13 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
     }
   }, [variant]);
 
+  // variant="auth" ไม่ได้แปลว่า "login อยู่จริง" เสมอไป — บางหน้าใน (customer)/* (เช่น /contact-admin, /chat)
+  // ต้องเปิดให้ guest เข้าได้โดยไม่ login แต่ก่อนหน้านี้ยัง hardcode variant="auth" ทำให้ guest เห็น
+  // ข้อมูลโปรไฟล์ปลอม (ค่า fallback เดิม) พร้อมเมนู/กระดิ่ง/ตะกร้าเหมือน login จริง — ใช้ isLoggedIn (คำนวณจาก
+  // ผลลัพธ์จริงของ getMe()) แทน variant ในการตัดสินใจว่าจะโชว์ UI แบบ login หรือ guest
+  const isLoggedIn = variant === "auth" && !userLoading && user !== null;
+  const showAuthChecking = variant === "auth" && userLoading;
+
   // Outside click listener for profile dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -81,15 +88,15 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
     router.refresh();
   };
 
-  const displayName = user
-    ? `${user.firstname} ${user.lastname}`
-    : "พัณณาภรณ์ พรสา";
-  const displayEmail = user ? user.email : "panyaporn@example.com";
+  // ใช้เฉพาะตอน isLoggedIn เป็น true เท่านั้น (การันตีว่า user !== null) — ไม่มี fallback เป็นข้อมูลปลอมอีกต่อไป
+  // (เดิม fallback เป็น "พัณณาภรณ์ พรสา"/"panyaporn@example.com" ทำให้ guest เห็นเหมือนมีคน login อยู่จริง)
+  const displayName = user ? `${user.firstname} ${user.lastname}` : "";
+  const displayEmail = user?.email ?? "";
   const avatarInitial = user?.firstname?.[0]
     ? user.firstname[0].toUpperCase()
     : user?.email?.[0]
       ? user.email[0].toUpperCase()
-      : "พ";
+      : "?";
 
   return (
     <>
@@ -137,11 +144,11 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
         {/* Right side (Col 3 & Mobile Toggle - Aligned Right) */}
         <div className="flex items-center justify-end gap-3 shrink-0">
           <div className="hidden lg:flex items-center gap-3">
-            {/* Notification Bell — Show ONLY when logged in (auth mode) — แก้ BUG-12-01 (QA Phase 12) */}
-            {variant === "auth" && <CustomerNotificationDropdown />}
+            {/* Notification Bell — Show ONLY when actually logged in — แก้ BUG-12-01 (QA Phase 12) */}
+            {isLoggedIn && <CustomerNotificationDropdown />}
 
-            {/* Cart Icon — Show ONLY when logged in (auth mode) */}
-            {variant === "auth" && (
+            {/* Cart Icon — Show ONLY when actually logged in */}
+            {isLoggedIn && (
               <Link
                 href="/cart"
                 className="relative flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition active:scale-95"
@@ -156,7 +163,9 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
               </Link>
             )}
 
-            {variant === "auth" ? (
+            {showAuthChecking ? (
+              <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+            ) : isLoggedIn ? (
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileMenuOpen((v) => !v)}
@@ -312,11 +321,11 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
 
           {/* Mobile Menu Toggle */}
           <div className="lg:hidden flex items-center gap-1.5">
-            {/* Notification Bell — Show ONLY when logged in (auth mode) — แก้ BUG-12-01 (QA Phase 12) */}
-            {variant === "auth" && <CustomerNotificationDropdown />}
+            {/* Notification Bell — Show ONLY when actually logged in — แก้ BUG-12-01 (QA Phase 12) */}
+            {isLoggedIn && <CustomerNotificationDropdown />}
 
-            {/* Cart Icon — Show ONLY when logged in (auth mode) */}
-            {variant === "auth" && (
+            {/* Cart Icon — Show ONLY when actually logged in */}
+            {isLoggedIn && (
               <Link
                 href="/cart"
                 className="relative flex items-center justify-center w-9 h-9 rounded-full bg-orange-50 text-orange-500"
@@ -357,7 +366,15 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
               <X className="w-4 h-4" />
             </button>
 
-            {variant === "auth" ? (
+            {showAuthChecking ? (
+              <div className="p-3 pr-8 bg-gradient-to-r from-orange-50/90 to-amber-50/70 rounded-2xl border border-orange-100/80 flex items-center gap-3">
+                <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-2.5 w-4/5" />
+                </div>
+              </div>
+            ) : isLoggedIn ? (
               <div className="space-y-2.5">
                 {/* User Profile Card Header in Light Cream Background */}
                 <div className="p-3 pr-8 bg-gradient-to-r from-orange-50/90 to-amber-50/70 rounded-2xl border border-orange-100/80 flex items-center gap-3">
