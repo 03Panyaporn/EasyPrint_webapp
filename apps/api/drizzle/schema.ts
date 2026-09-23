@@ -618,3 +618,36 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
   order: one(orders, { fields: [reviews.orderId], references: [orders.id] }),
   customer: one(users, { fields: [reviews.customerId], references: [users.id] }),
 }));
+
+// ── announcements: ประกาศจากระบบที่แอดมินส่ง (ดูย้อนหลังในหน้าแดชบอร์ดแอดมิน) ──
+// ตัวข้อความถึงผู้ใช้แต่ละคนส่งเป็นแถวใน notifications (typeId 5) — ตารางนี้เก็บ "ประวัติการส่ง" 1 แถวต่อ 1 ประกาศ
+export const announcementCategoryEnum = pgEnum("announcement_category", ["update", "feature", "security"]);
+export const announcementTargetEnum = pgEnum("announcement_target", ["all", "shops", "customers"]);
+
+export const announcements = pgTable("announcements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: announcementCategoryEnum("category").notNull(),
+  target: announcementTargetEnum("target").notNull().default("all"),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── favorite_shops: ร้านโปรดของลูกค้า (1 แถวต่อ 1 คู่ ลูกค้า-ร้าน) — ลบบัญชี/ลบร้านแล้วแถวหายตาม (cascade) ──
+export const favoriteShops = pgTable(
+  "favorite_shops",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shops.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.shopId] }),
+  })
+);

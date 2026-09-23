@@ -7,10 +7,37 @@ import { isShopOpenNow, isShopTempClosed } from "@/lib/shopHours";
 import ShopSearchHero from "@/components/customer/ShopSearchHero";
 import ServiceCategoryGrid from "@/components/customer/ServiceCategoryGrid";
 import ShopCard from "@/components/customer/ShopCard";
+import { getFavoriteShops, addFavoriteShop, removeFavoriteShop } from "@/lib/api/favorites";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
   const [shops, setShops] = useState<PublicShopListItem[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  // ร้านโปรด — หน้านี้อยู่ใน (customer) ต้อง login เป็นลูกค้าอยู่แล้ว; โหลดไม่สำเร็จก็แค่ไม่แสดงสถานะหัวใจ
+  useEffect(() => {
+    getFavoriteShops()
+      .then((res) => setFavoriteIds(new Set(res.favorites.map((f) => f.shopId))))
+      .catch(() => {});
+  }, []);
+
+  const toggleFavorite = async (shopId: string) => {
+    const wasFavorite = favoriteIds.has(shopId);
+    const apply = (fav: boolean) =>
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (fav) next.add(shopId);
+        else next.delete(shopId);
+        return next;
+      });
+    apply(!wasFavorite);
+    try {
+      if (wasFavorite) await removeFavoriteShop(shopId);
+      else await addFavoriteShop(shopId);
+    } catch {
+      apply(wasFavorite);
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [searchText, setSearchText] = useState("");
@@ -236,7 +263,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-5">
             {sortedShops.map((shop) => (
-              <ShopCard key={shop.id} shop={shop} />
+              <ShopCard key={shop.id} shop={shop} isFavorite={favoriteIds.has(shop.id)} onToggleFavorite={toggleFavorite} />
             ))}
           </div>
         )}

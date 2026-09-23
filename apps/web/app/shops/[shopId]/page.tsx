@@ -23,6 +23,7 @@ import { isShopOpenNow, formatTodayHours, isShopTempClosed } from "@/lib/shopHou
 import { getMainServices } from "@/lib/api/services";
 import { getShopCart } from "@/lib/api/cart";
 import { getMe } from "@/lib/api/auth";
+import { getFavoriteShops, addFavoriteShop, removeFavoriteShop } from "@/lib/api/favorites";
 import { getShopReviews } from "@/lib/api/reviews";
 import { ApiError } from "@/lib/api/client";
 import type { ReviewResponse, ShopReviewsResponse } from "@easyprint/shared";
@@ -75,7 +76,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   const router = useRouter();
   const [shop, setShop] = useState<PublicShopDetail | null>(null);
   const [mainServices, setMainServices] = useState<MainService[]>([]);
-  const [user, setUser] = useState<{ id: string; firstname: string; lastname: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; firstname: string; lastname: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [cartCount, setCartCount] = useState(0);
@@ -125,12 +126,23 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
     seekCategoryScrollFromClientX(e.clientX);
   };
 
-  const toggleFavorite = () => {
+  // บันทึกร้านโปรดจริงผ่าน /favorites (เฉพาะลูกค้า) — guest กดแล้วพาไปหน้า login แทนการขึ้น toast หลอกว่าบันทึกแล้ว
+  const toggleFavorite = async () => {
+    if (!user || user.role !== "customer") {
+      router.push("/login");
+      return;
+    }
     const nextState = !isFavorite;
     setIsFavorite(nextState);
-    if (nextState) {
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+    try {
+      if (nextState) await addFavoriteShop(params.shopId);
+      else await removeFavoriteShop(params.shopId);
+      if (nextState) {
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch {
+      setIsFavorite(!nextState);
     }
   };
 
@@ -151,7 +163,16 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
     // ไป /login ทั้งที่ร้านนั้นเป็นร้านสาธารณะปกติ (ยืนยันบั๊กจริงจาก QA Phase 04 — BUG-04-01)
     getMe()
       .then((meRes) => {
-        if (!cancelled && meRes?.user) setUser(meRes.user);
+        if (!cancelled && meRes?.user) {
+          setUser(meRes.user);
+          if (meRes.user.role === "customer") {
+            getFavoriteShops()
+              .then((res) => {
+                if (!cancelled) setIsFavorite(res.favorites.some((f) => f.shopId === params.shopId));
+              })
+              .catch(() => {});
+          }
+        }
       })
       .catch(() => {
         // guest ไม่ได้ login — ปกติ ไม่ต้องทำอะไร ไม่ redirect

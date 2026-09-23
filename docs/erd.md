@@ -270,6 +270,27 @@
 | is_read | boolean | default false — mark true เฉพาะข้อความที่ไม่ใช่ของตัวเอง (ดู `PATCH /messages/:orderId/read`) |
 | created_at | timestamp | |
 
+### `announcements`
+ประวัติประกาศจากระบบที่แอดมินส่ง (1 แถวต่อ 1 ประกาศ) — ข้อความถึงผู้ใช้แต่ละคนเป็นแถวใน `notifications` (`type_id` = 5) **เพิ่มใน migration `0022_announcements_favorite_shops`**
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| category | enum `announcement_category` (`update` / `feature` / `security`) | ใช้แยกสี/ป้ายในหน้าแดชบอร์ดแอดมิน |
+| target | enum `announcement_target` (`all` / `shops` / `customers`) | default `all` — ไม่รวมแอดมินเสมอ |
+| title | text | |
+| message | text | |
+| recipient_count | integer | จำนวนผู้ใช้ที่ได้รับแจ้งเตือนจริงตอนส่ง (ไม่นับร้านที่ปิดสวิตช์ "อัปเดตจากผู้ดูแลระบบ") |
+| created_by | uuid (FK → users.id) [ON DELETE SET NULL] | แอดมินที่ส่ง |
+| created_at | timestamp | |
+
+### `favorite_shops`
+ร้านโปรดของลูกค้า **เพิ่มใน migration `0022_announcements_favorite_shops`**
+| column | type | note |
+|---|---|---|
+| user_id | uuid (FK → users.id) [ON DELETE CASCADE] | PK ร่วมกับ shop_id |
+| shop_id | uuid (FK → shops.id) [ON DELETE CASCADE] | PK ร่วมกับ user_id |
+| created_at | timestamp | |
+
 ⚠️ **หมายเหตุเรื่อง `drizzle-kit push`:** ตอนนี้ `bun --cwd apps/api drizzle-kit push` จะ crash ("Cannot read properties of undefined (reading 'replace')" ใน `checkValue.replace`) ตอน "Pulling schema from database" — พิสูจน์แล้วว่าเป็น bug ของ `drizzle-kit@0.31.10` เองตอน introspect DB บน Postgres 17.6 (ไม่เกี่ยวกับ schema ของโปรเจกต์นี้ เกิดกับ schema.ts เดิมก่อนแก้ด้วย) การเปลี่ยนแปลงรอบนี้ (enum `suspended`, `shops.storage_quota_mb`, `orders.finished_at`, ตาราง `system_settings`/`reviews`) ถูก apply ขึ้น Supabase ด้วย SQL ตรงแทน (ตรวจสอบแล้วว่าตรงกับ `schema.ts` 100%) — ครั้งหน้าที่แก้ schema ให้ลอง `drizzle-kit push` ก่อน ถ้ายัง crash อยู่ ให้ apply SQL ด้วยมือแบบเดียวกันแล้วเช็คกับ `schema.ts` ให้ตรงกันเสมอ
 
 ## ความสัมพันธ์ (Relationships)
@@ -303,6 +324,9 @@ users (1) ──< reviews (customer_id)
 orders (1) ──< messages (order_id) [ON DELETE CASCADE]
 users (1) ──< messages (sender_id) [ON DELETE CASCADE]
 shops (1) ──< messages (shop_id) [ON DELETE CASCADE]
+users (1) ──< announcements (created_by) [ON DELETE SET NULL]
+users (1) ──< favorite_shops (user_id) [ON DELETE CASCADE]
+shops (1) ──< favorite_shops (shop_id) [ON DELETE CASCADE]
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)

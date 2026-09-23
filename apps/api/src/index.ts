@@ -19,6 +19,7 @@ import { cronRoutes } from "./cron";
 import { reportsRoutes } from "./routes/reports";
 import { contactAdminRoutes } from "./routes/contactAdmin";
 import { adminNotificationsRoutes } from "./routes/adminNotificationsRoutes";
+import { favoritesRoutes } from "./routes/favorites";
 
 import { isInvalidTextRepresentation } from "./utils/validation";
 const isProd = process.env.NODE_ENV === "production";
@@ -67,6 +68,7 @@ const app = new Elysia()
   .use(reportsRoutes)
   .use(contactAdminRoutes)
   .use(adminNotificationsRoutes)
+  .use(favoritesRoutes)
 
   // ห้ามใช้ 3000 เป็นค่า default เพราะ Next.js (apps/web) ก็ใช้พอร์ตนี้เป็นค่าเริ่มต้นเหมือนกัน
   // บน Windows ทั้งสองฝั่ง bind พอร์ตเดียวกันได้แบบไม่ error (คนละ address family, IPv4 vs IPv6)

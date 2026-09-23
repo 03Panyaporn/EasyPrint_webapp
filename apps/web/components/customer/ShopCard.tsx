@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Printer, MapPin, Clock, Star, Heart } from "lucide-react";
 import type { PublicShopListItem } from "@/lib/api/shops";
@@ -8,13 +7,14 @@ import { isShopOpenNow, formatTodayHours, isShopTempClosed } from "@/lib/shopHou
 
 interface ShopCardProps {
   shop: PublicShopListItem;
+  // ร้านโปรด — ส่งมาเฉพาะตอนลูกค้า login อยู่ (บันทึกจริงผ่าน /favorites) ถ้าไม่ส่งจะไม่แสดงปุ่มหัวใจ
+  isFavorite?: boolean;
+  onToggleFavorite?: (shopId: string) => void;
 }
 
 // การ์ดร้านค้า — ใช้ร่วมกันทั้งหน้าแรก (guest) และ Dashboard (login แล้ว) ปรับสเกลขนาดบน mobile ให้กระทัดรัด
-export default function ShopCard({ shop }: ShopCardProps) {
+export default function ShopCard({ shop, isFavorite = false, onToggleFavorite }: ShopCardProps) {
   const openNow = !isShopTempClosed(shop.tempCloseStart, shop.tempCloseEnd) && isShopOpenNow(shop.openingHours);
-  // ยังไม่มีระบบรีวิว/ถูกใจจริงในระบบหลังบ้าน — ปุ่มถูกใจเป็นแค่ UI toggle ในเครื่อง
-  const [liked, setLiked] = useState(false);
 
   return (
     <div className="group border border-orange-200/80 hover:border-orange-400 rounded-xl sm:rounded-2xl p-2 sm:p-3.5 bg-white shadow-2xs hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
@@ -41,17 +41,20 @@ export default function ShopCard({ shop }: ShopCardProps) {
           </span>
 
           {/* Favorite toggle */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setLiked((v) => !v);
-            }}
-            title="ถูกใจร้านนี้"
-            className="absolute top-1.5 right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-xs transition"
-          >
-            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition ${liked ? "fill-red-500 text-red-500" : "text-slate-400"}`} />
-          </button>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onToggleFavorite(shop.id);
+              }}
+              title={isFavorite ? "เลิกบันทึกร้านโปรด" : "บันทึกร้านโปรด"}
+              aria-pressed={isFavorite}
+              className="absolute top-1.5 right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-xs transition"
+            >
+              <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition ${isFavorite ? "fill-red-500 text-red-500" : "text-slate-400"}`} />
+            </button>
+          )}
         </div>
 
         {/* Shop Details */}

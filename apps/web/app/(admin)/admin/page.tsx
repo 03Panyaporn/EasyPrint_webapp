@@ -12,30 +12,29 @@ import {
   ShieldAlert,
   Plus,
 } from "lucide-react";
-import { getAdminDashboard, approveShop } from "@/lib/api/admin";
-import type { AdminDashboardResponse, AdminDashboardPendingShop } from "@easyprint/shared";
+import { getAdminDashboard, approveShop, getAnnouncements, createAnnouncement } from "@/lib/api/admin";
+import type {
+  AdminDashboardResponse,
+  AdminDashboardPendingShop,
+  AnnouncementItem,
+  AnnouncementCategory,
+  AnnouncementTarget,
+} from "@easyprint/shared";
 import { ApiError } from "@/lib/api/client";
 import { Skeleton, SkeletonRow, SkeletonText } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 
 // ─────────────────────────────────────────────────────────
-// Types & Mock Data (เฉพาะส่วนที่ยังไม่มี backend รองรับ — ดูแผนเฟส 2/3 ในแชท)
+// Types & Constants
 // ─────────────────────────────────────────────────────────
 
-interface SystemAnnouncement {
-  id: string;
-  type: "update" | "feature" | "security";
-  title: string;
-  content: string;
-  date: string;
-}
-
-// TODO(เฟส 2): ยังไม่มีตาราง announcements ใน backend — ค้างเป็น mock ไปก่อน
-const INITIAL_ANNOUNCEMENTS: SystemAnnouncement[] = [
-  { id: "a1", type: "update", title: "อัปเดตระบบ", content: "ระบบ EasyPrint จะปิดปรับปรุงในวันที่ 25 พ.ค. 2567 02:00 - 04:00 น.", date: "20 พ.ค." },
-  { id: "a2", type: "feature", title: "ฟีเจอร์ใหม่", content: "เพิ่มฟีเจอร์จัดการไฟล์และพื้นที่จัดเก็บของร้านค้า", date: "18 พ.ค." },
-  { id: "a3", type: "security", title: "แจ้งเตือนความปลอดภัย", content: "แนะนำให้เปลี่ยนรหัสผ่านอย่างสม่ำเสมอเพื่อความปลอดภัย", date: "17 พ.ค." },
-];
+// ประกาศจากระบบ — เก็บจริงในตาราง announcements และส่งเป็นแจ้งเตือนในแอปถึงผู้ใช้ (GET/POST /admin/announcements)
+// เดิมเป็น mock ในหน้าเว็บ กดเพิ่มแล้วไม่ได้ส่งถึงใคร และหายเมื่อรีโหลด
+const ANNOUNCEMENT_TARGET_LABEL: Record<AnnouncementTarget, string> = {
+  all: "ผู้ใช้ทั้งหมด",
+  shops: "ร้านค้า",
+  customers: "ลูกค้า",
+};
 
 function formatThaiDate(iso: string): string {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
@@ -65,11 +64,20 @@ export default function AdminDashboardPage() {
   const [loadError, setLoadError] = useState("");
   const [selectedShopModal, setSelectedShopModal] = useState<AdminDashboardPendingShop | null>(null);
   const [isApproving, setIsApproving] = useState(false);
-  const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>(INITIAL_ANNOUNCEMENTS);
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [isAddAnnouncementOpen, setIsAddAnnouncementOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
-  const [newType, setNewType] = useState<"update" | "feature" | "security">("update");
+  const [newType, setNewType] = useState<AnnouncementCategory>("update");
+  const [newTarget, setNewTarget] = useState<AnnouncementTarget>("all");
+  const [isSendingAnnouncement, setIsSendingAnnouncement] = useState(false);
+  const [announcementError, setAnnouncementError] = useState("");
+
+  useEffect(() => {
+    getAnnouncements()
+      .then((res) => setAnnouncements(res.announcements))
+      .catch((err) => console.error("โหลดประกาศไม่สำเร็จ:", err));
+  }, []);
 
   useEffect(() => {
     getAdminDashboard()
@@ -99,21 +107,29 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleAddAnnouncement = (e: React.FormEvent) => {
+  const handleAddAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newContent.trim()) return;
-    const created: SystemAnnouncement = {
-      id: "ann-" + Date.now(),
-      type: newType,
-      title: newTitle.trim(),
-      content: newContent.trim(),
-      date: "วันนี้",
-    };
-    setAnnouncements((prev) => [created, ...prev]);
-    setNewTitle("");
-    setNewContent("");
-    setNewType("update");
-    setIsAddAnnouncementOpen(false);
+    if (!newTitle.trim() || !newContent.trim() || isSendingAnnouncement) return;
+    setIsSendingAnnouncement(true);
+    setAnnouncementError("");
+    try {
+      const { announcement } = await createAnnouncement({
+        category: newType,
+        target: newTarget,
+        title: newTitle.trim(),
+        message: newContent.trim(),
+      });
+      setAnnouncements((prev) => [announcement, ...prev]);
+      setNewTitle("");
+      setNewContent("");
+      setNewType("update");
+      setNewTarget("all");
+      setIsAddAnnouncementOpen(false);
+    } catch (err) {
+      setAnnouncementError(err instanceof ApiError ? err.message : "ส่งประกาศไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsSendingAnnouncement(false);
+    }
   };
 
   return (
@@ -393,6 +409,9 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {announcements.length === 0 && (
+                    <p className="text-[10px] text-gray-400 text-center py-4">ยังไม่มีประกาศ — กด + เพื่อส่งประกาศถึงผู้ใช้</p>
+                  )}
                   {announcements.map((item) => (
                     <div
                       key={item.id}
@@ -400,18 +419,21 @@ export default function AdminDashboardPage() {
                     >
                       <div className="flex items-center justify-between">
                         <span
-                          className={`px-1.5 py-0.5 rounded font-bold text-[9px] ${item.type === "update"
+                          className={`px-1.5 py-0.5 rounded font-bold text-[9px] ${item.category === "update"
                               ? "bg-red-100 text-red-600"
-                              : item.type === "feature"
+                              : item.category === "feature"
                                 ? "bg-emerald-100 text-emerald-700"
                                 : "bg-amber-100 text-amber-700"
                             }`}
                         >
                           {item.title}
                         </span>
-                        <span className="text-[9px] text-gray-400 font-medium">{item.date}</span>
+                        <span className="text-[9px] text-gray-400 font-medium">{formatThaiDate(item.createdAt)}</span>
                       </div>
-                      <p className="text-gray-700 font-medium leading-tight truncate">{item.content}</p>
+                      <p className="text-gray-700 font-medium leading-tight truncate">{item.message}</p>
+                      <p className="text-[9px] text-gray-400">
+                        ส่งถึง{ANNOUNCEMENT_TARGET_LABEL[item.target]} {item.recipientCount.toLocaleString()} คน
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -568,6 +590,28 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* Target Select */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  ส่งถึง
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(Object.keys(ANNOUNCEMENT_TARGET_LABEL) as AnnouncementTarget[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setNewTarget(t)}
+                      className={`py-1.5 rounded-lg border font-bold text-[10px] transition-all ${newTarget === t
+                          ? "bg-orange-50 text-orange-600 border-orange-300 shadow-2xs"
+                          : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+                        }`}
+                    >
+                      {ANNOUNCEMENT_TARGET_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Title Input */}
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
@@ -598,6 +642,8 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
+              {announcementError && <p className="text-[11px] text-red-500 font-semibold">{announcementError}</p>}
+
               {/* Submit Buttons */}
               <div className="flex gap-2 pt-2 border-t border-gray-100">
                 <button
@@ -609,9 +655,10 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-orange-500 text-white font-bold text-xs hover:bg-orange-600 transition shadow-2xs"
+                  disabled={isSendingAnnouncement}
+                  className="flex-1 py-2 rounded-xl bg-orange-500 text-white font-bold text-xs hover:bg-orange-600 transition shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  บันทึกประกาศ
+                  {isSendingAnnouncement ? "กำลังส่ง..." : "ส่งประกาศ"}
                 </button>
               </div>
             </form>

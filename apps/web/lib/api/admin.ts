@@ -6,8 +6,23 @@ import type {
   UpdateAdminSettingsInput,
   AdminStorageOverviewResponse,
   AdminStorageFilesResponse,
+  AnnouncementItem,
+  AnnouncementListResponse,
+  CreateAnnouncementInput,
 } from "@easyprint/shared";
 import { apiFetch } from "./client";
+
+export function getAnnouncements() {
+  return apiFetch<AnnouncementListResponse>("/admin/announcements");
+}
+
+// ส่งประกาศจริง: บันทึกประวัติ + ส่งแจ้งเตือนในแอปถึงกลุ่มเป้าหมาย (ไม่รวมแอดมิน)
+export function createAnnouncement(input: CreateAnnouncementInput) {
+  return apiFetch<{ announcement: AnnouncementItem }>("/admin/announcements", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
 
 export function getAdminDashboard() {
   return apiFetch<AdminDashboardResponse>("/admin/dashboard");
