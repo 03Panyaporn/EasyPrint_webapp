@@ -16,6 +16,7 @@ import { listShopOrders, updateOrderStatus } from "@/lib/api/orders";
 import { toOrder } from "@/lib/ordersAdapter";
 import { ApiError } from "@/lib/api/client";
 import { CheckCircle } from "lucide-react";
+import { toBangkokDateStr } from "@/lib/shopHours";
 
 export default function LatestOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -98,11 +99,9 @@ export default function LatestOrders() {
         const { orders: apiOrders } = await listShopOrders(shop.id);
         const mappedOrders = apiOrders.map(toOrder);
         
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        
-        // กรองเฉพาะออเดอร์ของวันนี้
-        const todayOrders = mappedOrders.filter(o => o.createdAt.startsWith(todayStr));
+        // กรองเฉพาะออเดอร์ของ "วันนี้ตามเวลาไทย" — createdAt เป็น ISO แบบ UTC ห้ามเทียบกับ toISOString() ตรงๆ
+        const todayStr = toBangkokDateStr();
+        const todayOrders = mappedOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === todayStr);
         
         // เลือกมาไม่เกิน 5 ออเดอร์แรก (ล่าสุดของวันนี้)
         setOrders(todayOrders.slice(0, 5));

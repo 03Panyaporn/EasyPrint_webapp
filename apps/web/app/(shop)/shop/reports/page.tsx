@@ -601,7 +601,8 @@ export default function ReportsPage() {
                       <tr className="bg-purple-50/80 text-purple-950 font-bold border-t border-purple-100 rounded-xl">
                         <td className="py-2 px-3 text-purple-900 rounded-l-xl">รวมทั้งหมด</td>
                         <td className="py-2 px-3 text-purple-900 font-extrabold">
-                          {categories.reduce((s, c) => s + c.orders, 0)}
+                          {/* ออเดอร์หนึ่งมีได้หลายหมวด — ห้ามบวกคอลัมน์นี้ตรงๆ (นับซ้ำ) ใช้จำนวนออเดอร์ที่สำเร็จจริงแทน */}
+                          {metrics.completedOrders.toLocaleString()}
                         </td>
                         <td className="py-2 px-3 text-purple-900 font-black text-xs">
                           {metrics.totalRevenue.toLocaleString()}

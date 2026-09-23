@@ -27,7 +27,7 @@ const WEEKDAY_TO_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 
 // เวลาเปิด/ปิดร้านตั้งไว้เป็นเวลาไทยเสมอ (ร้านอยู่ในไทย) — ต้องอ่าน "ตอนนี้" เป็นเวลาไทยเสมอเช่นกัน ไม่ว่าเครื่อง/เบราว์เซอร์ของ
 // ผู้ใช้จะตั้งเขตเวลาอะไรไว้ก็ตาม ใช้ Intl.DateTimeFormat กับ timeZone: "Asia/Bangkok" แทน new Date().getHours()/toISOString()
 // ตรงๆ (ซึ่งจะได้เวลาเครื่อง/เวลา UTC ตามลำดับ ผิดพลาดได้ถ้าเครื่องผู้ใช้ไม่ได้ตั้งเป็นเวลาไทย หรือช่วง 00:00-06:59 น. ไทยที่วันที่ UTC ยังเป็นเมื่อวาน)
-function nowInBangkok(): { y: number; m: number; d: number; hour: number; minute: number; weekdayIndex: number } {
+export function nowInBangkok(): { y: number; m: number; d: number; hour: number; minute: number; weekdayIndex: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Bangkok",
     year: "numeric",
@@ -93,6 +93,12 @@ export function formatTodayHours(openingHours: ShopOpeningHours[] | null): strin
   if (!todayEntry) return "ไม่ระบุเวลาทำการ";
   if (!todayEntry.isOpen) return "ปิดทำการวันนี้";
   return `เปิด ${todayEntry.openTime} - ${todayEntry.closeTime}`;
+}
+
+// วันที่ "YYYY-MM-DD" ตามเวลาไทยของเวลาที่ระบุ (default = ตอนนี้) — ใช้แทน toISOString().split("T")[0] ที่เป็นวันที่ UTC
+// (ช่วง 00:00-06:59 น. เวลาไทย วันที่ UTC ยังเป็นเมื่อวาน)
+export function toBangkokDateStr(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(date);
 }
 
 export function isShopTempClosed(tempCloseStart: string | null, tempCloseEnd: string | null): boolean {

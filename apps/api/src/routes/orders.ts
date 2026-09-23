@@ -134,11 +134,9 @@ export async function generateOrderCode(shopId: string): Promise<string> {
 }
 
 // รหัสอ้างอิงเต็มระบบ ไม่ซ้ำกันทั้งระบบ (วันที่ + สุ่ม 4 ตัวอักษร) เช่น "ORD-20260516-B0F2"
+// วันที่ใน ref เป็นวันที่ตามเวลาไทยเสมอ — server (Render) รันเป็น UTC ถ้าใช้ getDate() ตรงๆ ออเดอร์ช่วง 00:00-06:59 น. จะได้วันที่เมื่อวาน
 export function generateOrderRef(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date()).split("-");
   const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
   return `ORD-${y}${m}${d}-${rand}`;
 }
@@ -211,6 +209,7 @@ export function serializeOrder(
     cancelReason: order.cancelReason ?? undefined,
     cancelNote: order.cancelNote ?? undefined,
     createdAt: order.createdAt,
+    finishedAt: order.finishedAt, // เวลาที่งานเสร็จ/ถูกยกเลิก — ใช้นับ "เสร็จสิ้นวันนี้" ใน dashboard ให้ตรงกับหน้ารายงาน
   };
 }
 

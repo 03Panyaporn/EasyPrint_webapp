@@ -851,12 +851,7 @@ export const cartRoutes = new Elysia()
               const [orderCountRow] = await tx2.select({ total: count() }).from(orders).where(eq(orders.shopId, params.shopId));
               const orderCount = Number(orderCountRow?.total ?? 0);
               const code = `#${String(orderCount + 1).padStart(4, "0")}`;
-              const now = new Date();
-              const y = now.getFullYear();
-              const m = String(now.getMonth() + 1).padStart(2, "0");
-              const d = String(now.getDate()).padStart(2, "0");
-              const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
-              const ref = `ORD-${y}${m}${d}-${rand}`;
+              const ref = generateOrderRef(); // วันที่ตามเวลาไทย (ดู orders.ts)
 
               const [order] = await tx2.insert(orders).values({
                 shopId: params.shopId,

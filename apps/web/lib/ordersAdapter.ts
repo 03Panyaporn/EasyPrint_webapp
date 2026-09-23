@@ -60,6 +60,7 @@ export function toOrder(api: ApiOrder): Order {
     rawSlipUrl: api.slipSignedUrl || null,
     status: api.status,
     createdAt: api.createdAt,
+    finishedAt: api.finishedAt ?? null,
     createdAtLabel: formatCreatedAtLabel(api.createdAt),
     note: api.note,
     cancelReason: api.cancelReason,

@@ -85,6 +85,7 @@ export interface Order {
   rawSlipUrl?: string | null; // signed URL ที่เปิดดู/โหลดสลิปจริงได้ (มาจาก slipSignedUrl ฝั่ง API)
   status: OrderStatus;
   createdAt: string; // ISO string for easy date manipulation
+  finishedAt?: string | null; // เวลาที่ออเดอร์จบ (completed/cancelled)
   createdAtLabel: string; // เช่น "16 พ.ค. 10:30"
   note?: string; // หมายเหตุจากลูกค้าตอนสั่งซื้อ
   cancelReason?: CancelReason;

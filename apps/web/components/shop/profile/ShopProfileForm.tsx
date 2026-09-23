@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { getMyShopProfile, updateShopProfile, type MyShopProfile, type ShopOpeningHours } from "@/lib/api/shops";
-import { isShopOpenNow, isShopTempClosed } from "@/lib/shopHours";
+import { isShopOpenNow, isShopTempClosed, nowInBangkok, toBangkokDateStr } from "@/lib/shopHours";
 import { uploadFile } from "@/lib/api/uploads";
 import { Store, Camera, MapPin, Clock, Info, ExternalLink, FileText, Save, AlertTriangle, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -280,10 +280,11 @@ export default function ShopProfileForm() {
   const handleToggleStatus = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault(); // rely on derived state
     
-    const now = new Date();
-    const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} น.`;
+    // เวลา/วันปัจจุบันตามเวลาไทยเสมอ (ไม่ขึ้นกับเขตเวลาของเครื่องผู้ใช้) ให้ตรงกับ isShopOpenNow
+    const now = nowInBangkok();
+    const currentTimeStr = `${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')} น.`;
     const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-    const currentDayStr = dayMap[now.getDay()];
+    const currentDayStr = dayMap[now.weekdayIndex];
     const todayHours = openingHours.find(h =>
       h.day === currentDayStr ||
       h.day === DAYS.find(d => d.id === currentDayStr)?.label
@@ -341,8 +342,8 @@ export default function ShopProfileForm() {
     if (statusModal.type === "close") {
       if (!statusModal.reason.trim()) return;
       newReason = statusModal.reason;
-      const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      // วันที่ตามเวลาไทย — เดิมใช้วันที่ UTC ทำให้กด "ปิดร้านวันนี้" ช่วง 00:00-06:59 น. แล้วบันทึกเป็นเมื่อวาน ร้านเลยยังเปิดอยู่
+      const todayStr = toBangkokDateStr();
       newStart = todayStr;
       newEnd = todayStr;
     } else if (statusModal.type === "open" || statusModal.type === "cancel-temp-close") {

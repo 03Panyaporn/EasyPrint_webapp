@@ -66,6 +66,7 @@ export type ApiOrder = {
   cancelReason?: CancelReason;
   cancelNote?: string;
   createdAt: string;
+  finishedAt: string | null; // เวลาที่ออเดอร์จบ (completed/cancelled) — null ถ้ายังไม่จบ
 };
 
 export function listShopOrders(shopId: string, status?: OrderStatus) {
