@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { getMyShopProfile, updateShopProfile, type MyShopProfile } from "@/lib/api/shops";
 import { changeEmail, changePassword, deleteAccount } from "@/lib/api/auth";
 import { uploadFile } from "@/lib/api/uploads";
+import { DEFAULT_NOTIFICATION_SETTINGS } from "@easyprint/shared";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import {
@@ -467,14 +468,8 @@ function NotificationSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const defaultSettings = {
-    newOrder: true,
-    orderUpdate: false,
-    chatAndRequests: false,
-    closingWarning: false,
-    autoShopStatus: false,
-    adminUpdates: false,
-  };
+  // ค่าเริ่มต้นชุดเดียวกับ backend (ร้านที่ยังไม่เคยตั้งค่า = ได้รับทุกหมวด) — ห้ามประกาศค่าเองซ้ำที่นี่
+  const defaultSettings: Record<keyof typeof DEFAULT_NOTIFICATION_SETTINGS, boolean> = { ...DEFAULT_NOTIFICATION_SETTINGS };
 
   const [settings, setSettings] = useState(
     shop?.notificationSettings ? { ...defaultSettings, ...shop.notificationSettings } : defaultSettings
@@ -616,7 +611,7 @@ function NotificationSettingsTab({ shop, onSaved }: { shop: MyShopProfile | null
           <div className="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
             <NotificationToggle
               title="อัปเดตจากผู้ดูแลระบบ"
-              description="รับการแจ้งเตือนเมื่อคำร้องขอได้รับการอนุมัติ หรือมีนโยบาย/ประกาศใหม่จากแอดมิน"
+              description="รับการแจ้งเตือนเมื่อคำร้องขอได้รับการอนุมัติ แอดมินตอบข้อความ หรือมีประกาศใหม่จากแอดมิน (แจ้งเตือนเรื่องบัญชีถูกระงับ/ไม่อนุมัติจะส่งถึงคุณเสมอ ปิดไม่ได้)"
               checked={settings.adminUpdates}
               onChange={() => handleToggle("adminUpdates")}
               icon={Megaphone}

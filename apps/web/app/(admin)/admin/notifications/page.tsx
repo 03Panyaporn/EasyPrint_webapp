@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Store, XCircle, MessageCircle, CheckCheck } from "lucide-react";
 import type { AdminNotificationItem, AdminNotificationType } from "@easyprint/shared";
-import { getAdminNotifications, markAdminNotificationRead, markAllAdminNotificationsRead } from "@/lib/api/notifications";
+import {
+  getAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  ADMIN_NOTIFICATIONS_UPDATED_EVENT,
+} from "@/lib/api/notifications";
 import { ApiError } from "@/lib/api/client";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 
@@ -21,6 +26,7 @@ function formatThaiDateTime(iso: string): string {
 export default function AdminNotificationsPage() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<AdminNotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0); // ตัวเลขจริงจาก API (list จำกัด 50 รายการ)
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | AdminNotificationType>("all");
@@ -28,7 +34,10 @@ export default function AdminNotificationsPage() {
   const load = useCallback(() => {
     setLoading(true);
     getAdminNotifications()
-      .then((res) => setNotifications(res.notifications))
+      .then((res) => {
+        setNotifications(res.notifications);
+        setUnreadCount(res.unreadCount);
+      })
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "โหลดการแจ้งเตือนไม่สำเร็จ"))
       .finally(() => setLoading(false));
   }, []);
@@ -37,17 +46,24 @@ export default function AdminNotificationsPage() {
     load();
   }, [load]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
   const filtered = notifications.filter((n) => activeTab === "all" || n.type === activeTab);
 
   const handleMarkAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    markAllAdminNotificationsRead().catch((err) => console.error("มาร์คอ่านทั้งหมดไม่สำเร็จ:", err));
+    setUnreadCount(0);
+    markAllAdminNotificationsRead()
+      .then(() => window.dispatchEvent(new Event(ADMIN_NOTIFICATIONS_UPDATED_EVENT)))
+      .catch((err) => console.error("มาร์คอ่านทั้งหมดไม่สำเร็จ:", err));
   };
 
   const handleClick = (n: AdminNotificationItem) => {
     setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
-    if (!n.isRead) markAdminNotificationRead(n.id).catch((err) => console.error("มาร์คอ่านไม่สำเร็จ:", err));
+    if (!n.isRead) {
+      setUnreadCount((c) => Math.max(0, c - 1));
+      markAdminNotificationRead(n.id)
+        .then(() => window.dispatchEvent(new Event(ADMIN_NOTIFICATIONS_UPDATED_EVENT)))
+        .catch((err) => console.error("มาร์คอ่านไม่สำเร็จ:", err));
+    }
     if (n.link) router.push(n.link);
   };
 

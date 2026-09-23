@@ -491,6 +491,7 @@ export const ordersRoutes = new Elysia()
         category: "general", // 2 = ลูกค้ายกเลิกออเดอร์
         title: `ลูกค้ายกเลิกออเดอร์ ${updated.code}`,
         message: `ออเดอร์ ${updated.code} ถูกยกเลิกโดยลูกค้าแล้ว`,
+        link: `/shop/orders?orderId=${updated.id}`,
       });
     }
 

@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { notifications, users, shops } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { DEFAULT_NOTIFICATION_SETTINGS, notificationSettingKeyForType, type NotificationSettings } from "@easyprint/shared";
 
 export async function createNotification(params: {
   userId: string;
@@ -18,30 +19,11 @@ export async function createNotification(params: {
       const [shop] = await db.select().from(shops).where(eq(shops.ownerId, user.id));
       
       if (shop && shop.notificationSettings) {
-        const settings: any = shop.notificationSettings;
-        const typeId = params.typeId;
-
-        // เช็คการตั้งค่าตาม Type ID
-        // 1 = คำสั่งซื้อใหม่
-        if (typeId === 1 && settings.newOrder === false) return null;
-        
-        // 2 = อัปเดตสถานะ, 5 = ลูกค้ายกเลิกออเดอร์
-        if ((typeId === 2 || typeId === 5) && settings.orderUpdate === false) return null;
-        
-        // 3 = ข้อความแชทใหม่
-        if (typeId === 3 && settings.chatAndRequests === false) return null;
-        
-        // 7 = เตือนก่อนปิดร้านและออเดอร์ค้าง
-        if (typeId === 7 && settings.closingWarning === false) return null;
-        
-        // 13 = สิ้นสุดพักร้อน, 14 = ร้านเปิดอัตโนมัติ, 15 = ร้านปิดอัตโนมัติ
-        if ((typeId === 13 || typeId === 14 || typeId === 15) && settings.autoShopStatus === false) return null;
-        
-        // 4 = ประกาศแอดมิน, 6 = บัญชีถูกระงับ/เตือน
-        if ((typeId === 4 || typeId === 6) && settings.adminUpdates === false) return null;
-
-        // หมายเหตุ: Type 8, 9, 11, 12 (Setup Reminders) และ Type 10 (Password) 
-        // จะไม่ถูก block (ถือเป็น System Critical / Setup)
+        // ใช้ mapping กลางจาก @easyprint/shared ชุดเดียวกับหน้าตั้งค่าและ toast listener ฝั่งเว็บ
+        // key = null (เช่น typeId 6 บัญชีถูกระงับ/ปฏิเสธ, setup reminders, รหัสผ่าน) = ปิดไม่ได้ ส่งเสมอ
+        const settings = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(shop.notificationSettings as Partial<NotificationSettings>) };
+        const key = notificationSettingKeyForType(params.typeId);
+        if (key && settings[key] === false) return null;
       }
     }
 

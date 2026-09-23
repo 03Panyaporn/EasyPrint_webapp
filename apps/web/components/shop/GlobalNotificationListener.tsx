@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useToast, ToastType } from "@/contexts/ToastContext";
 import { getNotifications } from "@/lib/api/notifications";
+import { DEFAULT_NOTIFICATION_SETTINGS, notificationSettingKeyForType } from "@easyprint/shared";
 import { getMyShopProfile, type MyShopProfile } from "@/lib/api/shops";
 
 export default function GlobalNotificationListener() {
@@ -101,43 +102,21 @@ export default function GlobalNotificationListener() {
         // อัปเดตรายการที่เคยเห็นแล้วทั้งหมด
         notifications.forEach((n: any) => seenIdsRef.current.add(n.id));
 
-        const settings = shop.notificationSettings || {
-          newOrder: true,
-          orderUpdate: false,
-          chatAndRequests: false,
-          closingWarning: false,
-          autoShopStatus: false,
-          adminUpdates: false,
-        };
+        // ค่าเริ่มต้น + mapping typeId → สวิตช์ ชุดเดียวกับ backend (utils/notification.ts) — เดิมเดาหมวดจากคำในหัวข้อ
+        // (เช่น "ข้อความใหม่จากออเดอร์..." มีคำว่า "ออเดอร์" เลยถูกจัดเป็นหมวดออเดอร์แทนแชท)
+        const settings = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(shop.notificationSettings ?? {}) };
 
         newNotifications.forEach((n: any) => {
-
-          // วิเคราะห์ Category และเช็ค Setting ของร้านค้า
-          let shouldShow = false;
-          let type: ToastType = "info";
-
-          if (n.category === "order" || n.title.includes("ออเดอร์")) {
-            shouldShow = settings.newOrder || settings.orderUpdate;
-            type = "order";
-          } else if (n.category === "payment" || n.title.includes("เงิน")) {
-            shouldShow = settings.orderUpdate;
-            type = "success";
-          } else if (n.category === "system" || n.title.includes("ระบบ") || n.category === "alert") {
-            shouldShow = settings.adminUpdates || settings.closingWarning || settings.autoShopStatus;
-            type = n.title.includes("ความปลอดภัย") ? "success" : "system";
-          } else if (n.category === "chat" || n.title.includes("ข้อความ")) {
-            shouldShow = settings.chatAndRequests;
-            type = "chat";
-          } else {
-            // Default show if unknown category but not empty
-            shouldShow = true;
-          }
-
-          // ข้อยกเว้น: แจ้งเตือนเกี่ยวกับความปลอดภัย ควรโชว์เสมอ
-          if (n.title.includes("ความปลอดภัย") || n.title.includes("รหัสผ่าน")) {
-            shouldShow = true;
-            type = "success";
-          }
+          const key = notificationSettingKeyForType(n.typeId);
+          const shouldShow = key ? settings[key] !== false : true;
+          const type: ToastType =
+            n.category === "chat" || n.typeId === 3
+              ? "chat"
+              : n.typeId === 1 || n.typeId === 2
+                ? "order"
+                : n.typeId === 10
+                  ? "success"
+                  : "system";
 
           if (shouldShow) {
             addToast({

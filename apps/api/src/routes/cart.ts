@@ -918,7 +918,7 @@ export const cartRoutes = new Elysia()
                   title: `ออเดอร์ใหม่ ${orderResult.code}`,
                   message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
                   category: "general",
-                  link: `/shop/orders/${orderResult.id}`,
+                  link: `/shop/orders?orderId=${orderResult.id}`, // หน้า /shop/orders เปิดรายละเอียดออเดอร์นี้ให้เอง
                 });
               }
             } catch (notifyErr) {

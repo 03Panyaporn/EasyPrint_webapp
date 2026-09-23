@@ -58,10 +58,14 @@ export default function ChatPage({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const selectedOrderIdRef = useRef<string | null>(null);
+    const currentUserIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         getMe()
-            .then((res) => setCurrentUserId(res.user.id))
+            .then((res) => {
+                currentUserIdRef.current = res.user.id;
+                setCurrentUserId(res.user.id);
+            })
             .catch(() => setCurrentUserId(null));
     }, []);
 
@@ -129,6 +133,12 @@ export default function ChatPage({
             const res = await getOrderMessages(orderId);
             if (selectedOrderIdRef.current !== orderId) return;
             setMessages([...res.messages].reverse());
+            // ข้อความใหม่จากอีกฝ่ายที่เข้ามาระหว่างเปิดห้องนี้ค้างไว้ → mark read ทันที
+            // (เดิม mark แค่ตอนเลือกห้อง ทำให้ badge ยังไม่อ่านขึ้นที่ห้องที่กำลังดูอยู่ และอีกฝ่ายไม่เห็นว่าอ่านแล้ว)
+            const me = currentUserIdRef.current;
+            if (me && res.messages.some((m) => !m.isRead && m.senderId !== me)) {
+                markOrderMessagesRead(orderId).catch(() => {});
+            }
         } catch (err) {
             if (selectedOrderIdRef.current === orderId) {
                 setLoadError(err instanceof ApiError ? err.message : "โหลดข้อความไม่สำเร็จ");

@@ -18,7 +18,12 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { AdminNotificationItem, AdminNotificationType } from "@easyprint/shared";
-import { getAdminNotifications, markAdminNotificationRead, markAllAdminNotificationsRead } from "@/lib/api/notifications";
+import {
+  getAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  ADMIN_NOTIFICATIONS_UPDATED_EVENT,
+} from "@/lib/api/notifications";
 
 interface AdminTopbarProps {
   onMobileMenuOpen: () => void;
@@ -50,6 +55,8 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotificationItem[]>([]);
+  // จำนวนยังไม่อ่านจริงทั้งหมดจาก API (list จำกัดแค่ 50 รายการล่าสุด นับจาก list จะได้ตัวเลขต่ำกว่าจริง)
+  const [unreadCount, setUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState<"all" | AdminNotificationType>("all");
 
   const profileRef = useRef<HTMLDivElement>(null);
@@ -58,7 +65,10 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
 
   const loadNotifications = useCallback(() => {
     getAdminNotifications()
-      .then((res) => setNotifications(res.notifications))
+      .then((res) => {
+        setNotifications(res.notifications);
+        setUnreadCount(res.unreadCount);
+      })
       .catch((err) => console.error("โหลดการแจ้งเตือนไม่สำเร็จ:", err));
   }, []);
 
@@ -66,7 +76,12 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
   useEffect(() => {
     loadNotifications();
     const interval = setInterval(loadNotifications, NOTIF_POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    // หน้า /admin/notifications มาร์คอ่านแล้ว → รีโหลด bell ทันที ไม่ต้องรอ poll รอบถัดไป
+    window.addEventListener(ADMIN_NOTIFICATIONS_UPDATED_EVENT, loadNotifications);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(ADMIN_NOTIFICATIONS_UPDATED_EVENT, loadNotifications);
+    };
   }, [loadNotifications]);
 
   const handleLogout = async () => {
@@ -96,16 +111,16 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
     markAllAdminNotificationsRead().catch((err) => console.error("มาร์คอ่านทั้งหมดไม่สำเร็จ:", err));
   };
 
   const handleNotificationClick = (notif: AdminNotificationItem) => {
     setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)));
     if (!notif.isRead) {
+      setUnreadCount((c) => Math.max(0, c - 1));
       markAdminNotificationRead(notif.id).catch((err) => console.error("มาร์คอ่านไม่สำเร็จ:", err));
     }
     setNotifOpen(false);

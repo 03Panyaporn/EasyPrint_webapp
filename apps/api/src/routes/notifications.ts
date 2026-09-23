@@ -3,6 +3,7 @@ import { db } from "../db";
 import { notifications } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
+import { isValidUUID } from "../utils/validation";
 
 // Helper to extract auth
 async function requireAuth(
@@ -80,6 +81,36 @@ export const notificationsRoutes = new Elysia()
             id: t.String(),
           }),
           detail: { summary: "Mark a single notification as read" },
+        }
+      )
+      // ลบแจ้งเตือนของตัวเอง (ปุ่ม X ใน dropdown) — เดิมลบแค่ใน state หน้าเว็บ แล้วโผล่กลับมาทุกครั้งที่ poll
+      .delete(
+        "/:id",
+        async ({ params, cookie, set }) => {
+          const auth = await requireAuth(cookie, set);
+          if ('error' in auth) return auth;
+          if (!isValidUUID(params.id)) {
+            set.status = 404;
+            return { error: "Notification not found" };
+          }
+
+          const [deleted] = await db
+            .delete(notifications)
+            .where(and(eq(notifications.id, params.id), eq(notifications.userId, auth.user.userId)))
+            .returning({ id: notifications.id });
+
+          if (!deleted) {
+            set.status = 404;
+            return { error: "Notification not found" };
+          }
+
+          return { success: true };
+        },
+        {
+          params: t.Object({
+            id: t.String(),
+          }),
+          detail: { summary: "Delete a notification" },
         }
       )
   );

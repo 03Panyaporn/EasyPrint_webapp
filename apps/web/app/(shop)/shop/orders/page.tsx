@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ShoppingBag, CheckCircle, RefreshCw } from "lucide-react";
 import OrderStatusCards from "@/components/shop/orders/OrderStatusCards";
 import OrdersTable from "@/components/shop/orders/OrdersTable";
@@ -70,6 +70,20 @@ export default function OrdersPage() {
     }, 10000);
     return () => clearInterval(interval);
   }, [loadOrders]);
+
+  // เปิดรายละเอียดออเดอร์จากลิงก์ในแจ้งเตือน (/shop/orders?orderId=...) ครั้งเดียวหลังโหลดรายการเสร็จ
+  // อ่านจาก window.location แทน useSearchParams เพื่อไม่ต้องห่อทั้งหน้าด้วย Suspense
+  const openedFromLinkRef = useRef(false);
+  useEffect(() => {
+    if (openedFromLinkRef.current || orders.length === 0) return;
+    const linkedId = new URLSearchParams(window.location.search).get("orderId");
+    if (!linkedId) return;
+    const linked = orders.find((o) => o.id === linkedId);
+    if (linked) {
+      setDetailOrder(linked);
+      openedFromLinkRef.current = true;
+    }
+  }, [orders]);
 
   const filteredOrders = activeStatus
     ? orders.filter((o) => o.status === activeStatus)

@@ -96,8 +96,10 @@ export const messagesRoutes = new Elysia({ prefix: "/messages" })
           where ${messages.orderId} = ${orders.id}
           order by ${messages.createdAt} desc limit 1
         )`,
+        // raw subquery ไม่ผ่าน column mapping ของ drizzle → คอลัมน์ timestamp (ไม่มี tz) จะหลุดมาเป็น string ไม่มี "Z"
+        // ที่เบราว์เซอร์อ่านเป็นเวลาท้องถิ่น (เพี้ยน 7 ชม. / Safari = Invalid Date) — จัดรูปเป็น ISO UTC ตรงนี้เลย (DB เก็บเป็น UTC)
         lastMessageAt: sql<string>`(
-          select created_at from ${messages}
+          select to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from ${messages}
           where ${messages.orderId} = ${orders.id}
           order by ${messages.createdAt} desc limit 1
         )`,
@@ -199,7 +201,8 @@ export const messagesRoutes = new Elysia({ prefix: "/messages" })
       category: "chat",
       title: `ข้อความใหม่จากออเดอร์ ${order.code}`,
       message: notifyText.substring(0, 50) + (notifyText.length > 50 ? "..." : ""),
-      link: payload.userId === order.customerId ? `/shop/orders/${order.id}` : `/orders/${order.id}`,
+      // เปิดห้องแชทของออเดอร์นี้ตรงๆ (หน้าแชททั้งสองฝั่งรับ ?orderId= อยู่แล้ว) — เดิมลิงก์ร้านไป /shop/orders/:id ที่ไม่มีหน้านี้ (404)
+      link: payload.userId === order.customerId ? `/shop/chat?orderId=${order.id}` : `/chat?orderId=${order.id}`,
     });
 
     return { message: await serializeMessage(messageRow) };
