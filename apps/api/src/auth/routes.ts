@@ -94,20 +94,39 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     // (เช่น กด submit ซ้ำเร็วๆ/double-click) ทั้งคู่อาจผ่าน SELECT ก่อนที่ INSERT ตัวแรกจะ commit
     // แล้วตัวที่สองไปชน unique constraint ตอน INSERT จริง ต้อง catch แล้วแปลงเป็น 409 ที่สุภาพ
     // แทน raw 500 (ยืนยันบั๊กจริงจาก QA: BUG-P01-02) — pattern เดียวกับที่ใช้ใน services.ts (BUG-06-01/06-02)
+    // สร้าง user + ที่อยู่หลักแรก (ถ้ากรอกมา) ใน transaction เดียว — ที่อยู่บันทึกไม่ผ่านต้องไม่ได้บัญชีครึ่งๆ กลางๆ
     let user: typeof users.$inferSelect;
     try {
-      [user] = await db
-        .insert(users)
-        .values({
-          email: parsed.data.email,
-          passwordHash,
-          role: "customer",
-          firstname: parsed.data.firstname,
-          lastname: parsed.data.lastname,
-          phone: parsed.data.phone,
-          address: parsed.data.address,
-        })
-        .returning();
+      user = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(users)
+          .values({
+            email: parsed.data.email,
+            passwordHash,
+            role: "customer",
+            firstname: parsed.data.firstname,
+            lastname: parsed.data.lastname,
+            phone: parsed.data.phone,
+          })
+          .returning();
+
+        const addr = parsed.data.defaultAddress;
+        if (addr) {
+          await tx.insert(addresses).values({
+            userId: created.id,
+            receiverName: addr.receiverName || `${created.firstname} ${created.lastname}`.trim(),
+            phone: addr.phone || created.phone,
+            address: addr.address,
+            subdistrict: addr.subdistrict,
+            district: addr.district,
+            province: addr.province,
+            postalCode: addr.postalCode,
+            label: "บ้าน",
+            isDefault: true, // ที่อยู่แรกของบัญชี = ที่อยู่หลักเสมอ (เพิ่มที่อยู่อื่นได้ภายหลังที่หน้าโปรไฟล์)
+          });
+        }
+        return created;
+      });
     } catch (err) {
       if (isUniqueViolation(err)) {
         set.status = 409;

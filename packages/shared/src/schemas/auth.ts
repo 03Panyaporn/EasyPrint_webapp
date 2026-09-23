@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addressInputSchema } from "./address";
 
 // อีเมลเทียบแบบไม่สนตัวพิมพ์เล็ก/ใหญ่เสมอ — ตัดช่องว่างและแปลงเป็นตัวพิมพ์เล็กก่อนตรวจรูปแบบ
 // (กัน "User@x.com" login ไม่ได้ทั้งที่สมัครไว้เป็น "user@x.com" และกันสมัครซ้ำที่ต่างกันแค่ตัวพิมพ์)
@@ -20,7 +21,16 @@ export const registerSchema = z.object({
   firstname: z.string().min(1, "กรุณากรอกชื่อ"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุล"),
   phone: phoneSchema,
-  address: z.string().max(500).optional(),
+  // ที่อยู่จัดส่งแรก (ไม่บังคับ) — ถ้ากรอกมา จะถูกบันทึกเป็น "ที่อยู่หลัก" ในตาราง addresses ทันที (ตัวเดียวกับที่หน้าเช็คเอาต์ใช้)
+  // ใช้กติกาเดียวกับฟอร์มที่อยู่ในหน้าโปรไฟล์ — ชื่อผู้รับ/เบอร์ ไม่ส่งมาได้ ระบบจะใช้ชื่อ-นามสกุลและเบอร์ของบัญชีแทน
+  // (เดิมเป็นข้อความอิสระช่องเดียวเก็บลง users.address ที่ไม่มีหน้าไหนใช้ ร้านไม่เคยเห็นที่อยู่นี้)
+  defaultAddress: addressInputSchema
+    .omit({ label: true, isDefault: true })
+    .extend({
+      receiverName: addressInputSchema.shape.receiverName.optional(),
+      phone: addressInputSchema.shape.phone.optional(),
+    })
+    .optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

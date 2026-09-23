@@ -9,6 +9,7 @@ import {
   Lock,
   User,
   Phone,
+  MapPin,
   ArrowLeft
 } from "lucide-react";
 import { register } from "@/lib/api/auth";
@@ -27,6 +28,14 @@ export default function RegisterPage() {
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
   const [phone, setPhone] = useState("");
+
+  // ที่อยู่จัดส่งแรก (ไม่บังคับ) — กรอกแล้วจะเป็น "ที่อยู่หลัก" ของบัญชีทันที เพิ่มที่อยู่อื่นได้ภายหลังที่หน้าโปรไฟล์
+  const [addr, setAddr] = useState({ address: "", subdistrict: "", district: "", province: "", postalCode: "" });
+  const setAddrField = (key: keyof typeof addr) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setAddr((prev) => ({ ...prev, [key]: e.target.value }));
+  const addrValues = Object.values(addr).map((v) => v.trim());
+  const addrStarted = addrValues.some((v) => v !== "");
+  const addrComplete = addrValues.every((v) => v !== "") && /^\d{5}$/.test(addr.postalCode.trim());
 
   // Toggles
   const [showPassword, setShowPassword] = useState(false);
@@ -74,6 +83,7 @@ export default function RegisterPage() {
     firstname.trim() !== "" &&
     lastname.trim() !== "" &&
     phone.trim() !== "" &&
+    (!addrStarted || addrComplete) && // เริ่มกรอกที่อยู่แล้วต้องกรอกให้ครบทุกช่อง
     acceptTerms;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +93,23 @@ export default function RegisterPage() {
     setFormError("");
     setIsSubmitting(true);
     try {
-      await register({ email, password, firstname, lastname, phone });
+      await register({
+        email,
+        password,
+        firstname,
+        lastname,
+        phone,
+        // ชื่อผู้รับ/เบอร์ ไม่ต้องส่ง — backend ใช้ชื่อ-นามสกุลและเบอร์ของบัญชีให้ (แก้ได้ภายหลังที่หน้าโปรไฟล์)
+        defaultAddress: addrComplete
+          ? {
+              address: addr.address.trim(),
+              subdistrict: addr.subdistrict.trim(),
+              district: addr.district.trim(),
+              province: addr.province.trim(),
+              postalCode: addr.postalCode.trim(),
+            }
+          : undefined,
+      });
       // ใช้ replace แทน push (เหมือนหน้า login) — push เฉยๆ แล้วตามด้วย refresh() ทันที
       // ทำให้ navigation ไม่เกิดขึ้นจริงฝั่ง client (RSC fetch สำเร็จแต่หน้าไม่เปลี่ยน) เป็นบั๊กที่ยืนยันแล้วจากการทดสอบจริง
       router.replace("/orders");
@@ -321,9 +347,42 @@ export default function RegisterPage() {
                 />
               </Field>
             </div>
-            {/* ไม่ถามที่อยู่ตอนสมัครแล้ว — เดิมเก็บลง users.address แต่ไม่มีหน้าไหนใช้ (ตะกร้า/checkout ใช้ตาราง addresses ที่มีตำบล/อำเภอ/รหัสไปรษณีย์แยกช่อง)
-                ลูกค้าเพิ่มที่อยู่จัดส่งแบบครบช่องได้ที่หน้าโปรไฟล์ — ที่อยู่แรกจะเป็นที่อยู่หลักอัตโนมัติ */}
-            <p className="text-[11px] text-slate-400 pl-1">เพิ่มที่อยู่จัดส่งได้ที่หน้าโปรไฟล์หลังสมัครสมาชิก</p>
+            {/* ที่อยู่จัดส่งแรก — บันทึกลงตาราง addresses เป็นที่อยู่หลัก (ตัวเดียวกับที่หน้าเช็คเอาต์ให้เลือก และร้านเห็นในออเดอร์) */}
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/60 p-4">
+              <div className="flex items-center gap-1.5 pl-1">
+                <MapPin className="w-4 h-4 text-[#F46A2F]" />
+                <p className="text-[11px] font-bold text-slate-700">
+                  ที่อยู่จัดส่ง <span className="text-slate-400 font-normal">(ไม่บังคับ — จะตั้งเป็นที่อยู่หลัก)</span>
+                </p>
+              </div>
+              <input
+                type="text"
+                value={addr.address}
+                onChange={setAddrField("address")}
+                placeholder="บ้านเลขที่, หมู่, ซอย, ถนน"
+                maxLength={500}
+                className={inputCls}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input type="text" value={addr.subdistrict} onChange={setAddrField("subdistrict")} placeholder="ตำบล / แขวง" maxLength={100} className={inputCls} />
+                <input type="text" value={addr.district} onChange={setAddrField("district")} placeholder="อำเภอ / เขต" maxLength={100} className={inputCls} />
+                <input type="text" value={addr.province} onChange={setAddrField("province")} placeholder="จังหวัด" maxLength={100} className={inputCls} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={addr.postalCode}
+                  onChange={setAddrField("postalCode")}
+                  placeholder="รหัสไปรษณีย์"
+                  maxLength={5}
+                  className={inputCls}
+                />
+              </div>
+              {addrStarted && !addrComplete ? (
+                <p className="text-[10px] text-red-500 pl-1">กรุณากรอกที่อยู่ให้ครบทุกช่อง (รหัสไปรษณีย์ 5 หลัก) หรือเว้นว่างทั้งหมดไว้ก่อน</p>
+              ) : (
+                <p className="text-[10px] text-slate-400 pl-1">ผู้รับจะใช้ชื่อและเบอร์โทรของบัญชีนี้ เพิ่มที่อยู่อื่นหรือแก้ไขได้ภายหลังที่หน้าโปรไฟล์</p>
+              )}
+            </div>
 
             <label className="flex items-center gap-2 cursor-pointer select-none pt-2 pl-1">
               <input
