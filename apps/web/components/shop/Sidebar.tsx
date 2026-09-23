@@ -18,6 +18,7 @@ import {
   X,
   Printer,
   Star,
+  Rocket,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────
@@ -55,6 +56,12 @@ const navItems: NavItem[] = [
     label: "หน้าหลัก",
     href: "/shop/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    kind: "leaf",
+    label: "เตรียมร้านให้พร้อมขาย",
+    href: "/shop/onboarding",
+    icon: Rocket,
   },
   {
     kind: "leaf",
