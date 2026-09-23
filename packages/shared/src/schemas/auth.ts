@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// อีเมลเทียบแบบไม่สนตัวพิมพ์เล็ก/ใหญ่เสมอ — ตัดช่องว่างและแปลงเป็นตัวพิมพ์เล็กก่อนตรวจรูปแบบ
+// (กัน "User@x.com" login ไม่ได้ทั้งที่สมัครไว้เป็น "user@x.com" และกันสมัครซ้ำที่ต่างกันแค่ตัวพิมพ์)
+const emailSchema = z.string().trim().toLowerCase().email("อีเมลไม่ถูกต้อง");
+
 // สคีมานี้ใช้ทั้งฝั่ง apps/web (ตอน validate ฟอร์ม) และ apps/api (ตอน validate ก่อนบันทึก DB)
 // แก้ที่นี่ที่เดียว ทั้งสองฝั่งจะตรวจสอบข้อมูลตรงกันเสมอ
 
@@ -11,7 +15,7 @@ export const phoneSchema = z
   .pipe(z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"));
 
 export const registerSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
   password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
   firstname: z.string().min(1, "กรุณากรอกชื่อ"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุล"),
@@ -22,7 +26,7 @@ export const registerSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
   password: z.string().min(1, "กรุณากรอกรหัสผ่าน"),
   rememberMe: z.boolean().default(false),
 });
@@ -30,7 +34,7 @@ export const loginSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -51,7 +55,7 @@ export const changePasswordSchema = z.object({
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export const changeEmailSchema = z.object({
-  newEmail: z.string().email("อีเมลไม่ถูกต้อง"),
+  newEmail: emailSchema,
   currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
 });
 
@@ -100,7 +104,7 @@ export const shopDeliveryMethodSchema = z.enum(["รับที่หน้า�
 export const SHOP_DELIVERY_METHODS = shopDeliveryMethodSchema.options;
 
 export const registerShopSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
   password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
   firstname: z.string().min(1, "กรุณากรอกชื่อเจ้าของร้าน"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุลเจ้าของร้าน"),

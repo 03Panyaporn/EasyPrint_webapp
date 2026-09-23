@@ -24,6 +24,7 @@ export type AdminShop = {
   id: string;
   name: string;
   phone: string | null;
+  email: string | null; // อีเมลติดต่อของร้าน (shops.email) — ไม่ใช่อีเมล login ของเจ้าของ (ownerEmail)
   address: string | null;
   serviceTypes: string[] | null;
   deliveryMethods: string[] | null;

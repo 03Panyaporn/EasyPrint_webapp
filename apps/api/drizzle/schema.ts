@@ -65,7 +65,10 @@ export const users = pgTable("users", {
   phone: text("phone").notNull(),
   address: text("address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // อีเมลห้ามซ้ำแบบไม่สนตัวพิมพ์เล็ก/ใหญ่ (migration 0021) — แอปบันทึกเป็นตัวพิมพ์เล็กเสมอผ่าน emailSchema อยู่แล้ว
+  emailLowerUnique: uniqueIndex("users_email_lower_unique").on(sql`lower(${table.email})`),
+}));
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -40,6 +40,7 @@ function serializeShopListItem(row: {
     id: row.shop.id,
     name: row.shop.name,
     phone: row.shop.phone,
+    email: row.shop.email, // อีเมลติดต่อของร้าน (shops.email) — คนละอันกับ ownerEmail ที่ใช้ login
     address: row.shop.address,
     serviceTypes: row.shop.serviceTypes,
     deliveryMethods: row.shop.deliveryMethods,
