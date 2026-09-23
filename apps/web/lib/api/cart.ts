@@ -18,7 +18,7 @@ export type CartItemOptionSelection = {
 };
 
 export type CartItemUnitBreakdown =
-  | { mode: "per_page"; pageCount: number }
+  | { mode: "per_page"; pageCount: number; sheetCount: number } // pageCount = หน้าจริงของไฟล์, sheetCount = แผ่นที่คิดค่ากระดาษ
   | { mode: "per_sqm"; widthCm: number; heightCm: number }
   | null;
 

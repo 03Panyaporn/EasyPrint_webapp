@@ -9,7 +9,6 @@ import {
   Lock,
   User,
   Phone,
-  MapPin,
   ArrowLeft
 } from "lucide-react";
 import { register } from "@/lib/api/auth";
@@ -28,7 +27,6 @@ export default function RegisterPage() {
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
 
   // Toggles
   const [showPassword, setShowPassword] = useState(false);
@@ -85,7 +83,7 @@ export default function RegisterPage() {
     setFormError("");
     setIsSubmitting(true);
     try {
-      await register({ email, password, firstname, lastname, phone, address: address || undefined });
+      await register({ email, password, firstname, lastname, phone });
       // ใช้ replace แทน push (เหมือนหน้า login) — push เฉยๆ แล้วตามด้วย refresh() ทันที
       // ทำให้ navigation ไม่เกิดขึ้นจริงฝั่ง client (RSC fetch สำเร็จแต่หน้าไม่เปลี่ยน) เป็นบั๊กที่ยืนยันแล้วจากการทดสอบจริง
       router.replace("/orders");
@@ -322,16 +320,10 @@ export default function RegisterPage() {
                   className={inputCls}
                 />
               </Field>
-              <Field label="ที่อยู่" icon={<MapPin className="w-4 h-4" />} optional>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="บ้านเลขที่, ถนน, อำเภอ"
-                  className={inputCls}
-                />
-              </Field>
             </div>
+            {/* ไม่ถามที่อยู่ตอนสมัครแล้ว — เดิมเก็บลง users.address แต่ไม่มีหน้าไหนใช้ (ตะกร้า/checkout ใช้ตาราง addresses ที่มีตำบล/อำเภอ/รหัสไปรษณีย์แยกช่อง)
+                ลูกค้าเพิ่มที่อยู่จัดส่งแบบครบช่องได้ที่หน้าโปรไฟล์ — ที่อยู่แรกจะเป็นที่อยู่หลักอัตโนมัติ */}
+            <p className="text-[11px] text-slate-400 pl-1">เพิ่มที่อยู่จัดส่งได้ที่หน้าโปรไฟล์หลังสมัครสมาชิก</p>
 
             <label className="flex items-center gap-2 cursor-pointer select-none pt-2 pl-1">
               <input

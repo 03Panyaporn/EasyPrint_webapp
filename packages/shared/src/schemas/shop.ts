@@ -63,6 +63,7 @@ export const updateShopProfileSchema = z.object({
   email: z.string().email("อีเมลไม่ถูกต้อง").optional().or(z.literal("")).nullable(),
   facebook: z.string().optional().or(z.literal("")).nullable(),
   lineId: z.string().optional().or(z.literal("")).nullable(),
+  socialMedia: z.string().max(300).optional().or(z.literal("")).nullable(), // ช่องทางโซเชียลอื่นๆ ที่กรอกตอนสมัคร — เดิมแก้ภายหลังไม่ได้
   shopPhotoUrl: z.string().url("ลิงก์รูปภาพไม่ถูกต้อง").optional().or(z.literal("")).nullable(),
   
   // Address section

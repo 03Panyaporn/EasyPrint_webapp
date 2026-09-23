@@ -127,10 +127,16 @@ export default function Step6Preview({
   const [widthCm, setWidthCm] = useState<number | "">(100);
   const [heightCm, setHeightCm] = useState<number | "">(100);
 
-  const breakdown = useMemo(() => {
-    if (pricingMode === "quantity_tier") return null;
+  // โหมดราคาขั้นบันได: จำนวนที่ใช้คิดราคา = จำนวนขั้นต่ำของช่วงที่เลือก (ตัวเลือก qty_tier) — ต้องผ่าน engine ตัวเดียวกับของจริง
+  // (per_piece + quantityTiers) เพื่อให้คูณจำนวน/บวกตัวเลือก/บริการเสริมเหมือนตอนลูกค้าสั่ง เดิมแสดงแค่ราคาต่อชิ้นของช่วงนั้นเฉยๆ
+  const effectiveQuantity = pricingMode === "quantity_tier" ? Number(selections["qty_tier"] ?? 0) || 0 : quantity;
 
-    const basePrice = data.step3.colorTiers[0]?.pricePerUnit ?? (typeof data.step2.basePrice === "number" ? data.step2.basePrice : 0);
+  const breakdown = useMemo(() => {
+    // ต้องตรงกับ basePrice ที่ buildServiceInput (ServiceBuilderWizard) บันทึกจริง — ขั้นบันไดใช้ราคาช่วงแรก
+    const basePrice =
+      pricingMode === "quantity_tier"
+        ? (data.step2.quantityTiers[0]?.unitPrice ?? 0)
+        : (data.step3.colorTiers[0]?.pricePerUnit ?? (typeof data.step2.basePrice === "number" ? data.step2.basePrice : 0));
     const selectedColorTier = data.step3.colorTiers.find((c) => c.label === selections["color"]);
 
     const optionDeltas: ScopedAmount[] = data.step3.options
@@ -163,7 +169,7 @@ export default function Step6Preview({
         pricingModel,
         basePrice,
         colorTierPricePerUnit: selectedColorTier?.pricePerUnit,
-        quantity,
+        quantity: effectiveQuantity,
         pageCountingMode: effectivePageCountingMode,
         rawPageCount,
         widthCm: typeof widthCm === "number" ? widthCm : 0,
@@ -178,15 +184,9 @@ export default function Step6Preview({
       addOnCharges,
       selectedColorTier ? selectedColorTier.label : data.step3.colorTiers.length > 0 ? data.step3.colorTiers[0].label : undefined
     );
-  }, [data, selections, selectedPreviewAddOns, availableAddOns, pricingModel, pricingMode, quantity, rawPageCount, widthCm, heightCm]);
+  }, [data, selections, selectedPreviewAddOns, availableAddOns, pricingModel, effectiveQuantity, rawPageCount, widthCm, heightCm]);
 
-  const quantityTierPrice = useMemo(() => {
-    if (pricingMode !== "quantity_tier") return 0;
-    const tier = data.step2.quantityTiers.find((t) => selections["qty_tier"] === String(t.minQty));
-    return tier?.unitPrice ?? 0;
-  }, [pricingMode, data.step2.quantityTiers, selections]);
-
-  const totalPrice = pricingMode === "quantity_tier" ? quantityTierPrice : (breakdown?.lineTotal ?? 0);
+  const totalPrice = breakdown.lineTotal;
 
   const modeLabel = {
     per_page: "หน้า",

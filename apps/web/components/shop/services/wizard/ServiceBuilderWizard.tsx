@@ -71,7 +71,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
       maxQty: t.maxQty ?? null,
       unitPrice: t.unitPrice,
     })),
-    minArea: typeof form.step2.minArea === "number" ? form.step2.minArea : undefined,
+    minArea: typeof form.step2.minArea === "number" ? form.step2.minArea : null, // null = ไม่มีขั้นต่ำ (ล้างค่าเดิมตอนแก้ไข)
     areaRoundingIncrement:
       typeof form.step2.areaRoundingIncrement === "number" ? form.step2.areaRoundingIncrement : 0.1,
     options: form.step3.options.map((opt) => ({

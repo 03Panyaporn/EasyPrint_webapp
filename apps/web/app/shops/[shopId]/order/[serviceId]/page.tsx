@@ -49,7 +49,7 @@ import {
   Box,
   Pencil,
 } from "lucide-react";
-import { calculateLineItem, type ScopedAmount } from "@easyprint/shared";
+import { buildLineItemBreakdown, type ScopedAmount } from "@easyprint/shared";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
 import { isShopOpenNow, formatTodayHours } from "@/lib/shopHours";
 import { getMainServices, getAddOnServices } from "@/lib/api/services";
@@ -133,6 +133,11 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+// ต้องตรงกับขนาดสูงสุดของ upload type "order-file" ใน apps/api/src/storage.ts
+const MAX_ORDER_FILE_MB = 20;
+// ต้องตรงกับ note.max(500) ใน cartItemBaseSchema (packages/shared/src/schemas/cart.ts)
+const NOTE_MAX_LENGTH = 500;
 
 const FILE_TYPE_MIME: Record<AllowedFileType, string> = {
   pdf: "application/pdf",
@@ -322,11 +327,40 @@ function OrderBuilderForm({
       ? "application/pdf"
       : mainService.allowedFileTypes.map((t) => FILE_TYPE_MIME[t]).join(",") || undefined;
 
+  // ตรวจชนิด/ขนาดไฟล์ก่อนรับไว้ — ทั้งตอนเลือกไฟล์และลากมาวาง (การลากวางข้ามตัวกรอง accept ของ input ได้)
+  // ให้ตรงกับที่ backend รับจริง: per_page ต้องเป็น PDF เท่านั้น, ชนิดไฟล์ต้องอยู่ในที่ร้านเปิดรับ, ขนาดไม่เกิน MAX_ORDER_FILE_MB
+  const pickFile = (candidate: File | null | undefined) => {
+    if (!candidate) return;
+    const ext = candidate.name.split(".").pop()?.toLowerCase() ?? "";
+    const isPdf = candidate.type === "application/pdf" || ext === "pdf";
+    const allowed =
+      pricingModel === "per_page"
+        ? isPdf
+        : mainService.allowedFileTypes.length === 0 ||
+          mainService.allowedFileTypes.some((t) => (t === "jpg" ? ["jpg", "jpeg"].includes(ext) : t === ext));
+    if (!allowed) {
+      setErrors((prev) => ({
+        ...prev,
+        file: pricingModel === "per_page" ? "บริการนี้คิดราคาตามจำนวนหน้า รองรับเฉพาะไฟล์ PDF" : "ร้านนี้ไม่รับไฟล์ชนิดนี้",
+      }));
+      return;
+    }
+    if (candidate.size > MAX_ORDER_FILE_MB * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, file: `ไฟล์ต้องมีขนาดไม่เกิน ${MAX_ORDER_FILE_MB}MB` }));
+      return;
+    }
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.file;
+      return next;
+    });
+    setFile(candidate);
+  };
+
   const handleFileDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsDraggingFile(false);
-    const dropped = e.dataTransfer.files?.[0];
-    if (dropped) setFile(dropped);
+    pickFile(e.dataTransfer.files?.[0]);
   };
 
   // Auto select default options on first load if available
@@ -425,7 +459,7 @@ function OrderBuilderForm({
       if (!selectedValueId) continue;
       const valueObj = opt.values.find((v) => v.id === selectedValueId);
       if (valueObj && valueObj.extraPrice > 0) {
-        deltas.push({ amount: valueObj.extraPrice, scope: valueObj.priceScope });
+        deltas.push({ amount: valueObj.extraPrice, scope: valueObj.priceScope, label: `${opt.name}: ${valueObj.name}` });
       }
     }
     return deltas;
@@ -438,7 +472,7 @@ function OrderBuilderForm({
       const addOn = allAddOnServices.find((a) => a.id === addOnId);
       // ใช้ราคาที่ร้านตั้งไว้ที่ตัวบริการเสริม (addOn.price) ให้ตรงกับที่ backend คิดจริงใน cart.ts
       if (binding && addOn) {
-        charges.push({ amount: addOn.price, scope: addOn.scope });
+        charges.push({ amount: addOn.price, scope: addOn.scope, label: addOn.name });
       }
     }
     return charges;
@@ -457,8 +491,15 @@ function OrderBuilderForm({
     return selectedValue.isDuplex ? "by_sheet" : "by_file_page";
   }, [mainService.options, mainService.pageCountingMode, optionState]);
 
-  const lineItemResult = useMemo(() => {
-    return calculateLineItem({
+  // breakdown มาจาก engine ตัวเดียวกับที่คิดยอดรวม (buildLineItemBreakdown เรียก calculateLineItem ภายใน)
+  // ทุกแถวในส่วน "รายละเอียดราคา" จึงรวมกันได้เท่ายอดรวมเสมอ — เดิมแสดงราคาพื้นฐานขาวดำตายตัว/ไม่คูณตามหน่วย/จำนวน ฿0
+  const priceBreakdown = useMemo(() => {
+    const colorLabel = selectedColorTier
+      ? `สี: ${selectedColorTier.label}`
+      : mainService.colorTiers.length > 0
+        ? "สี: ขาวดำ"
+        : "ราคาพื้นฐาน";
+    return buildLineItemBreakdown({
       pricingModel,
       // ส่ง input ชุดเดียวกับ backend (cart.ts) เสมอ — basePrice = ราคาขาวดำ, ราคาสีแยกไปที่ colorTierPricePerUnit
       // (per_piece + ขั้นบันได คิดสีเป็นส่วนต่างจาก basePrice ถ้ารวมไว้ใน basePrice ส่วนต่างสีจะหายไป)
@@ -474,10 +515,11 @@ function OrderBuilderForm({
       quantityTiers: mainService.quantityTiers.map((t) => ({ minQty: t.minQty, maxQty: t.maxQty ?? null, unitPrice: t.unitPrice })),
       optionDeltas,
       addOnCharges,
-    });
+    }, optionDeltas, addOnCharges, colorLabel);
   }, [pricingModel, mainService, selectedColorTier, quantity, effectivePageCountingMode, pdfPageCount, widthCm, heightCm, optionDeltas, addOnCharges]);
 
-  const previewTotal = lineItemResult.lineTotal;
+  const previewTotal = priceBreakdown.lineTotal;
+  const unitLabel = mainService.unit || "ชิ้น";
 
   // Selected options summary list for breakdown card
   const selectedOptionsDetailedList = useMemo(() => {
@@ -723,7 +765,7 @@ function OrderBuilderForm({
                     อัปโหลดไฟล์งาน
                   </h3>
                   <span className="text-[11px] text-slate-400 font-medium">
-                    รองรับไฟล์ PDF, JPG, PNG (ขนาดไม่เกิน 100MB)
+                    {pricingModel === "per_page" ? "รองรับเฉพาะไฟล์ PDF" : `รองรับไฟล์ ${mainService.allowedFileTypes.map((t) => t.toUpperCase()).join(", ") || "PDF, JPG, PNG"}`} (ขนาดไม่เกิน {MAX_ORDER_FILE_MB}MB)
                   </span>
                 </div>
 
@@ -741,7 +783,7 @@ function OrderBuilderForm({
                         : "border-orange-300 bg-orange-50/40 hover:border-orange-400"
                     }`}
                   >
-                    <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                    <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-orange-200 shrink-0">
                         <Upload size={18} />
@@ -765,7 +807,7 @@ function OrderBuilderForm({
                           <span>•</span>
                           <span>{pdfPageCount > 0 ? `${pdfPageCount} หน้า` : "1 ไฟล์"}</span>
                           <span className="text-emerald-600 font-bold flex items-center gap-0.5 ml-1">
-                            <Check size={12} /> อัปโหลดสำเร็จ
+                            <Check size={12} /> พร้อมอัปโหลด
                           </span>
                         </div>
                       </div>
@@ -773,7 +815,7 @@ function OrderBuilderForm({
 
                     <div className="flex items-center gap-2 shrink-0">
                       <label className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-2xs">
-                        <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                        <input type="file" accept={acceptAttr} className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
                         <RefreshCw size={12} />
                         <span>เปลี่ยนไฟล์</span>
                       </label>
@@ -998,6 +1040,53 @@ function OrderBuilderForm({
                           })}
                         </div>
                       )}
+
+                      {/* checkbox = ติ๊กเลือกได้ (ไม่บังคับ) กดซ้ำเพื่อเอาออก — backend รับได้ 1 ค่าต่อหัวข้อ (cartOptionSelectionSchema) */}
+                      {opt.type === "checkbox" && (
+                        <div className="flex flex-wrap gap-2">
+                          {opt.values.map((v) => {
+                            const isSelected = optionState[opt.id as string] === v.id;
+                            return (
+                              <button
+                                type="button"
+                                key={v.id}
+                                aria-pressed={isSelected}
+                                onClick={() => (isSelected ? clearOption(opt.id as string) : setOption(opt.id as string, v.id as string))}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? "border-2 border-orange-400 bg-orange-50/90 text-orange-600 shadow-2xs"
+                                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                                }`}
+                              >
+                                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${isSelected ? "bg-orange-500 border-orange-500" : "border-slate-300"}`}>
+                                  {isSelected && <Check size={10} className="text-white" />}
+                                </span>
+                                <span>{v.name}</span>
+                                {v.extraPrice > 0 && (
+                                  <span className={isSelected ? "text-orange-600 font-extrabold" : "text-slate-400 font-normal"}>
+                                    (+฿{v.extraPrice})
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* number (บังคับกรอก) / text (ไม่บังคับ) — ส่งเป็น textValue ไม่มีผลต่อราคา */}
+                      {(opt.type === "number" || opt.type === "text") && (
+                        <input
+                          type={opt.type === "number" ? "number" : "text"}
+                          inputMode={opt.type === "number" ? "decimal" : undefined}
+                          value={optionState[opt.id as string] ?? ""}
+                          onChange={(e) =>
+                            e.target.value === "" ? clearOption(opt.id as string) : setOption(opt.id as string, e.target.value)
+                          }
+                          maxLength={opt.type === "text" ? 500 : undefined}
+                          placeholder={opt.type === "number" ? "กรอกตัวเลข" : "ระบุรายละเอียด (ไม่บังคับ)"}
+                          className="w-full sm:max-w-xs px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400"
+                        />
+                      )}
                       {err && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={12} /> {err}</p>}
                     </div>
                   );
@@ -1108,13 +1197,13 @@ function OrderBuilderForm({
                 </div>
                 <textarea
                   value={note}
-                  onChange={(e) => setNote(e.target.value.slice(0, 50))}
-                  maxLength={50}
+                  onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
+                  maxLength={NOTE_MAX_LENGTH}
                   rows={3}
                   placeholder="เช่น ต้องการพิมพ์แบบหน้าเดียว, เข้าเล่มด้านซ้าย"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none"
                 />
-                <p className="text-[11px] text-slate-400 text-right font-medium">{note.length}/50</p>
+                <p className="text-[11px] text-slate-400 text-right font-medium">{note.length}/{NOTE_MAX_LENGTH}</p>
               </div>
             </div>
 
@@ -1164,30 +1253,36 @@ function OrderBuilderForm({
                     ))}
                     <div className="flex justify-between items-center text-slate-600 pt-1 border-t border-slate-100">
                       <span className="font-medium text-slate-500">จำนวน</span>
-                      <span className="font-bold text-slate-800">{quantity || 1} ชิ้น</span>
+                      <span className="font-bold text-slate-800">{quantity || 1} {pricingModel === "per_piece" ? unitLabel : "ชุด"}</span>
                     </div>
                   </div>
 
                   {/* รายละเอียดราคา Price Itemization */}
                   <div className="space-y-2 text-xs pt-3 border-t border-slate-100">
                     <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wider text-slate-400">รายละเอียดราคา</p>
+                    {priceBreakdown.rows.map((row, idx) => (
+                      <div key={idx} className="flex justify-between items-center gap-2 text-slate-600">
+                        <span className="min-w-0 truncate">
+                          {row.label}
+                          {row.quantity !== 1 && (
+                            <span className="text-slate-400"> (฿{row.rate.toLocaleString()} × {Number(row.quantity.toFixed(3))})</span>
+                          )}
+                        </span>
+                        <span className="font-semibold shrink-0">฿{row.subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
                     <div className="flex justify-between items-center text-slate-600">
-                      <span>ราคาพื้นฐาน</span>
-                      <span className="font-semibold">฿{mainService.basePrice}</span>
+                      <span>× จำนวน {priceBreakdown.copies} {pricingModel === "per_piece" ? unitLabel : "ชุด"}</span>
+                      <span className="font-semibold">
+                        ฿{(priceBreakdown.perCopySubtotal * priceBreakdown.copies).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </span>
                     </div>
-                    {selectedOptionsDetailedList.map((item, idx) => {
-                      if (item.extraPrice <= 0) return null;
-                      return (
-                        <div key={idx} className="flex justify-between items-center text-slate-600">
-                          <span>{item.label}: {item.value.split("(")[0]}</span>
-                          <span className="font-semibold text-orange-600">+฿{item.extraPrice}</span>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>จำนวน {quantity || 1} ชิ้น</span>
-                      <span className="font-semibold">฿0</span>
-                    </div>
+                    {priceBreakdown.perItemRows.map((row, idx) => (
+                      <div key={`item-${idx}`} className="flex justify-between items-center gap-2 text-slate-600">
+                        <span className="min-w-0 truncate">{row.label} <span className="text-slate-400">(ต่อรายการ)</span></span>
+                        <span className="font-semibold text-orange-600 shrink-0">+฿{row.subtotal.toLocaleString()}</span>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Total Price Row */}

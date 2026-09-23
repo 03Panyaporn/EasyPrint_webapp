@@ -83,6 +83,7 @@ export const shopsRoutes = new Elysia()
         email: shops.email,
         facebook: shops.facebook,
         lineId: shops.lineId,
+        socialMedia: shops.socialMedia,
         latitude: shops.latitude,
         longitude: shops.longitude,
         address: shops.address,
@@ -198,10 +199,11 @@ export const shopsRoutes = new Elysia()
       .set({
         name: data.name,
         description: data.description !== undefined ? (data.description || null) : undefined,
-        phone: data.phone,
+        phone: data.phone !== undefined ? (data.phone || null) : undefined, // "" → null ให้เหมือนฟิลด์อื่น
         email: data.email !== undefined ? (data.email || null) : undefined,
         facebook: data.facebook !== undefined ? (data.facebook || null) : undefined,
         lineId: data.lineId !== undefined ? (data.lineId || null) : undefined,
+        socialMedia: data.socialMedia !== undefined ? (data.socialMedia || null) : undefined,
         shopPhotoUrl: data.shopPhotoUrl !== undefined ? (data.shopPhotoUrl || null) : undefined,
         address: data.address !== undefined ? (data.address || null) : undefined,
         latitude: data.latitude !== undefined ? (data.latitude != null ? String(data.latitude) : null) : undefined,

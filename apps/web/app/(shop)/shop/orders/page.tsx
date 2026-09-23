@@ -16,6 +16,7 @@ import { toOrder } from "@/lib/ordersAdapter";
 import { ApiError } from "@/lib/api/client";
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
+import { mergeStatusFields } from "@/lib/ordersAdapter";
 
 export default function OrdersPage() {
   const [shopId, setShopId] = useState<string | null>(null);
@@ -92,8 +93,9 @@ export default function OrdersPage() {
   // ── Update status flow ─────────────────────────
   const handleAdvanceStatus = async (order: Order, nextStatus: OrderStatus) => {
     try {
-      await updateOrderStatus(order.id, { status: nextStatus });
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o)));
+      const { order: updated } = await updateOrderStatus(order.id, { status: nextStatus });
+      // ใช้ค่าจริงที่ API ตอบกลับ (สถานะ/เวลาที่จบ) — response ไม่มี items แนบมา จึง merge เฉพาะฟิลด์สถานะ ไม่แทนทั้งก้อน
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? mergeStatusFields(o, updated) : o)));
       setStatusModalOrder(null);
       showToast(`อัปเดตสถานะออเดอร์ ${order.code} เรียบร้อยแล้ว`);
     } catch (err) {
@@ -124,12 +126,13 @@ export default function OrdersPage() {
   const handleConfirmCancel = async (order: Order, reason: string, note: string) => {
     const mode = cancelModal?.mode;
     try {
-      await updateOrderStatus(order.id, {
+      const { order: updated } = await updateOrderStatus(order.id, {
         status: "cancelled",
         cancelReason: reason as CancelReason,
         cancelNote: note || undefined,
       });
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: "cancelled" } : o)));
+      // เหตุผล/หมายเหตุการยกเลิกต้องขึ้นใน modal รายละเอียดทันที ไม่ต้องรอ poll รอบถัดไป
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? mergeStatusFields(o, updated) : o)));
       setCancelModal(null);
       showToast(
         mode === "reject_payment"

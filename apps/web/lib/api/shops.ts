@@ -54,6 +54,7 @@ export type MyShopProfile = {
   email: string | null;
   facebook: string | null;
   lineId: string | null;
+  socialMedia: string | null;
   latitude: string | null;
   longitude: string | null;
   address: string | null;

@@ -20,6 +20,7 @@ import { reportsRoutes } from "./routes/reports";
 import { contactAdminRoutes } from "./routes/contactAdmin";
 import { adminNotificationsRoutes } from "./routes/adminNotificationsRoutes";
 
+import { isInvalidTextRepresentation } from "./utils/validation";
 const isProd = process.env.NODE_ENV === "production";
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 // ตอน dev พอร์ตของ `next dev` อาจขยับได้ (ชนพอร์ตอื่นแล้ว Next auto-fallback) เลยอนุญาต localhost ทุกพอร์ตแทนการ hardcode
@@ -37,6 +38,11 @@ const app = new Elysia()
     if (code === "NOT_FOUND") {
       set.status = 404;
       return { error: "ไม่พบ endpoint นี้" };
+    }
+    // id ใน path ไม่ใช่ UUID (Postgres 22P02) — ข้อมูลที่ขอไม่มีทางมีอยู่จริง ตอบ 404 แทน 500 (route ส่วนใหญ่ไม่ได้เช็ค isValidUUID เอง)
+    if (isInvalidTextRepresentation(error)) {
+      set.status = 404;
+      return { error: "ไม่พบข้อมูลที่ต้องการ" };
     }
     console.error(`[API Error] ${code}:`, error);
     set.status = 500;

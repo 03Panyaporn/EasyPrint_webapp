@@ -38,6 +38,9 @@ const DEFAULT_HOURS: ShopOpeningHours[] = DAYS.map((d) => ({
   closeTime: "18:00",
 }));
 
+const CONTACT_INPUT_CLS =
+  "w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition";
+
 export default function ShopProfileForm() {
   const [shop, setShop] = useState<MyShopProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,7 @@ export default function ShopProfileForm() {
   const [email, setEmail] = useState("");
   const [facebook, setFacebook] = useState("");
   const [lineId, setLineId] = useState("");
+  const [socialMedia, setSocialMedia] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
 
@@ -112,6 +116,7 @@ export default function ShopProfileForm() {
       setEmail(s.email || "");
       setFacebook(s.facebook || "");
       setLineId(s.lineId || "");
+      setSocialMedia(s.socialMedia || "");
       setDescription(s.description || "");
       setLatitude(s.latitude || "");
       setLongitude(s.longitude || "");
@@ -220,6 +225,7 @@ export default function ShopProfileForm() {
         email: email || null,
         facebook: facebook || null,
         lineId: lineId || null,
+        socialMedia: socialMedia || null,
         address: combinedAddress || houseNo || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
@@ -379,6 +385,7 @@ export default function ShopProfileForm() {
         email: email || null,
         facebook: facebook || null,
         lineId: lineId || null,
+        socialMedia: socialMedia || null,
         address: combinedAddress || houseNo || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
@@ -575,6 +582,30 @@ export default function ShopProfileForm() {
                 />
                 <div className="text-right text-xs text-gray-400 mt-1">
                   {description.length}/300
+                </div>
+              </div>
+
+              {/* ช่องทางติดต่อร้าน — แสดงให้ลูกค้าเห็นในหน้าร้าน (เดิมเก็บใน state และส่งกลับตอนบันทึก แต่ไม่มีช่องให้แก้ไขเลย) */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">เบอร์โทรร้าน</label>
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0XX-XXX-XXXX" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">อีเมลติดต่อร้าน</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="shop@example.com" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">LINE ID</label>
+                  <input type="text" value={lineId} onChange={(e) => setLineId(e.target.value)} placeholder="@easyprint" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">Facebook</label>
+                  <input type="text" value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="ชื่อเพจหรือลิงก์" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">ช่องทางโซเชียลอื่นๆ</label>
+                  <input type="text" value={socialMedia} onChange={(e) => setSocialMedia(e.target.value)} placeholder="เช่น IG: easyprint.shop" className={CONTACT_INPUT_CLS} />
                 </div>
               </div>
             </div>

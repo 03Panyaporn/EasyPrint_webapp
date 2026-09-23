@@ -57,6 +57,37 @@ function serializeShopListItem(row: {
   };
 }
 
+type ShopApprovalStatus = (typeof shops.$inferSelect)["approvalStatus"];
+
+// การเปลี่ยนสถานะร้านที่อนุญาต — เดิมเปลี่ยนจากสถานะไหนไปไหนก็ได้ (เช่น ปฏิเสธร้านที่เปิดขายอยู่แล้ว หรือระงับร้านที่ยังไม่เคยอนุมัติ)
+//   approve: pending (อนุมัติร้านใหม่) / suspended (คืนสถานะ) / rejected (พิจารณาใหม่)
+//   reject:  pending เท่านั้น (ใบสมัครใหม่ไม่ผ่าน) | suspend: approved เท่านั้น (ร้านที่เปิดขายอยู่แล้ว)
+const ALLOWED_SHOP_TRANSITIONS: Record<"approve" | "reject" | "suspend", ShopApprovalStatus[]> = {
+  approve: ["pending", "suspended", "rejected"],
+  reject: ["pending"],
+  suspend: ["approved"],
+};
+
+const SHOP_STATUS_LABEL: Record<ShopApprovalStatus, string> = {
+  pending: "รอตรวจสอบ",
+  approved: "อนุมัติแล้ว",
+  rejected: "ไม่อนุมัติ",
+  suspended: "ระงับการใช้งาน",
+};
+
+// คืน { status, error } ถ้าไม่พบร้าน/เปลี่ยนสถานะไม่ได้ หรือ null ถ้าทำได้
+async function checkShopTransition(
+  shopId: string,
+  action: keyof typeof ALLOWED_SHOP_TRANSITIONS
+): Promise<{ status: number; error: string } | null> {
+  const [row] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.id, shopId));
+  if (!row) return { status: 404, error: "ไม่พบร้านค้านี้" };
+  if (!ALLOWED_SHOP_TRANSITIONS[action].includes(row.approvalStatus)) {
+    return { status: 409, error: `ทำรายการนี้ไม่ได้ เนื่องจากร้านอยู่ในสถานะ "${SHOP_STATUS_LABEL[row.approvalStatus]}"` };
+  }
+  return null;
+}
+
 export const adminRoutes = new Elysia({ prefix: "/admin" })
   // สรุปภาพรวมหน้าหลักแอดมิน — ตัวเลข "เปลี่ยนแปลง" เทียบกับ 7 วันที่แล้ว คำนวณได้แม่นยำเฉพาะยอดที่อิง createdAt (ร้านค้าทั้งหมด/ผู้ใช้ทั้งหมด)
   // ส่วน "อนุมัติแล้ว"/"รอตรวจสอบ" ไม่มีค่าเปลี่ยนแปลงให้ เพราะ approvalStatus แก้ไขได้ตลอดเวลา ไม่มี audit log ย้อนหลังให้รู้ว่าเมื่อ 7 วันก่อนมีกี่ร้านในสถานะนั้น
@@ -220,6 +251,12 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
 
+    const transitionError = await checkShopTransition(params.id, "approve");
+    if (transitionError) {
+      set.status = transitionError.status;
+      return { error: transitionError.error };
+    }
+
     const [before] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.id, params.id));
     const isReinstate = before?.approvalStatus === "suspended";
 
@@ -257,6 +294,12 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
+    const transitionError = await checkShopTransition(params.id, "reject");
+    if (transitionError) {
+      set.status = transitionError.status;
+      return { error: transitionError.error };
+    }
+
     const [shop] = await db
       .update(shops)
       .set({ approvalStatus: "rejected", rejectedReason: parsed.data.reason })
@@ -289,6 +332,12 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     if (!parsed.success) {
       set.status = 400;
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const transitionError = await checkShopTransition(params.id, "suspend");
+    if (transitionError) {
+      set.status = transitionError.status;
+      return { error: transitionError.error };
     }
 
     const [shop] = await db

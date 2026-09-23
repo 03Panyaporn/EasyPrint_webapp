@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Printer,
   MapPin,
@@ -29,6 +30,9 @@ import type { MainService } from "@/components/shop/services/types";
 import { SERVICE_CATEGORIES } from "@/components/customer/ServiceCategoryGrid";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+
+// Leaflet ใช้ window ตอน import — โหลดเฉพาะฝั่ง browser เท่านั้น (ssr: false)
+const ShopLocationMap = dynamic(() => import("@/components/shop/ShopLocationMap"), { ssr: false });
 
 const PRICING_MODEL_SUFFIX: Record<MainService["pricingModel"], string> = {
   per_page: "/หน้า",
@@ -538,6 +542,52 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
                 </div>
               )}
             </section>
+
+            {/* ── ช่องทางติดต่อ & แผนที่ — API ส่งข้อมูลติดต่อร้านมาอยู่แล้วแต่เดิมไม่มีส่วนไหนแสดง และมีคอมโพเนนต์แผนที่แต่ไม่ได้ใช้ ── */}
+            {(() => {
+              const contacts = [
+                shop.phone && { icon: <Phone className="w-4 h-4 text-orange-500" />, label: "โทร", value: shop.phone, href: `tel:${shop.phone.replace(/[^\d+]/g, "")}` },
+                shop.email && { icon: <Mail className="w-4 h-4 text-orange-500" />, label: "อีเมล", value: shop.email, href: `mailto:${shop.email}` },
+                shop.lineId && { icon: <span className="text-[11px] font-black text-green-600">LINE</span>, label: "LINE", value: shop.lineId },
+                shop.facebook && {
+                  icon: <span className="text-[11px] font-black text-blue-600">FB</span>,
+                  label: "Facebook",
+                  value: shop.facebook,
+                  href: /^https?:\/\//.test(shop.facebook) ? shop.facebook : undefined,
+                },
+                shop.socialMedia && { icon: <Tag className="w-4 h-4 text-orange-500" />, label: "โซเชียล", value: shop.socialMedia },
+              ].filter(Boolean) as { icon: React.ReactNode; label: string; value: string; href?: string }[];
+              if (contacts.length === 0 && !shop.address) return null;
+              return (
+                <section className="max-w-6xl mx-auto mt-10 sm:mt-14 px-4 sm:px-6 lg:px-8">
+                  <SectionHeading>ติดต่อร้านและที่ตั้ง</SectionHeading>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                    {contacts.length > 0 && (
+                      <ul className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
+                        {contacts.map((c) => (
+                          <li key={c.label} className="flex items-center gap-3 px-4 py-3 text-sm">
+                            <span className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">{c.icon}</span>
+                            <span className="text-slate-400 w-16 shrink-0">{c.label}</span>
+                            {c.href ? (
+                              <a href={c.href} target={c.href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className="font-semibold text-slate-800 hover:text-orange-600 break-all">
+                                {c.value}
+                              </a>
+                            ) : (
+                              <span className="font-semibold text-slate-800 break-all">{c.value}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {shop.address && (
+                      <div className={contacts.length === 0 ? "lg:col-span-2" : ""}>
+                        <ShopLocationMap address={shop.address} shopName={shop.name} className="h-64 rounded-2xl overflow-hidden border border-slate-100" />
+                      </div>
+                    )}
+                  </div>
+                </section>
+              );
+            })()}
 
             {/* ── Ratings & Reviews ───────────────────────────────────────────── */}
             <section id="reviews" className="max-w-6xl mx-auto mt-10 sm:mt-14 pb-4 px-4 sm:px-6 lg:px-8 scroll-mt-24">

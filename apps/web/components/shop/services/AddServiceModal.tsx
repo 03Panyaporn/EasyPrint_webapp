@@ -152,8 +152,7 @@ const FILE_TYPE_OPTIONS: { value: AllowedFileType; label: string }[] = [
   { value: "pdf", label: "PDF" },
   { value: "jpg", label: "JPG" },
   { value: "png", label: "PNG" },
-  { value: "ai", label: "AI" },
-  { value: "psd", label: "PSD" },
+  // ไม่มี AI/PSD — ระบบอัปโหลดรับแค่ PDF/รูปภาพ (ดู UPLOADABLE_FILE_TYPES ใน @easyprint/shared)
 ];
 
 // ข้อความสำเร็จรูป — ลดการพิมพ์ข้อมูลซ้ำ ร้านค้าเลือกแล้วแก้ต่อได้อิสระ

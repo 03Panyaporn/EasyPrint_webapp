@@ -43,11 +43,29 @@ async function countPdfPages(path: string) {
     throw new Error("ไม่พบไฟล์ที่อัปโหลด กรุณาอัปโหลดไฟล์ใหม่อีกครั้ง");
   }
   try {
-    const pdf = await PDFDocument.load(await data.arrayBuffer());
+    // ignoreEncryption: PDF ที่ตั้งแค่ owner password (ห้ามแก้/ห้ามพิมพ์) เปิดดูบนเว็บได้ปกติ (pdfjs) — ต้องนับหน้าได้เหมือนกัน
+    // ไม่งั้นลูกค้าเห็นราคาบนหน้าเว็บแต่เพิ่มลงตะกร้าไม่ได้ (ไฟล์ที่ต้องใช้รหัสเปิดจริงจะยังพังและได้ข้อความ error ด้านล่าง)
+    const pdf = await PDFDocument.load(await data.arrayBuffer(), { ignoreEncryption: true });
     return pdf.getPageCount();
   } catch {
     throw new Error("ไม่สามารถอ่านไฟล์ PDF ได้ กรุณาตรวจสอบว่าไฟล์ไม่เสียหายและเป็นไฟล์ PDF จริง");
   }
+}
+
+// ไฟล์ที่ลูกค้าแนบต้องเป็นชนิดที่ร้านเปิดรับไว้ในบริการนี้ (main_services.allowed_file_types) — เดิมไม่เคยเช็คฝั่ง server
+// เช็คจากนามสกุลของชื่อไฟล์ต้นฉบับ (storage path เป็น UUID.ext ตาม MIME ที่ upload ยอมรับอยู่แล้ว)
+function checkAllowedFileType(
+  mainService: { allowedFileTypes: string[] | null },
+  fileName: string | undefined
+): string | null {
+  const allowed = mainService.allowedFileTypes ?? [];
+  if (!fileName || allowed.length === 0) return null;
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const normalized = ext === "jpeg" ? "jpg" : ext;
+  if (!allowed.includes(normalized)) {
+    return `บริการนี้รับเฉพาะไฟล์ ${allowed.map((t) => t.toUpperCase()).join(", ")}`;
+  }
+  return null;
 }
 
 // เช็คว่า request มี JWT ที่ login เป็น customer จริง — ใช้ทุก endpoint ของตะกร้า เพราะตะกร้าผูกกับ customerId เสมอ
@@ -229,9 +247,14 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
         addOnCharges,
       });
 
-      let unitBreakdown: { mode: "per_page"; pageCount: number } | { mode: "per_sqm"; widthCm: number; heightCm: number } | null = null;
+      // pageCount = จำนวนหน้าจริงของไฟล์, sheetCount = จำนวนแผ่นที่คิดค่ากระดาษ (พิมพ์ 2 หน้า = ครึ่งหนึ่งปัดขึ้น)
+      // เดิมส่งแค่ billedPages (แผ่น) ในชื่อ pageCount แล้วหน้าตะกร้าแสดงเป็น "หน้า" — ไฟล์ 11 หน้าพิมพ์ 2 ด้านจึงขึ้นว่า "6 หน้า"
+      let unitBreakdown:
+        | { mode: "per_page"; pageCount: number; sheetCount: number }
+        | { mode: "per_sqm"; widthCm: number; heightCm: number }
+        | null = null;
       if (pricingModel === "per_page" && calc.billedPages != null) {
-        unitBreakdown = { mode: "per_page", pageCount: calc.billedPages };
+        unitBreakdown = { mode: "per_page", pageCount: calc.rawPageCount ?? calc.billedPages, sheetCount: calc.billedPages };
       } else if (pricingModel === "per_sqm" && row.widthCm && row.heightCm) {
         unitBreakdown = { mode: "per_sqm", widthCm: Number(row.widthCm), heightCm: Number(row.heightCm) };
       }
@@ -364,6 +387,11 @@ export const cartRoutes = new Elysia()
       set.status = 400;
       return { error: "บริการนี้ต้องอัปโหลดไฟล์งานพิมพ์" };
     }
+    const fileTypeError = checkAllowedFileType(mainService, parsed.data.fileName);
+    if (fileTypeError) {
+      set.status = 400;
+      return { error: fileTypeError };
+    }
 
     // เช็คว่าข้อมูลที่ส่งมาตรงกับ pricingModel ของบริการจริง
     let serverPageCount: number | undefined;
@@ -477,6 +505,11 @@ export const cartRoutes = new Elysia()
     if (mainService.requiresFileUpload && !parsed.data.fileUrl) {
       set.status = 400;
       return { error: "บริการนี้ต้องอัปโหลดไฟล์งานพิมพ์" };
+    }
+    const fileTypeError = checkAllowedFileType(mainService, parsed.data.fileName);
+    if (fileTypeError) {
+      set.status = 400;
+      return { error: fileTypeError };
     }
 
     let serverPageCount: number | undefined;
@@ -739,13 +772,19 @@ export const cartRoutes = new Elysia()
           }
 
           // นำ colorTier เข้าไปรวมใน optionsSnapshot ด้วย เพื่อไม่ให้ข้อมูลสูญหาย
+          // ราคาสีเป็น "ราคาต่อหน่วยแบบเบ็ดเสร็จ" ที่แทน basePrice (ไม่ใช่ราคาบวกเพิ่ม) — เก็บไว้ที่ unitRate แยก และ extraPrice = 0
+          // (เดิมเก็บ pricePerUnit ไว้ใน extraPrice ทำให้หน้าออเดอร์แสดงเป็น "+฿X" เหมือนคิดเพิ่มจากราคาพื้นฐาน)
+          // ราคาจริงของสีอยู่ที่ order_items.color_tier_price_snapshot อยู่แล้ว
+          const colorScope =
+            mainService.pricingModel === "per_page" ? "per_page" : mainService.pricingModel === "per_sqm" ? "per_sqm" : mainService.pricingModel === "per_piece" ? "per_piece" : "per_item";
           if (colorTier) {
             optionsSnapshot.unshift({
               optionName: "สี",
               valueName: colorTier.label,
               textValue: null,
-              extraPrice: colorTier.pricePerUnit,
-              priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
+              extraPrice: 0,
+              unitRate: colorTier.pricePerUnit,
+              priceScope: colorScope,
             });
           } else if (!row.colorTierId) {
             // ถ้าบริการนี้มี color tiers แต่ลูกค้าไม่ได้เลือก tier ใด = เลือก "ขาวดำ" (ราคาพื้นฐาน)
@@ -760,7 +799,7 @@ export const cartRoutes = new Elysia()
                 valueName: "ขาวดำ",
                 textValue: null,
                 extraPrice: 0,
-                priceScope: mainService.pricingModel !== "per_page" ? "per_piece" : "per_page",
+                priceScope: colorScope,
               });
             }
           }

@@ -343,7 +343,7 @@ export const servicesRoutes = new Elysia()
         requiresFileUpload: parsed.data.requiresFileUpload,
         allowedFileTypes: parsed.data.allowedFileTypes,
         pageCountingMode: parsed.data.pageCountingMode,
-        minArea: parsed.data.minArea?.toFixed(2),
+        minArea: parsed.data.minArea != null ? parsed.data.minArea.toFixed(2) : null,
         areaRoundingIncrement: parsed.data.areaRoundingIncrement.toFixed(2),
         unit: parsed.data.unit,
         estimatedTime: parsed.data.estimatedTime,
@@ -377,7 +377,7 @@ export const servicesRoutes = new Elysia()
 
     return {
       service: serializeMainService(service, parsed.data.addOns, insertedOptions, insertedColorTiers, insertedQuantityTiers),
-      warnings: buildServiceWarnings(parsed.data.minArea),
+      warnings: buildServiceWarnings(parsed.data.minArea ?? undefined),
     };
   })
 
@@ -503,7 +503,8 @@ export const servicesRoutes = new Elysia()
     const updateData = {
       ...rest,
       ...(basePrice !== undefined ? { basePrice: basePrice.toFixed(2) } : {}),
-      ...(minArea !== undefined ? { minArea: minArea?.toFixed(2) } : {}),
+      // null = ล้างพื้นที่ขั้นต่ำออก (กลับเป็น "ไม่มีขั้นต่ำ") — เดิมส่งว่างมาแล้วค่าเก่าใน DB ค้างอยู่ตลอด
+      ...(minArea !== undefined ? { minArea: minArea === null ? null : minArea.toFixed(2) } : {}),
       ...(areaRoundingIncrement !== undefined ? { areaRoundingIncrement: areaRoundingIncrement.toFixed(2) } : {}),
     };
 
@@ -561,7 +562,7 @@ export const servicesRoutes = new Elysia()
 
     return {
       service: serializeMainService(service, currentAddOns, currentOptions, currentColorTiers, currentQuantityTiers),
-      warnings: buildServiceWarnings(minArea),
+      warnings: buildServiceWarnings(minArea ?? undefined),
     };
   })
 

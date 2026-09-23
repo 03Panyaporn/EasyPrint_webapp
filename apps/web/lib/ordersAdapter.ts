@@ -67,3 +67,15 @@ export function toOrder(api: ApiOrder): Order {
     cancelNote: api.cancelNote,
   };
 }
+
+// อัปเดตเฉพาะฟิลด์ที่เปลี่ยนตามสถานะจาก response ของ PATCH /orders/:id/status ลงออเดอร์ที่มีอยู่แล้วใน state
+// (response ไม่มี items/signed URL แนบมา ถ้าแทนทั้งก้อนด้วย toOrder() รายการสินค้า/ไฟล์ในตารางจะหายไป)
+export function mergeStatusFields(existing: Order, updated: ApiOrder): Order {
+  return {
+    ...existing,
+    status: updated.status,
+    finishedAt: updated.finishedAt ?? null,
+    cancelReason: updated.cancelReason,
+    cancelNote: updated.cancelNote,
+  };
+}

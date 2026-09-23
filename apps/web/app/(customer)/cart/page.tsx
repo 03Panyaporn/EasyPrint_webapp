@@ -663,12 +663,9 @@ export default function CartPage() {
                                 text-slate-600
                                 text-[10px]
                               ">
-                                    {
-                                      item
-                                        .unitBreakdown
-                                        .pageCount
-                                    }{" "}
-                                    หน้า
+                                    {item.unitBreakdown.pageCount} หน้า
+                                    {item.unitBreakdown.sheetCount !== item.unitBreakdown.pageCount &&
+                                      ` (${item.unitBreakdown.sheetCount} แผ่น)`}
                                   </span>
                                 )}
 
