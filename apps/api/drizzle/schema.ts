@@ -122,7 +122,7 @@ export const shops = pgTable("shops", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ราคาทุกตารางในกลุ่มบริการ/จัดส่งเก็บเป็นหน่วยบาท (numeric) ไม่ใช่สตางค์แบบ orders.total_price
+// ราคาทุกตารางในกลุ่มบริการ/จัดส่งเก็บเป็นหน่วยบาท (numeric) — เหมือน orders.total_price/subtotal
 // เหตุผล: ฟอร์มฝั่ง web กรอก/แสดงผลเป็นบาทตรงๆ อยู่แล้ว เลี่ยงการแปลงหน่วยไปมาโดยไม่จำเป็น
 //
 // ออกแบบใหม่ (2026-07): เปลี่ยนจากราคาคงที่ตาม paperSize/color hardcode (fixed/area/per_page 3 โหมดแยกตาราง)
@@ -411,7 +411,8 @@ export const orders = pgTable("orders", {
   // subtotal = ผลรวมราคาสินค้าทั้งหมดก่อนค่าจัดส่ง (สุมของ order_items.item_subtotal) — ในหน่วยบาท
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }), // null ถ้า order เก่าแบบ hardcoded
   shippingFeeSnapshot: numeric("shipping_fee_snapshot", { precision: 10, scale: 2 }), // ค่าจัดส่ง ณ ตอน checkout
-  totalPrice: integer("total_price"), // integer ใน DB
+  // ยอดชำระทั้งหมด (subtotal + ค่าจัดส่ง) หน่วยบาท ทศนิยม 2 ตำแหน่ง — เดิมเป็น integer ทำให้ยอดถูกปัดเป็นบาทเต็ม (migration 0020)
+  totalPrice: numeric("total_price", { precision: 10, scale: 2 }),
   status: orderStatusEnum("status").notNull().default("pending_review"),
   note: text("note"),
   deliveryMethod: deliveryMethodEnum("delivery_method").notNull().default("self_pickup"),

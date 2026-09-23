@@ -33,9 +33,7 @@ export function toOrder(api: ApiOrder): Order {
     ? firstItem.addOnsSnapshot.map((a) => a.name)
     : (api.selectedAddOns ?? []);
 
-  // รองรับทั้งราคาเดิม (สตางค์ > 10,000 หรือ order เก่า) และราคาใหม่ (บาท)
-  // ถ้า total_price > 1000 และเป็น integer เก่า (เช่น 5000 = 50 บาท) ให้หาร 100
-  // ถ้าเป็น numeric บาท (เช่น 50.00) ให้ใช้ค่านั้นตรงๆ
+  // total_price เก็บเป็นบาท (numeric) เสมอ — ไม่ต้องแปลงหน่วย
   const finalPrice = typeof api.totalPrice === "number" ? api.totalPrice : Number(api.totalPrice ?? 0);
 
   return {

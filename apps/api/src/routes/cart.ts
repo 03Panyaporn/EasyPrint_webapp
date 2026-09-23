@@ -875,7 +875,7 @@ export const cartRoutes = new Elysia()
                 // Schema v2 fields
                 subtotal: subtotal.toFixed(2),
                 shippingFeeSnapshot: shippingFee.toFixed(2),
-                totalPrice: Math.round(totalPrice),
+                totalPrice: totalPrice.toFixed(2), // เก็บยอดจริงไม่ปัดเศษ — ต้องเท่ากับยอดที่ลูกค้าเห็นตอนโอน
                 slipUrl: parsed.data.slipUrl,
                 slipUploadedAt: new Date(),
                 deliveryMethod,

@@ -199,7 +199,7 @@ export function serializeOrder(
           note: item.noteSnapshot,
         }))
       : undefined,
-    totalPrice: order.totalPrice,
+    totalPrice: order.totalPrice != null ? Number(order.totalPrice) : null, // numeric → string จาก driver ต้องแปลงเป็น number
     status: order.status,
     note: order.note ?? undefined,
     delivery: {

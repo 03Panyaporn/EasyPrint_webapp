@@ -56,7 +56,7 @@ export type ApiOrder = {
   subtotal?: number;
   shippingFee?: number;
   cartSnapshot?: unknown; // รายละเอียดเต็มของแต่ละรายการตอน checkout จากตะกร้า (มีเฉพาะออเดอร์ที่มาจาก POST /shops/:shopId/cart/checkout)
-  totalPrice: number; // หน่วยสตางค์
+  totalPrice: number; // หน่วยบาท (ทศนิยมได้) = subtotal + shippingFee
   status: OrderStatus;
   note?: string;
   delivery: { method: DeliveryMethod; address?: string };

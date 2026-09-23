@@ -246,7 +246,7 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
     if (r.itemService) {
       entry.items.push({ service: r.itemService, total: Number(r.itemTotal ?? 0) });
     } else if (entry.items.length === 0 && r.legacyTotalPrice != null) {
-      entry.items.push({ service: r.legacyServiceType ?? "อื่นๆ", total: r.legacyTotalPrice });
+      entry.items.push({ service: r.legacyServiceType ?? "อื่นๆ", total: Number(r.legacyTotalPrice) });
     }
   }
   const list = [...orderMap.values()];
@@ -347,7 +347,7 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
         entry.subtotal += Number(r.itemTotal ?? 0);
       } else if (entry.itemsList.length === 0 && r.legacyTotalPrice != null) {
         entry.itemsList.push(r.legacyServiceType ?? "อื่นๆ");
-        entry.subtotal += r.legacyTotalPrice;
+        entry.subtotal += Number(r.legacyTotalPrice);
       }
     }
 
