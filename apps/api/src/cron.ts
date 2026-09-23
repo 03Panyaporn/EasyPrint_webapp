@@ -33,7 +33,9 @@ export const cronRoutes = new Elysia()
       category: "general",
               title: "ตั้งค่าช่องทางชำระเงิน",
               message: "อย่าลืมตั้งค่าช่องทางชำระเงินของคุณ เพื่อให้ลูกค้าสามารถชำระค่าบริการได้",
-              link: "/shop/settings/payment",
+              // เดิมชี้ "/shop/settings/payment" ซึ่งไม่มี route นี้อยู่จริง (ยังไม่เคยแยกหน้าย่อยออกมา)
+              // การ์ด "ช่องทางการชำระเงิน" อยู่ที่ /shop/settings หน้าเดียว — ชี้ให้ตรงกับที่มีจริงไปก่อน
+              link: "/shop/settings",
             });
           }
           

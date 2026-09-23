@@ -12,7 +12,14 @@ const STATUS_MAP: Record<AdminShop["approvalStatus"], ShopStatus> = {
 };
 
 export function summarizeOpeningHours(hours: AdminOpeningHoursDay[] | null) {
-  if (!hours || hours.length === 0) return { openDays: "ไม่ระบุเวลาทำการ", openTime: "-", closeTime: "-" };
+  // ข้อมูลเก่าบางร้านถูกบันทึก openingHours เป็น object (keyed by day) แทนที่จะเป็น array ตาม type จริง
+  // (เจอจาก production data จริง — เหตุผลเดียวกับที่ apps/web/lib/shopHours.ts::findTodayEntry ต้องเช็คไว้แล้ว)
+  // เดิมไฟล์นี้ไม่มีเช็คนี้ ทำให้ .filter() ด้านล่าง throw "hours.filter is not a function" กลาง
+  // rows.map(toMockShop) แล้วทั้งหน้า /admin/shops และ /admin/manage ตกไปเข้า catch ขึ้น "โหลดข้อมูลไม่สำเร็จ"
+  // ทั้งที่ GET /admin/shops ตอบ 200 มาถูกต้องแล้ว (ยืนยันบั๊กจริงจาก QA รอบ 2026-09-21 — DEF-QAI-01)
+  if (!hours || !Array.isArray(hours) || hours.length === 0) {
+    return { openDays: "ไม่ระบุเวลาทำการ", openTime: "-", closeTime: "-" };
+  }
   const openDays = hours.filter((h) => h.isOpen);
   if (openDays.length === 0) return { openDays: "ปิดทำการทุกวัน", openTime: "-", closeTime: "-" };
   const dayLabel = openDays.length === 7 ? "ทุกวัน" : openDays.map((d) => d.day).join(", ");

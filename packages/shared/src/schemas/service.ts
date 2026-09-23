@@ -137,7 +137,9 @@ export type ServiceOptionInput = z.infer<typeof serviceOptionSchema>;
 const mainServiceObjectSchema = z.object({
   name: z.string().trim().min(1, "กรุณากรอกชื่อบริการ").max(100),
   description: z.string().trim().max(500).optional(),
-  pricingModel: pricingModelSchema.default("fixed"),
+  // ไม่มี default แล้วโดยตั้งใจ (เดิมมี .default("fixed") ทำให้ omit field นี้แล้วผ่านเงียบๆ แทนที่จะเตือนให้เลือก
+  // ตาม Expected Result ของ TC-018) — ร้านค้าต้องเลือกวิธีคิดราคาเองเสมอ ทั้งฝั่ง wizard (Step2Pricing.tsx) และ API ตรง
+  pricingModel: pricingModelSchema,
   basePrice: z.number().nonnegative("ราคาต้องเป็น 0 บาทขึ้นไป ไม่ติดลบ"),
   requiresFileUpload: z.boolean().default(true),
   allowedFileTypes: z.array(allowedFileTypeSchema).default(["pdf", "jpg", "png"]),

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { FileText, Upload, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { buildLineItemBreakdown, type ScopedAmount, type PricingModel } from "@easyprint/shared";
 import type { WizardFormData } from "./ServiceBuilderWizard";
+import type { PricingMode } from "./Step2Pricing";
 import type { AddOnService, AllowedFileType } from "../types";
 import { Spinner } from "@/components/ui/Spinner";
 
@@ -15,7 +16,7 @@ interface Step6PreviewProps {
   isSaving: boolean;
 }
 
-function toPricingModel(mode: WizardFormData["step2"]["pricingMode"]): PricingModel {
+function toPricingModel(mode: PricingMode): PricingModel {
   return mode === "quantity_tier" ? "per_piece" : mode;
 }
 
@@ -50,7 +51,8 @@ export default function Step6Preview({
   onBack,
   isSaving,
 }: Step6PreviewProps) {
-  const pricingMode = data.step2.pricingMode;
+  // การันตีไม่เป็น null แล้ว ณ จุดนี้เสมอ เพราะ Step2Pricing บังคับเลือกก่อนกด "ถัดไป" มาถึง Step 6 (Preview) ได้
+  const pricingMode = data.step2.pricingMode as PricingMode;
   const pricingModel = toPricingModel(pricingMode);
 
   // ── ทดสอบไฟล์จริง (ไม่อัปโหลดขึ้น storage) ──

@@ -33,7 +33,12 @@ import { isUniqueViolation, isForeignKeyViolation } from "../utils/validation";
 export async function requireShopOwner(
   cookie: Record<string, { value?: unknown } | undefined>,
   shopId: string,
-  set: { status?: unknown }
+  set: { status?: unknown },
+  // allowUnapproved: true = ข้ามเช็ค approvalStatus (ยังเช็คว่าเป็นเจ้าของร้านนี้จริงเสมอ) — ใช้เฉพาะ endpoint ที่
+  // ร้าน pending/suspended ควรทำได้ด้วย เช่น "ติดต่อแอดมิน" (ดูคอมเมนต์ที่จุดเรียกใช้ใน contactAdmin.ts)
+  // ยืนยันบั๊กจริงจาก QA รอบ 2026-09-21 (DEF-QAI-02): ร้าน suspended คือกลุ่มที่ต้องการติดต่อแอดมินมากที่สุด
+  // (เช่น อุทธรณ์/ถามเหตุผลที่ถูกระงับ) แต่เดิมโดนบล็อกด้วยข้อความเดียวกับร้าน pending ทั่วไป — ยืนยันกับ product owner แล้วว่าเป็นบั๊กจริง
+  options: { allowUnapproved?: boolean } = {}
 ) {
   const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
   const payload = token ? verifyAuthToken(token) : null;
@@ -54,7 +59,7 @@ export async function requireShopOwner(
     set.status = 403;
     return { error: "คุณไม่มีสิทธิ์จัดการร้านนี้" };
   }
-  if (shop.approvalStatus !== "approved") {
+  if (shop.approvalStatus !== "approved" && !options.allowUnapproved) {
     set.status = 403;
     // ยืนยันบั๊กจริงจาก QA Phase 11 (CA11-04, เดิม S1-16): ข้อความนี้เดิมเขียนเจาะจงบริบท "ตั้งบริการและราคา" ตรงๆ
     // แต่ requireShopOwner() ถูกเรียกใช้ร่วมกันจากหลายไฟล์ (services/orders/reviews/contact-admin/admin/reports) —

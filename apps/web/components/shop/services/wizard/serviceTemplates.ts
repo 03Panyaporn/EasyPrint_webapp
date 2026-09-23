@@ -2,7 +2,24 @@
 // Template มีหน้าที่ "ตั้งค่าเริ่มต้น" เท่านั้น ไม่ได้ล็อก logic ใดๆ — ร้านค้าแก้ไข/เพิ่ม/ลบ Option และราคาได้ทั้งหมดหลังจากนั้น
 // ไม่ผูกกับ "งานเอกสาร" อย่างเดียวตามสเปก — รองรับป้ายไวนิล/โปสเตอร์/สติ๊กเกอร์/นามบัตร/Roll Up/X-Stand ด้วย
 import type { LucideIcon } from "lucide-react";
-import { FileText, Image, Palette, Tag, CreditCard, Flag, PanelTop, PencilLine } from "lucide-react";
+import {
+  FileText,
+  Image,
+  Palette,
+  Tag,
+  CreditCard,
+  Flag,
+  PanelTop,
+  PencilLine,
+  BookOpen,
+  Layers,
+  Scissors,
+  Circle,
+  Paperclip,
+  Ruler,
+  Newspaper,
+  ScanLine,
+} from "lucide-react";
 import type { ColorTier, OptionPriceCategory, PriceScope, QuantityTier, ServiceOption, ServiceOptionType } from "../types";
 import type { PricingMode } from "./Step2Pricing";
 
@@ -294,6 +311,154 @@ export const SERVICE_TEMPLATES: ServiceTemplate[] = [
         ],
         "dropdown"
       ),
+    ],
+  },
+  // ── เพิ่มจาก Phase 3 (ทบทวนความครอบคลุมของ template เทียบกับ shopServiceTypeSchema 16 ตัวเลือกตอนสมัครร้าน
+  // ใน packages/shared/src/schemas/auth.ts) — ก่อนหน้านี้มีแค่ 7 template ครอบคลุมแค่ 8/16 ประเภท เพิ่ม 8 อันนี้ให้ครบ
+  // ทุกตัวยังเป็นแค่ "ค่าเริ่มต้น" ไม่ใช่ราคาตลาดจริงที่ยืนยันแล้ว — ร้านต้องปรับตัวเลขให้ตรงต้นทุนตัวเองเสมอ
+  {
+    id: "scan",
+    icon: ScanLine,
+    label: "สแกนเอกสาร",
+    hint: "สแกนเอกสารเป็นไฟล์ PDF/JPG — คิดตามจำนวนหน้า",
+    pricingMode: "per_page",
+    colorTiers: colorTiers(2, 1),
+    quantityTiers: [],
+    options: [],
+  },
+  {
+    id: "binding",
+    icon: BookOpen,
+    label: "เข้าเล่ม",
+    hint: "เข้าเล่มรายงาน สันกาว/สันห่วง/สันเกลียว — คิดตามเล่ม",
+    pricingMode: "per_piece",
+    // บริการเข้าเล่มไม่มีมิติ "สี" จริงๆ — seed แค่แถวฐาน "ขาวดำ" แถวเดียว (ไม่เพิ่ม "สี") ราคานี้คือค่าเข้าเล่มต่อเล่ม
+    colorTiers: [{ label: "ขาวดำ", pricePerUnit: 20 }],
+    quantityTiers: [],
+    options: [
+      option(
+        "ประเภทสัน",
+        "other",
+        "per_piece",
+        [
+          { name: "สันกาว", extraPrice: 0 },
+          { name: "สันห่วง", extraPrice: 5 },
+          { name: "สันเกลียว", extraPrice: 10 },
+        ],
+        "dropdown"
+      ),
+    ],
+  },
+  {
+    id: "lamination",
+    icon: Layers,
+    label: "เคลือบเอกสาร",
+    hint: "เคลือบมัน/เคลือบด้าน กันน้ำกันฝุ่น — คิดตามแผ่น",
+    pricingMode: "per_piece",
+    colorTiers: [{ label: "ขาวดำ", pricePerUnit: 5 }],
+    quantityTiers: [],
+    options: [
+      option(
+        "ประเภทการเคลือบ",
+        "other",
+        "per_piece",
+        [
+          { name: "เคลือบมัน", extraPrice: 0 },
+          { name: "เคลือบด้าน", extraPrice: 0 },
+        ],
+        "dropdown"
+      ),
+      option(
+        "ขนาด",
+        "size",
+        "per_piece",
+        [
+          { name: "A4", extraPrice: 0 },
+          { name: "A3", extraPrice: 5 },
+        ],
+        "radio"
+      ),
+    ],
+  },
+  {
+    id: "cutting",
+    icon: Scissors,
+    label: "ตัดกระดาษ",
+    hint: "ตัดกระดาษตามขนาดที่ต้องการ — คิดตามครั้ง",
+    pricingMode: "per_piece",
+    colorTiers: [{ label: "ขาวดำ", pricePerUnit: 2 }],
+    quantityTiers: [],
+    options: [],
+  },
+  {
+    id: "hole_punch",
+    icon: Circle,
+    label: "เจาะรู",
+    hint: "เจาะรูเอกสารสำหรับใส่แฟ้ม — คิดตามครั้ง",
+    pricingMode: "per_piece",
+    colorTiers: [{ label: "ขาวดำ", pricePerUnit: 1 }],
+    quantityTiers: [],
+    options: [],
+  },
+  {
+    id: "stapling",
+    icon: Paperclip,
+    label: "เย็บเอกสาร",
+    hint: "เย็บมุม/เย็บกลาง — คิดตามครั้ง",
+    pricingMode: "per_piece",
+    colorTiers: [{ label: "ขาวดำ", pricePerUnit: 1 }],
+    quantityTiers: [],
+    options: [],
+  },
+  {
+    id: "blueprint",
+    icon: Ruler,
+    label: "พิมพ์แบบแปลน",
+    hint: "พิมพ์แบบแปลนก่อสร้าง/แบบวิศวกรรม — คิดตามตารางเมตร",
+    pricingMode: "per_sqm",
+    colorTiers: colorTiers(80, 60),
+    quantityTiers: [],
+    options: [
+      option(
+        "ประเภทกระดาษ",
+        "other",
+        "per_sqm",
+        [
+          { name: "กระดาษปอนด์", extraPrice: 0 },
+          { name: "กระดาษไข (Tracing)", extraPrice: 15 },
+        ],
+        "dropdown"
+      ),
+    ],
+  },
+  {
+    id: "flyer",
+    icon: Newspaper,
+    label: "ใบปลิว / โบรชัวร์",
+    hint: "ใบปลิวโฆษณา, โบรชัวร์พับ — ราคาลดหลั่นตามจำนวน",
+    pricingMode: "per_piece",
+    colorTiers: colorTiers(3, 1),
+    quantityTiers: [
+      { minQty: 100, maxQty: 499, unitPrice: 2 },
+      { minQty: 500, maxQty: 999, unitPrice: 1.5 },
+      { minQty: 1000, maxQty: null, unitPrice: 1 },
+    ],
+    options: [
+      option(
+        "ประเภทกระดาษ",
+        "paper",
+        "per_piece",
+        [
+          { name: "กระดาษปอนด์ 80 แกรม", extraPrice: 0 },
+          { name: "กระดาษอาร์ตมัน 120 แกรม", extraPrice: 0.5 },
+        ],
+        "dropdown"
+      ),
+      option("การพับ", "other", "per_item", [
+        { name: "ไม่พับ", extraPrice: 0 },
+        { name: "พับ 2 ตอน", extraPrice: 0.5 },
+        { name: "พับ 3 ตอน", extraPrice: 0.5 },
+      ], "dropdown"),
     ],
   },
 ];
