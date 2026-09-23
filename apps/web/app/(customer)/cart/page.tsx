@@ -1,5 +1,6 @@
 "use client";
 
+import { calculateDeliveryFee } from "@easyprint/shared";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -90,12 +91,18 @@ export default function CartPage() {
     0
   );
 
+  // ค่าส่งคิดจากยอดของรายการที่เลือกในแต่ละร้าน (เงื่อนไขส่งฟรีขึ้นกับยอดรอบนี้) — ตรงกับหน้า checkout และ backend
   const deliveryTotal = carts.reduce((sum, cart) => {
+    const selectedSubtotal = cart.items
+      .filter((item) => selectedItems.includes(item.id))
+      .reduce((s, item) => s + item.lineTotal, 0);
     const hasSelected = cart.items.some((item) =>
       selectedItems.includes(item.id)
     );
 
-    return hasSelected ? sum + cart.deliveryFee : sum;
+    return hasSelected && cart.deliveryOption
+      ? sum + calculateDeliveryFee(selectedSubtotal, cart.deliveryOption)
+      : sum;
   }, 0);
 
   const grandTotal = subtotal + deliveryTotal;

@@ -436,8 +436,9 @@ function OrderBuilderForm({
     for (const addOnId of selectedAddOnIds) {
       const binding = mainService.availableAddOns.find((b) => b.addOnId === addOnId);
       const addOn = allAddOnServices.find((a) => a.id === addOnId);
+      // ใช้ราคาที่ร้านตั้งไว้ที่ตัวบริการเสริม (addOn.price) ให้ตรงกับที่ backend คิดจริงใน cart.ts
       if (binding && addOn) {
-        charges.push({ amount: binding.extraPrice, scope: addOn.scope });
+        charges.push({ amount: addOn.price, scope: addOn.scope });
       }
     }
     return charges;
@@ -459,7 +460,10 @@ function OrderBuilderForm({
   const lineItemResult = useMemo(() => {
     return calculateLineItem({
       pricingModel,
-      basePrice: selectedColorTier ? selectedColorTier.pricePerUnit : mainService.basePrice,
+      // ส่ง input ชุดเดียวกับ backend (cart.ts) เสมอ — basePrice = ราคาขาวดำ, ราคาสีแยกไปที่ colorTierPricePerUnit
+      // (per_piece + ขั้นบันได คิดสีเป็นส่วนต่างจาก basePrice ถ้ารวมไว้ใน basePrice ส่วนต่างสีจะหายไป)
+      basePrice: mainService.basePrice,
+      colorTierPricePerUnit: selectedColorTier?.pricePerUnit,
       quantity: quantity === "" ? 0 : Number(quantity),
       pageCountingMode: effectivePageCountingMode,
       rawPageCount: pdfPageCount,
@@ -1029,7 +1033,7 @@ function OrderBuilderForm({
                             {isSelected && <Check size={13} className="text-orange-500" />}
                             <span>{addOn.name}</span>
                             <span className={isSelected ? "text-orange-600 font-extrabold" : "text-slate-400 font-normal"}>
-                              (+฿{binding.extraPrice}{ADDON_SCOPE_SUFFIX[addOn.scope]})
+                              (+฿{addOn.price}{ADDON_SCOPE_SUFFIX[addOn.scope]})
                             </span>
                           </button>
                         );

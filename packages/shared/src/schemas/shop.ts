@@ -53,3 +53,10 @@ export const updateShopProfileSchema = z.object({
 });
 
 export type UpdateShopProfileInput = z.infer<typeof updateShopProfileSchema>;
+
+// PATCH /shops/me/delivery-enabled — สวิตช์เปิด/ปิดระบบจัดส่งทั้งร้าน (shops.delivery_enabled)
+export const updateShopDeliveryEnabledSchema = z.object({
+  deliveryEnabled: z.boolean(),
+});
+
+export type UpdateShopDeliveryEnabledInput = z.infer<typeof updateShopDeliveryEnabledSchema>;

@@ -5,7 +5,7 @@ import { shops, reviews } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { isValidUUID } from "../utils/validation";
 
-import { updateShopProfileSchema } from "@easyprint/shared";
+import { updateShopProfileSchema, updateShopDeliveryEnabledSchema } from "@easyprint/shared";
 
 // สรุปคะแนนรีวิวของทุกร้านในทีเดียว (group by shopId ใน JS แทน SQL GROUP BY เพราะจำนวนรีวิวยังน้อย ไม่คุ้มความซับซ้อนของ aggregate query)
 // ใช้ร่วมกันทั้ง GET /shops (list) และ GET /shops/:shopId (detail)
@@ -227,4 +227,39 @@ export const shopsRoutes = new Elysia()
     }
 
     return { success: true };
+  })
+
+  // สวิตช์ "เปิด/ปิดการจัดส่งทั้งร้าน" ในหน้า /shop/services — แยก endpoint จาก PUT /shops/me เพราะ PUT ต้องส่งข้อมูลโปรไฟล์ทั้งชุด
+  // ปิดแล้ว cart.ts จะไม่ยอมให้เลือก/checkout ด้วยตัวเลือกจัดส่งใดๆ ของร้านนี้ (ลูกค้าเหลือแค่รับเองที่ร้าน)
+  .patch("/shops/me/delivery-enabled", async ({ cookie, body, set }) => {
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload) {
+      set.status = 401;
+      return { error: "ยังไม่ได้เข้าสู่ระบบ" };
+    }
+    if (payload.role !== "shop_owner") {
+      set.status = 403;
+      return { error: "ต้องเป็นบัญชีร้านค้าเท่านั้น" };
+    }
+
+    // บล็อกร้านที่ยังไม่อนุมัติ/ถูกระงับเหมือน PUT /shops/me (SS08-05)
+    const [ownedShop] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.ownerId, payload.userId));
+    if (!ownedShop) {
+      set.status = 404;
+      return { error: "ไม่พบร้านค้า" };
+    }
+    if (ownedShop.approvalStatus !== "approved") {
+      set.status = 403;
+      return { error: "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน หรือถูกระงับการใช้งานอยู่ ไม่สามารถแก้ไขข้อมูลร้านได้ในขณะนี้" };
+    }
+
+    const parsed = updateShopDeliveryEnabledSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: parsed.error.errors[0].message };
+    }
+
+    await db.update(shops).set({ deliveryEnabled: parsed.data.deliveryEnabled }).where(eq(shops.ownerId, payload.userId));
+    return { deliveryEnabled: parsed.data.deliveryEnabled };
   });

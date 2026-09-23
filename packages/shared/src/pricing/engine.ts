@@ -126,6 +126,15 @@ export function calculateLineItem(input: CalculateLineItemInput): CalculateLineI
   return { baseUnitRate, perCopyAmount: baseUnitRate, perItemFlat, lineTotal: baseUnitRate * input.quantity + perItemFlat };
 }
 
+// ค่าจัดส่งของ 1 ออเดอร์ — ส่งฟรีเมื่อยอดสินค้าถึง freeShippingThreshold (ถ้าร้านตั้งไว้) ไม่งั้นคิด baseFee เต็ม
+// ใช้ทั้ง GET cart, checkout และหน้า checkout ฝั่งเว็บ (ที่คิดจากยอดของรายการที่เลือกเท่านั้น) ให้ได้ตัวเลขเดียวกันเสมอ
+export function calculateDeliveryFee(
+  subtotal: number,
+  option: { baseFee: number; freeShippingThreshold?: number | null }
+): number {
+  return option.freeShippingThreshold != null && subtotal >= option.freeShippingThreshold ? 0 : option.baseFee;
+}
+
 // allow-list ของ price_scope ต่อ pricing model อยู่ที่ ../schemas/service.ts (ALLOWED_PRICE_SCOPES_BY_PRICING_MODEL)
 // เพราะ Zod schema ก็ต้องใช้กฎเดียวกัน — import จากที่นั่นแทนที่จะประกาศซ้ำที่นี่ กันสองฝั่ง drift กัน
 

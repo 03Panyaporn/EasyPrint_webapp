@@ -7,6 +7,7 @@ import {
   setCartDeliveryOptionSchema,
   checkoutCartSchema,
   calculateLineItem,
+  calculateDeliveryFee,
   type ScopedAmount,
 } from "@easyprint/shared";
 import { db } from "../db";
@@ -199,7 +200,9 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
             .from(mainServiceAddOns)
             .where(and(eq(mainServiceAddOns.mainServiceId, row.mainServiceId), eq(mainServiceAddOns.addOnServiceId, b.addOnServiceId)));
           const [addOnService] = await db.select().from(addOnServices).where(eq(addOnServices.id, b.addOnServiceId));
-          const extraPrice = binding ? Number(binding.extraPrice) : 0;
+          // คิดราคาตาม addon_services.price ที่ร้านตั้งไว้ที่ตัวบริการเสริมเสมอ — main_service_addons.extra_price
+          // ไม่มี UI ไหนตั้งค่าได้จริง (Wizard บันทึกเป็น 0 ตลอด) ถ้าอ่านจากตรงนั้นบริการเสริมทุกตัวจะกลายเป็นฟรี
+          const extraPrice = binding && addOnService ? Number(addOnService.price) : 0;
           if (addOnService) addOnCharges.push({ scope: addOnService.scope, amount: extraPrice });
           return {
             addOnServiceId: b.addOnServiceId,
@@ -263,7 +266,7 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
     const [opt] = await db.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
     if (opt) {
       const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
-      deliveryFee = threshold != null && subtotal >= threshold ? 0 : Number(opt.baseFee);
+      deliveryFee = calculateDeliveryFee(subtotal, { baseFee: Number(opt.baseFee), freeShippingThreshold: threshold });
       deliveryOption = { id: opt.id, name: opt.name, baseFee: Number(opt.baseFee), freeShippingThreshold: threshold };
     }
   }
@@ -290,6 +293,24 @@ async function findOwnedCartItem(cartItemId: string, customerId: string) {
     .innerJoin(carts, eq(cartItems.cartId, carts.id))
     .where(and(eq(cartItems.id, cartItemId), eq(carts.customerId, customerId)));
   return row ?? null;
+}
+
+// ตัวเลือกจัดส่งที่ลูกค้าเลือกได้ต้อง: เป็นของร้านนี้, ร้านยังเปิดระบบจัดส่งอยู่ (shops.delivery_enabled) และตัวเลือกยังเปิดใช้ (is_active)
+// ใช้ทั้งตอนเลือกตัวเลือกในตะกร้าและตอน checkout — เพราะร้านอาจปิดตัวเลือก/ปิดระบบจัดส่งหลังลูกค้าเลือกไว้แล้ว
+async function checkDeliveryOptionUsable(
+  conn: Pick<typeof db, "select">,
+  shopId: string,
+  deliveryOptionId: string
+): Promise<string | null> {
+  const [row] = await conn
+    .select({ isActive: deliveryOptions.isActive, deliveryEnabled: shops.deliveryEnabled })
+    .from(deliveryOptions)
+    .innerJoin(shops, eq(deliveryOptions.shopId, shops.id))
+    .where(and(eq(deliveryOptions.id, deliveryOptionId), eq(deliveryOptions.shopId, shopId)));
+  if (!row) return "ไม่พบตัวเลือกการจัดส่งนี้ในร้านนี้";
+  if (!row.deliveryEnabled) return "ร้านนี้ปิดบริการจัดส่งชั่วคราว กรุณาเลือกรับเองที่ร้าน";
+  if (!row.isActive) return "ตัวเลือกการจัดส่งนี้ร้านปิดใช้งานแล้ว กรุณาเลือกวิธีรับสินค้าใหม่";
+  return null;
 }
 
 export const cartRoutes = new Elysia()
@@ -566,13 +587,10 @@ export const cartRoutes = new Elysia()
     }
 
     if (parsed.data.deliveryOptionId) {
-      const [opt] = await db
-        .select({ id: deliveryOptions.id })
-        .from(deliveryOptions)
-        .where(and(eq(deliveryOptions.id, parsed.data.deliveryOptionId), eq(deliveryOptions.shopId, cart.shopId)));
-      if (!opt) {
+      const deliveryError = await checkDeliveryOptionUsable(db, cart.shopId, parsed.data.deliveryOptionId);
+      if (deliveryError) {
         set.status = 400;
-        return { error: "ไม่พบตัวเลือกการจัดส่งนี้ในร้านนี้" };
+        return { error: deliveryError };
       }
     }
 
@@ -630,10 +648,19 @@ export const cartRoutes = new Elysia()
           return { error: "ไม่มีตะกร้าของร้านนี้ กรุณาเพิ่มสินค้าก่อน" };
         }
 
-        const rows = await tx.select().from(cartItems).where(eq(cartItems.cartId, cart.id));
-        if (rows.length === 0) {
+        const allRows = await tx.select().from(cartItems).where(eq(cartItems.cartId, cart.id));
+        if (allRows.length === 0) {
           set.status = 400;
           return { error: "ตะกร้าว่างอยู่ กรุณาเพิ่มสินค้าก่อนเช็คเอาต์" };
+        }
+
+        // checkout เฉพาะรายการที่ลูกค้าติ๊กเลือกไว้ (ถ้าส่ง itemIds มา) — ทุก id ต้องยังอยู่ในตะกร้าใบนี้จริง
+        // ถ้าไม่ครบ = รายการถูกลบ/ถูก checkout ไปแล้ว (เช่น กดยืนยันซ้ำ) ตอบ 400 แทนการสร้าง order ใหม่ที่ยอดไม่ตรงกับสลิป
+        const requestedIds = parsed.data.itemIds ? new Set(parsed.data.itemIds) : null;
+        const rows = requestedIds ? allRows.filter((r) => requestedIds.has(r.id)) : allRows;
+        if (requestedIds && rows.length !== requestedIds.size) {
+          set.status = 400;
+          return { error: "มีบางรายการที่เลือกไม่อยู่ในตะกร้าแล้ว กรุณากลับไปตรวจสอบตะกร้าอีกครั้ง" };
         }
 
         // คำนวณราคาทุก item ใหม่อีกครั้ง server-side — ไม่เชื่อตัวเลขใดๆ จาก client
@@ -748,7 +775,7 @@ export const cartRoutes = new Elysia()
               and(eq(mainServiceAddOns.mainServiceId, row.mainServiceId), eq(mainServiceAddOns.addOnServiceId, b.addOnServiceId))
             );
             const [addOnService] = await tx.select().from(addOnServices).where(eq(addOnServices.id, b.addOnServiceId));
-            const extraPrice = binding ? Number(binding.extraPrice) : 0;
+            const extraPrice = binding && addOnService ? Number(addOnService.price) : 0; // ดู comment ที่ GET cart ด้านบน
             if (addOnService) {
               addOnCharges.push({ scope: addOnService.scope, amount: extraPrice });
               addOnsSnapshot.push({ name: addOnService.name, extraPrice, scope: addOnService.scope });
@@ -792,14 +819,21 @@ export const cartRoutes = new Elysia()
           });
         }
 
-        // คำนวณค่าจัดส่ง
+        // คำนวณค่าจัดส่ง — คิดจากยอดของรายการที่ checkout รอบนี้เท่านั้น (ตรงกับที่หน้า checkout แสดงให้ลูกค้าโอน)
         let shippingFee = 0;
         if (cart.deliveryOptionId) {
-          const [opt] = await tx.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
-          if (opt) {
-            const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
-            shippingFee = threshold != null && subtotal >= threshold ? 0 : Number(opt.baseFee);
+          const deliveryError = await checkDeliveryOptionUsable(tx, params.shopId, cart.deliveryOptionId);
+          if (deliveryError) {
+            set.status = 400;
+            return { error: deliveryError };
           }
+          if (!parsed.data.deliveryAddress) {
+            set.status = 400;
+            return { error: "กรุณาเลือกที่อยู่จัดส่ง" };
+          }
+          const [opt] = await tx.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
+          const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
+          shippingFee = calculateDeliveryFee(subtotal, { baseFee: Number(opt.baseFee), freeShippingThreshold: threshold });
         }
 
         const totalPrice = subtotal + shippingFee;
@@ -845,7 +879,8 @@ export const cartRoutes = new Elysia()
                 slipUrl: parsed.data.slipUrl,
                 slipUploadedAt: new Date(),
                 deliveryMethod,
-                deliveryAddress: parsed.data.deliveryAddress,
+                // รับเองที่ร้านไม่ต้องเก็บที่อยู่ — กัน client ส่งที่อยู่มาทั้งที่ไม่ได้เลือกจัดส่ง
+                deliveryAddress: deliveryMethod === "shop_delivery" ? parsed.data.deliveryAddress : null,
               }).returning();
 
               // เพิ่ม order_items (snapshot)
@@ -853,8 +888,13 @@ export const cartRoutes = new Elysia()
                 snapshots.map((s) => ({ ...s, orderId: order.id }))
               );
 
-              // ลบตะกร้าหลัง checkout สำเร็จ (cascade ลบ items/addons/option_selections ให้อัตโนมัติ)
-              await tx2.delete(carts).where(eq(carts.id, cart.id));
+              // ลบเฉพาะรายการที่ checkout แล้ว (cascade ลบ addons/option_selections ให้อัตโนมัติ)
+              // ถ้าไม่เหลือรายการไหนในตะกร้าแล้วค่อยลบตัวตะกร้าทิ้ง — รายการที่ไม่ได้เลือกยังอยู่ให้สั่งรอบหน้าได้
+              if (rows.length === allRows.length) {
+                await tx2.delete(carts).where(eq(carts.id, cart.id));
+              } else {
+                await tx2.delete(cartItems).where(inArray(cartItems.id, rows.map((r) => r.id)));
+              }
 
               return order;
             });

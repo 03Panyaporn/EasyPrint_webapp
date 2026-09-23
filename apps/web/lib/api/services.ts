@@ -21,6 +21,14 @@ export function getMyShop() {
   return apiFetch<{ shop: MyShop }>("/shops/me");
 }
 
+// สวิตช์เปิด/ปิดการจัดส่งทั้งร้าน — บันทึกลง shops.delivery_enabled จริง (ไม่ใช่แค่ state ในหน้า)
+export function setShopDeliveryEnabled(deliveryEnabled: boolean) {
+  return apiFetch<{ deliveryEnabled: boolean }>("/shops/me/delivery-enabled", {
+    method: "PATCH",
+    body: JSON.stringify({ deliveryEnabled }),
+  });
+}
+
 // ── บริการหลัก ──────────────────────────────
 export function getMainServices(shopId: string) {
   return apiFetch<{ services: MainService[] }>(`/shops/${shopId}/services`);

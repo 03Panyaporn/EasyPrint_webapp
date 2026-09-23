@@ -16,6 +16,7 @@ import {
 } from "@/components/shop/services/types";
 import {
   getMyShop,
+  setShopDeliveryEnabled,
   getMainServices,
   createMainService,
   updateMainService,
@@ -343,6 +344,18 @@ function ServicesContent() {
     }
   };
 
+  const handleToggleAllDelivery = async () => {
+    const nextState = !isAllDeliveryEnabled;
+    setIsAllDeliveryEnabled(nextState);
+    try {
+      const { deliveryEnabled } = await setShopDeliveryEnabled(nextState);
+      setIsAllDeliveryEnabled(deliveryEnabled);
+    } catch (err) {
+      setIsAllDeliveryEnabled(!nextState);
+      showApiError(err, "เปลี่ยนสถานะการจัดส่งทั้งร้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
   // ── 5. Modal Trigger Helpers ───────────────────
   const openAddServiceModal = (type: "main" | "addon") => {
     setEditingAddOnService(null);
@@ -473,7 +486,7 @@ function ServicesContent() {
         <DeliverySettingsTable
           deliveryOptions={deliveryOptions}
           isAllDeliveryEnabled={isAllDeliveryEnabled}
-          onToggleAllDelivery={() => setIsAllDeliveryEnabled(!isAllDeliveryEnabled)}
+          onToggleAllDelivery={handleToggleAllDelivery}
           onAddClick={openAddDeliveryModal}
           onEditClick={openEditDeliveryModal}
           onDeleteClick={handleDeleteDelivery}

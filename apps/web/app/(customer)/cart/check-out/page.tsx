@@ -12,8 +12,10 @@ import {
     ReceiptText,
 } from "lucide-react";
 
+import { calculateDeliveryFee } from "@easyprint/shared";
 import { getCarts, type Cart } from "@/lib/api/cart";
 import { checkoutCart } from "@/lib/api/cart";
+import { ApiError } from "@/lib/api/client";
 import { uploadFile } from "@/lib/api/uploads";
 import { getMe } from "@/lib/api/auth";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
@@ -184,21 +186,21 @@ function CheckoutContent() {
         );
     }
 
-    const isPickup =
-        !cart.deliveryOption ||
-        (cart.deliveryOption?.name?.includes("รับที่ร้าน") ?? false) ||
-        (cart.deliveryOption?.name?.includes("รับเอง") ?? false) ||
-        (cart.deliveryOption?.name?.includes("รับหน้าร้าน") ?? false) ||
-        (cart.deliveryOption?.name?.includes("ไปรับที่") ?? false) ||
-        (cart.deliveryOption?.name?.includes("มารับ") ?? false) ||
-        (cart.deliveryOption?.name?.toLowerCase()?.includes("pickup") ?? false) ||
-        (cart.deliveryOption?.name?.toLowerCase()?.includes("pick up") ?? false);
+    // รับเองที่ร้าน = ไม่ได้เลือกตัวเลือกจัดส่งในตะกร้าเท่านั้น (ตรงกับ backend ที่ยึด cart.deliveryOptionId)
+    // ห้ามเดาจากชื่อตัวเลือก — ตัวเลือกจัดส่งทุกตัวถูกบันทึกเป็น shop_delivery และคิดค่าส่งเสมอ
+    const isPickup = !cart.deliveryOption;
     const subtotal = cart.items.reduce(
         (sum, item) => sum + item.lineTotal,
         0
     );
 
-    const total = subtotal + cart.deliveryFee;
+    // cart.deliveryFee จาก API คิดจากยอดทั้งตะกร้า — ต้องคิดใหม่จากยอดของรายการที่เลือกเท่านั้น
+    // ให้ตรงกับที่ backend คิดตอน checkout (เงื่อนไขส่งฟรีขึ้นกับยอดรอบนี้)
+    const deliveryFee = cart.deliveryOption
+        ? calculateDeliveryFee(subtotal, cart.deliveryOption)
+        : 0;
+
+    const total = subtotal + deliveryFee;
     return (
         <div className="w-full lg:max-w-4xl mx-auto px-4 sm:px-6 pb-10 space-y-5">
             <div className="flex items-center gap-3 py-6">
@@ -313,16 +315,16 @@ function CheckoutContent() {
                                 </div>
 
                                 <p className="text-xs text-orange-600 whitespace-nowrap">
-                                    ฿{cart.deliveryOption.baseFee.toLocaleString()}
+                                    {deliveryFee === 0 ? "ส่งฟรี" : `฿${deliveryFee.toLocaleString()}`}
                                 </p>
 
                             </div>
 
                         ) : (
 
-                            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5">
-                                <p className="text-xs text-red-500">
-                                    กรุณาเลือกวิธีจัดส่งก่อนชำระเงิน
+                            <div className="rounded-xl border border-green-200 bg-green-50/60 px-3 py-2.5">
+                                <p className="text-xs text-green-700">
+                                    รับเองที่ร้าน (ไม่มีค่าจัดส่ง)
                                 </p>
                             </div>
 
@@ -344,7 +346,7 @@ function CheckoutContent() {
                         <div className="flex justify-between text-sm text-slate-500">
                             <span>ค่าจัดส่ง</span>
                             <span>
-                                ฿{cart.deliveryFee.toLocaleString()}
+                                ฿{deliveryFee.toLocaleString()}
                             </span>
                         </div>
 
@@ -707,9 +709,7 @@ function CheckoutContent() {
                         !agreeTerms ||
                         submitting ||
                         !slip ||
-                        (cart.deliveryOption && !isPickup
-                            ? !selectedAddress
-                            : false)
+                        (!isPickup && !selectedAddress)
                     }
                     onClick={async () => {
 
@@ -727,11 +727,7 @@ function CheckoutContent() {
                             return;
                         }
 
-                        if (
-                            cart.deliveryOption &&
-                            !isPickup &&
-                            !selectedAddress
-                        ) {
+                        if (!isPickup && !selectedAddress) {
                             alert(
                                 "กรุณาเลือกที่อยู่จัดส่ง"
                             );
@@ -761,6 +757,8 @@ function CheckoutContent() {
                                                 selectedAddress
                                             )
                                             : undefined,
+                                    // ส่งเฉพาะรายการที่เลือก — backend จะ checkout/ลบเฉพาะรายการเหล่านี้ รายการอื่นยังอยู่ในตะกร้า
+                                    itemIds: cart.items.map((item) => item.id),
                                 }
                             );
 
@@ -777,7 +775,9 @@ function CheckoutContent() {
                             console.error(err);
 
                             alert(
-                                "สั่งซื้อไม่สำเร็จ"
+                                err instanceof ApiError
+                                    ? `สั่งซื้อไม่สำเร็จ: ${err.message}`
+                                    : "สั่งซื้อไม่สำเร็จ"
                             );
 
                         } finally {
@@ -791,11 +791,7 @@ function CheckoutContent() {
           ${agreeTerms &&
                             slip &&
                             !submitting &&
-                            (
-                                !cart.deliveryOption ||
-                                isPickup ||
-                                !!selectedAddress
-                            )
+                            (isPickup || !!selectedAddress)
                             ? `bg-orange-500 hover:bg-orange-600 shadow-md shadow-orange-200`
                             : `bg-slate-200 text-slate-400 cursor-not-allowed`
                         }

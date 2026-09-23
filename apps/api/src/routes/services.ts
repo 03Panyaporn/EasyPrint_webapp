@@ -718,6 +718,18 @@ export const servicesRoutes = new Elysia()
       return { deliveryOptions: [] };
     }
 
+    // ร้านปิดระบบจัดส่งทั้งร้าน (สวิตช์ในหน้า /shop/services) → ลูกค้าไม่เห็นตัวเลือกจัดส่งเลย เหลือแค่รับเองที่ร้าน
+    // แต่เจ้าของร้านยังต้องเห็นรายการทั้งหมดเพื่อจัดการต่อได้
+    const [shop] = await db
+      .select({ deliveryEnabled: shops.deliveryEnabled, ownerId: shops.ownerId })
+      .from(shops)
+      .where(eq(shops.id, params.shopId));
+    if (shop && !shop.deliveryEnabled) {
+      const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+      const payload = token ? verifyAuthToken(token) : null;
+      if (payload?.userId !== shop.ownerId) return { deliveryOptions: [] };
+    }
+
     const rows = await db
       .select()
       .from(deliveryOptions)

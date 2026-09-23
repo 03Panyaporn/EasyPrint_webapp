@@ -134,6 +134,13 @@
       "when": 1788675600000,
       "tag": "0018_add_message_is_file_attachment",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790150400000,
+      "tag": "0019_backfill_option_value_is_duplex",
+      "breakpoints": true
     }
   ]
 }

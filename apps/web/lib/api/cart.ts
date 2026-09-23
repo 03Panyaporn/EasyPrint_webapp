@@ -96,7 +96,7 @@ export function clearShopCart(shopId: string) {
 
 // แปลงตะกร้าของร้านนี้เป็นออเดอร์จริง — deliveryAddress บังคับกรอกเฉพาะตอนตะกร้าเลือกวิธีจัดส่งไว้แล้วเท่านั้น (ดู deliveryOption ของ cart)
 export function checkoutCart(shopId: string, input: CheckoutCartInput) {
-  return apiFetch<{ order: ApiOrder }>(`/shops/${shopId}/cart/checkout`, {
+  return apiFetch<{ order: Pick<ApiOrder, "id" | "code" | "ref" | "totalPrice"> }>(`/shops/${shopId}/cart/checkout`, {
     method: "POST",
     body: JSON.stringify(input),
   });
