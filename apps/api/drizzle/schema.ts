@@ -65,7 +65,10 @@ export const users = pgTable("users", {
   phone: text("phone").notNull(),
   address: text("address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // อีเมลห้ามซ้ำแบบไม่สนตัวพิมพ์เล็ก/ใหญ่ (migration 0021) — แอปบันทึกเป็นตัวพิมพ์เล็กเสมอผ่าน emailSchema อยู่แล้ว
+  emailLowerUnique: uniqueIndex("users_email_lower_unique").on(sql`lower(${table.email})`),
+}));
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -122,7 +125,7 @@ export const shops = pgTable("shops", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ราคาทุกตารางในกลุ่มบริการ/จัดส่งเก็บเป็นหน่วยบาท (numeric) ไม่ใช่สตางค์แบบ orders.total_price
+// ราคาทุกตารางในกลุ่มบริการ/จัดส่งเก็บเป็นหน่วยบาท (numeric) — เหมือน orders.total_price/subtotal
 // เหตุผล: ฟอร์มฝั่ง web กรอก/แสดงผลเป็นบาทตรงๆ อยู่แล้ว เลี่ยงการแปลงหน่วยไปมาโดยไม่จำเป็น
 //
 // ออกแบบใหม่ (2026-07): เปลี่ยนจากราคาคงที่ตาม paperSize/color hardcode (fixed/area/per_page 3 โหมดแยกตาราง)
@@ -411,7 +414,8 @@ export const orders = pgTable("orders", {
   // subtotal = ผลรวมราคาสินค้าทั้งหมดก่อนค่าจัดส่ง (สุมของ order_items.item_subtotal) — ในหน่วยบาท
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }), // null ถ้า order เก่าแบบ hardcoded
   shippingFeeSnapshot: numeric("shipping_fee_snapshot", { precision: 10, scale: 2 }), // ค่าจัดส่ง ณ ตอน checkout
-  totalPrice: integer("total_price"), // integer ใน DB
+  // ยอดชำระทั้งหมด (subtotal + ค่าจัดส่ง) หน่วยบาท ทศนิยม 2 ตำแหน่ง — เดิมเป็น integer ทำให้ยอดถูกปัดเป็นบาทเต็ม (migration 0020)
+  totalPrice: numeric("total_price", { precision: 10, scale: 2 }),
   status: orderStatusEnum("status").notNull().default("pending_review"),
   note: text("note"),
   deliveryMethod: deliveryMethodEnum("delivery_method").notNull().default("self_pickup"),
@@ -614,3 +618,36 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
   order: one(orders, { fields: [reviews.orderId], references: [orders.id] }),
   customer: one(users, { fields: [reviews.customerId], references: [users.id] }),
 }));
+
+// ── announcements: ประกาศจากระบบที่แอดมินส่ง (ดูย้อนหลังในหน้าแดชบอร์ดแอดมิน) ──
+// ตัวข้อความถึงผู้ใช้แต่ละคนส่งเป็นแถวใน notifications (typeId 5) — ตารางนี้เก็บ "ประวัติการส่ง" 1 แถวต่อ 1 ประกาศ
+export const announcementCategoryEnum = pgEnum("announcement_category", ["update", "feature", "security"]);
+export const announcementTargetEnum = pgEnum("announcement_target", ["all", "shops", "customers"]);
+
+export const announcements = pgTable("announcements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: announcementCategoryEnum("category").notNull(),
+  target: announcementTargetEnum("target").notNull().default("all"),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── favorite_shops: ร้านโปรดของลูกค้า (1 แถวต่อ 1 คู่ ลูกค้า-ร้าน) — ลบบัญชี/ลบร้านแล้วแถวหายตาม (cascade) ──
+export const favoriteShops = pgTable(
+  "favorite_shops",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shops.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.shopId] }),
+  })
+);

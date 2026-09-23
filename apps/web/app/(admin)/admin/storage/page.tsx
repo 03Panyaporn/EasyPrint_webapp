@@ -37,7 +37,9 @@ import type { AdminStorageOverviewResponse, AdminStorageShopSummary, AdminStorag
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
 const STATUS_LABEL: Record<StorageStatus, string> = { normal: "ปกติ", warning: "ใกล้เต็ม", danger: "ใกล้เต็มมาก" };
-const LARGE_FILE_MB = 1024; // 1 GB
+// เกณฑ์ "ไฟล์ขนาดใหญ่" — ต้องต่ำกว่าเพดานอัปโหลดจริง (order-file/ไฟล์แนบสูงสุด 20MB ใน apps/api/src/storage.ts)
+// เดิมตั้ง 1 GB ซึ่งไม่มีไฟล์ไหนใหญ่ถึงได้เลย การ์ด/แท็บนี้จึงว่างตลอด
+const LARGE_FILE_MB = 10;
 
 function formatSize(mb: number) {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
@@ -323,7 +325,7 @@ export default function AdminStoragePage() {
 
             <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500">ไฟล์ขนาดใหญ่ (&gt;1 GB)</span>
+                <span className="text-[11px] font-bold text-slate-500">ไฟล์ขนาดใหญ่ (&gt;{LARGE_FILE_MB} MB)</span>
                 <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                   <AlertCircle size={16} />
                 </div>
@@ -351,7 +353,7 @@ export default function AdminStoragePage() {
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${activeMainTab === "large_files" ? "bg-orange-500 text-white shadow-2xs" : "text-slate-600 hover:bg-slate-50"}`}
             >
               <FileText size={13} />
-              <span>ไฟล์ขนาดใหญ่ (&gt;1 GB)</span>
+              <span>ไฟล์ขนาดใหญ่ (&gt;{LARGE_FILE_MB} MB)</span>
             </button>
             <button
               onClick={() => setActiveMainTab("near_limit")}
@@ -492,7 +494,7 @@ export default function AdminStoragePage() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="text-rose-500" size={18} />
-                  <h3 className="text-xs font-extrabold text-slate-900">รายการไฟล์ขนาดใหญ่ทั้งหมด (เกิน 1 GB)</h3>
+                  <h3 className="text-xs font-extrabold text-slate-900">รายการไฟล์ขนาดใหญ่ทั้งหมด (เกิน {LARGE_FILE_MB} MB)</h3>
                 </div>
                 <span className="text-[11px] text-slate-400 font-semibold">พบ {largeFiles.length} รายการ</span>
               </div>
@@ -724,8 +726,12 @@ export default function AdminStoragePage() {
                               <td className="py-2.5 px-3 text-slate-600 font-bold">{formatSize(file.sizeMb)}</td>
                               <td className="py-2.5 px-3 text-slate-500">{file.uploadedBy}</td>
                               <td className="py-2.5 px-3">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${file.source === "order" ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-600"}`}>
-                                  {file.source === "order" ? `ออเดอร์ ${file.orderCode ?? ""}` : "ในตะกร้า"}
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${file.source === "order" ? "bg-blue-50 text-blue-600" : file.source === "chat" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"}`}>
+                                  {file.source === "order"
+                                    ? `ออเดอร์ ${file.orderCode ?? ""}`
+                                    : file.source === "chat"
+                                      ? `แชท ${file.orderCode ?? ""}`
+                                      : "ในตะกร้า"}
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-slate-400">{new Date(file.createdAt).toLocaleDateString("th-TH")}</td>

@@ -148,6 +148,9 @@ async function clearFileReferences(paths: string[]) {
   await Promise.all([
     db.update(cartItems).set({ fileUrl: null, fileName: null }).where(inArray(cartItems.fileUrl, paths)),
     db.update(orderItems).set({ fileUrl: null, fileName: null }).where(inArray(orderItems.fileUrl, paths)),
+    // orders.file_url (ฟิลด์ Schema v1 ที่ checkout ก็อป fileUrl ของ item แรกมาใส่) — ต้องเคลียร์ด้วย
+    // ไม่งั้นหน้าออเดอร์ของร้าน fallback ไปใช้ลิงก์ของไฟล์ที่ถูกลบไปแล้ว แทนที่จะขึ้นว่าไฟล์ถูกลบ
+    db.update(orders).set({ fileUrl: null }).where(inArray(orders.fileUrl, paths)),
     ...paths.map((path) =>
       db
         .update(messages)

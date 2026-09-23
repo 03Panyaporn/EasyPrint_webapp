@@ -12,11 +12,18 @@ export async function markNotificationAsRead(id: string): Promise<{ success: boo
   });
 }
 
+export function deleteNotification(id: string) {
+  return apiFetch<{ success: boolean }>(`/notifications/${id}`, { method: "DELETE" });
+}
+
 export async function markAllNotificationsAsRead(): Promise<{ success: boolean }> {
   return await apiFetch("/notifications/read-all", {
     method: "PUT",
   });
 }
+
+// event ที่ยิงหลังแอดมินมาร์คอ่านในหน้า /admin/notifications — ให้กระดิ่งใน AdminTopbar รีโหลดตัวเลขทันที
+export const ADMIN_NOTIFICATIONS_UPDATED_EVENT = "admin-notifications-updated";
 
 export function getAdminNotifications() {
   return apiFetch<AdminNotificationListResponse>("/admin/notifications");

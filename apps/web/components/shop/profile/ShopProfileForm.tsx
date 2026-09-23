@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { getMyShopProfile, updateShopProfile, type MyShopProfile, type ShopOpeningHours } from "@/lib/api/shops";
-import { isShopOpenNow, isShopTempClosed } from "@/lib/shopHours";
+import { isShopOpenNow, isShopTempClosed, nowInBangkok, toBangkokDateStr } from "@/lib/shopHours";
 import { uploadFile } from "@/lib/api/uploads";
 import { Store, Camera, MapPin, Clock, Info, ExternalLink, FileText, Save, AlertTriangle, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -38,6 +38,9 @@ const DEFAULT_HOURS: ShopOpeningHours[] = DAYS.map((d) => ({
   closeTime: "18:00",
 }));
 
+const CONTACT_INPUT_CLS =
+  "w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition";
+
 export default function ShopProfileForm() {
   const [shop, setShop] = useState<MyShopProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,7 @@ export default function ShopProfileForm() {
   const [email, setEmail] = useState("");
   const [facebook, setFacebook] = useState("");
   const [lineId, setLineId] = useState("");
+  const [socialMedia, setSocialMedia] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
 
@@ -112,6 +116,7 @@ export default function ShopProfileForm() {
       setEmail(s.email || "");
       setFacebook(s.facebook || "");
       setLineId(s.lineId || "");
+      setSocialMedia(s.socialMedia || "");
       setDescription(s.description || "");
       setLatitude(s.latitude || "");
       setLongitude(s.longitude || "");
@@ -220,6 +225,7 @@ export default function ShopProfileForm() {
         email: email || null,
         facebook: facebook || null,
         lineId: lineId || null,
+        socialMedia: socialMedia || null,
         address: combinedAddress || houseNo || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
@@ -280,10 +286,11 @@ export default function ShopProfileForm() {
   const handleToggleStatus = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault(); // rely on derived state
     
-    const now = new Date();
-    const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} น.`;
+    // เวลา/วันปัจจุบันตามเวลาไทยเสมอ (ไม่ขึ้นกับเขตเวลาของเครื่องผู้ใช้) ให้ตรงกับ isShopOpenNow
+    const now = nowInBangkok();
+    const currentTimeStr = `${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')} น.`;
     const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-    const currentDayStr = dayMap[now.getDay()];
+    const currentDayStr = dayMap[now.weekdayIndex];
     const todayHours = openingHours.find(h =>
       h.day === currentDayStr ||
       h.day === DAYS.find(d => d.id === currentDayStr)?.label
@@ -341,8 +348,8 @@ export default function ShopProfileForm() {
     if (statusModal.type === "close") {
       if (!statusModal.reason.trim()) return;
       newReason = statusModal.reason;
-      const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      // วันที่ตามเวลาไทย — เดิมใช้วันที่ UTC ทำให้กด "ปิดร้านวันนี้" ช่วง 00:00-06:59 น. แล้วบันทึกเป็นเมื่อวาน ร้านเลยยังเปิดอยู่
+      const todayStr = toBangkokDateStr();
       newStart = todayStr;
       newEnd = todayStr;
     } else if (statusModal.type === "open" || statusModal.type === "cancel-temp-close") {
@@ -378,6 +385,7 @@ export default function ShopProfileForm() {
         email: email || null,
         facebook: facebook || null,
         lineId: lineId || null,
+        socialMedia: socialMedia || null,
         address: combinedAddress || houseNo || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
@@ -574,6 +582,30 @@ export default function ShopProfileForm() {
                 />
                 <div className="text-right text-xs text-gray-400 mt-1">
                   {description.length}/300
+                </div>
+              </div>
+
+              {/* ช่องทางติดต่อร้าน — แสดงให้ลูกค้าเห็นในหน้าร้าน (เดิมเก็บใน state และส่งกลับตอนบันทึก แต่ไม่มีช่องให้แก้ไขเลย) */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">เบอร์โทรร้าน</label>
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0XX-XXX-XXXX" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">อีเมลติดต่อร้าน</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="shop@example.com" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">LINE ID</label>
+                  <input type="text" value={lineId} onChange={(e) => setLineId(e.target.value)} placeholder="@easyprint" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">Facebook</label>
+                  <input type="text" value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="ชื่อเพจหรือลิงก์" className={CONTACT_INPUT_CLS} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">ช่องทางโซเชียลอื่นๆ</label>
+                  <input type="text" value={socialMedia} onChange={(e) => setSocialMedia(e.target.value)} placeholder="เช่น IG: easyprint.shop" className={CONTACT_INPUT_CLS} />
                 </div>
               </div>
             </div>

@@ -54,6 +54,7 @@ export const internalCleanupRoutes = new Elysia().post(
 
     // เคลียร์ reference ใน DB ทีหลังสุด — ถ้า remove() ข้างบน error จะไม่มาถึงบรรทัดนี้ กัน DB บอกว่าไฟล์หายแต่จริงๆ ยังอยู่ใน Storage
     await db.update(orderItems).set({ fileUrl: null, fileName: null }).where(inArray(orderItems.id, ids));
+    await db.update(orders).set({ fileUrl: null }).where(inArray(orders.fileUrl, paths)); // สำเนา v1 ของ item แรก (ดู adminStorage.ts)
 
     return { deletedCount: paths.length, message: `ลบไฟล์งานพิมพ์ที่ครบกำหนด 1 วันหลังออเดอร์จบงานแล้ว ${paths.length} ไฟล์` };
   }

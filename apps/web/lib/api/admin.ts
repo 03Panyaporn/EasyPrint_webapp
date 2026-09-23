@@ -1,4 +1,5 @@
 import type {
+  ShopApprovalStatus,
   RejectShopInput,
   SuspendShopInput,
   AdminDashboardResponse,
@@ -6,8 +7,23 @@ import type {
   UpdateAdminSettingsInput,
   AdminStorageOverviewResponse,
   AdminStorageFilesResponse,
+  AnnouncementItem,
+  AnnouncementListResponse,
+  CreateAnnouncementInput,
 } from "@easyprint/shared";
 import { apiFetch } from "./client";
+
+export function getAnnouncements() {
+  return apiFetch<AnnouncementListResponse>("/admin/announcements");
+}
+
+// ส่งประกาศจริง: บันทึกประวัติ + ส่งแจ้งเตือนในแอปถึงกลุ่มเป้าหมาย (ไม่รวมแอดมิน)
+export function createAnnouncement(input: CreateAnnouncementInput) {
+  return apiFetch<{ announcement: AnnouncementItem }>("/admin/announcements", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
 
 export function getAdminDashboard() {
   return apiFetch<AdminDashboardResponse>("/admin/dashboard");
@@ -24,6 +40,7 @@ export type AdminShop = {
   id: string;
   name: string;
   phone: string | null;
+  email: string | null; // อีเมลติดต่อของร้าน (shops.email) — ไม่ใช่อีเมล login ของเจ้าของ (ownerEmail)
   address: string | null;
   serviceTypes: string[] | null;
   deliveryMethods: string[] | null;
@@ -31,7 +48,7 @@ export type AdminShop = {
   shopPhotoUrl: string | null;
   socialMedia: string | null;
   openingHours: AdminOpeningHoursDay[] | null;
-  approvalStatus: "pending" | "approved" | "rejected" | "suspended";
+  approvalStatus: ShopApprovalStatus;
   rejectedReason: string | null;
   createdAt: string;
   ownerEmail: string | null;

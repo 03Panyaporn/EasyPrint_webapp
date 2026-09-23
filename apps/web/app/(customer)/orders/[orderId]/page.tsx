@@ -183,10 +183,21 @@ export default function OrderStatusPage({
     minute: "2-digit",
   });
 
+  // รับเองที่ร้านไม่มีขั้น "กำลังจัดส่ง" — backend ข้ามจาก in_progress ไป completed เลย (getAllowedNextStatus ใน orders.ts)
+  // ตรงกับ UpdateStatusModal ฝั่งร้านที่ตัดขั้นนี้ออกเหมือนกัน
+  const steps =
+    order.delivery.method === "self_pickup"
+      ? STEPS.filter((step) => step.key !== "shipping")
+      : STEPS;
+
+  // ตำแหน่งเส้น progress: เริ่ม/จบที่กึ่งกลางคอลัมน์แรก/สุดท้าย (5 ขั้น = 10%, 4 ขั้น = 12.5%)
+  const stepInsetPct = 50 / steps.length;
+  const stepTrackPct = 100 - 2 * stepInsetPct;
+
   const stepIndex =
     order.status === "cancelled"
       ? -1
-      : STEPS.findIndex(
+      : steps.findIndex(
         (step) => step.key === order.status
       );
 
@@ -316,26 +327,27 @@ export default function OrderStatusPage({
 
                 <div className="relative">
                   {/* line */}
-                  <div className="absolute left-[10%] right-[10%] top-5 h-1 rounded-full bg-slate-100" />
+                  <div className="absolute top-5 h-1 rounded-full bg-slate-100" style={{ left: `${stepInsetPct}%`, right: `${stepInsetPct}%` }} />
 
                   {/* progress */}
                   <div
-                    className="absolute left-[10%] top-5 h-1 rounded-full bg-orange-500 transition-all duration-500"
+                    className="absolute top-5 h-1 rounded-full bg-orange-500 transition-all duration-500"
                     style={{
+                      left: `${stepInsetPct}%`,
                       width:
                         stepIndex <= 0
                           ? "0%"
                           : `${Math.min(
                             (stepIndex /
-                              (STEPS.length - 1)) *
-                            80,
-                            80
+                              (steps.length - 1)) *
+                            stepTrackPct,
+                            stepTrackPct
                           )}%`,
                     }}
                   />
 
-                  <div className="relative grid grid-cols-5">
-                    {STEPS.map((step, idx) => {
+                  <div className={`relative grid ${steps.length === 4 ? "grid-cols-4" : "grid-cols-5"}`}>
+                    {steps.map((step, idx) => {
                       const isPassed =
                         idx <= stepIndex;
                       const isCurrent =
@@ -391,25 +403,26 @@ export default function OrderStatusPage({
                   <div className="min-w-[620px]">
 
                     <div className="relative">
-                      <div className="absolute left-[10%] right-[10%] top-5 h-1 rounded-full bg-slate-100" />
+                      <div className="absolute top-5 h-1 rounded-full bg-slate-100" style={{ left: `${stepInsetPct}%`, right: `${stepInsetPct}%` }} />
 
                       <div
-                        className="absolute left-[10%] top-5 h-1 rounded-full bg-orange-500"
+                        className="absolute top-5 h-1 rounded-full bg-orange-500"
                         style={{
+                          left: `${stepInsetPct}%`,
                           width:
                             stepIndex <= 0
                               ? "0%"
                               : `${Math.min(
                                 (stepIndex /
-                                  (STEPS.length - 1)) *
-                                80,
-                                80
+                                  (steps.length - 1)) *
+                                stepTrackPct,
+                                stepTrackPct
                               )}%`,
                         }}
                       />
 
-                      <div className="relative grid grid-cols-5">
-                        {STEPS.map((step, idx) => {
+                      <div className={`relative grid ${steps.length === 4 ? "grid-cols-4" : "grid-cols-5"}`}>
+                        {steps.map((step, idx) => {
                           const isPassed =
                             idx <= stepIndex;
                           const isCurrent =
@@ -476,11 +489,11 @@ export default function OrderStatusPage({
                   </p>
 
                   <p className="mt-0.5 text-sm  text-orange-700">
-                    {STEPS[stepIndex]?.label}
+                    {steps[stepIndex]?.label}
                   </p>
 
                   <p className="mt-0.5 text-xs text-orange-600">
-                    {STEPS[stepIndex]?.desc}
+                    {steps[stepIndex]?.desc}
                   </p>
                 </div>
               )}
@@ -538,10 +551,10 @@ export default function OrderStatusPage({
                   </p>
 
                   {item.optionsSnapshot &&
-                    item.optionsSnapshot.length >
-                    0 && (
+                    item.optionsSnapshot.some((opt) => opt.optionName !== "สี") && (
                       <div className="space-y-1 rounded-xl border-l-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                        {item.optionsSnapshot.map(
+                        {/* "สี" แสดงอยู่แล้วใน "อัตราพื้นฐาน" ด้านบน และราคาสีไม่ใช่ราคาบวกเพิ่ม — ไม่แสดงซ้ำเป็น "(+฿X)" (snapshot เก่าเก็บราคาสีไว้ใน extraPrice) */}
+                        {item.optionsSnapshot.filter((opt) => opt.optionName !== "สี").map(
                           (opt, oIdx) => (
                             <p key={oIdx}>
                               {opt.optionName}:{" "}

@@ -71,7 +71,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
       maxQty: t.maxQty ?? null,
       unitPrice: t.unitPrice,
     })),
-    minArea: typeof form.step2.minArea === "number" ? form.step2.minArea : undefined,
+    minArea: typeof form.step2.minArea === "number" ? form.step2.minArea : null, // null = ไม่มีขั้นต่ำ (ล้างค่าเดิมตอนแก้ไข)
     areaRoundingIncrement:
       typeof form.step2.areaRoundingIncrement === "number" ? form.step2.areaRoundingIncrement : 0.1,
     options: form.step3.options.map((opt) => ({
@@ -82,10 +82,13 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
         name: v.name,
         extraPrice: v.extraPrice,
         priceScope: v.priceScope,
+        // ต้องส่งไปด้วยเสมอ — ไม่งั้น backend ตั้งเป็น false ทุกค่า แล้วตัวเลือก "2 ด้าน" จะไม่ถูกนับเป็นแผ่นตอนคิดราคาจริง
+        isDuplex: v.isDuplex ?? false,
       })),
     })) as CreateMainServiceInput["options"],
     requiresFileUpload: form.step4.requiresFileUpload,
     allowedFileTypes: form.step4.allowedFileTypes as CreateMainServiceInput["allowedFileTypes"],
+    // ราคาบริการเสริมคิดจาก addon_services.price ของตัวบริการเสริมเอง (cart.ts) — extraPrice ตรงนี้ไม่ถูกใช้คิดราคาแล้ว
     addOns: form.step5.selectedAddOnIds.map((id) => ({ addOnId: id, extraPrice: 0 })),
   };
 }

@@ -207,7 +207,7 @@ export function SlipMock({ order }: { order: Order }) {
           <div className="flex items-center justify-between pt-0.5">
             <span className="text-gray-500">จำนวน</span>
             <span className="text-gray-800 font-bold text-sm">
-              {order.price.toLocaleString()}.00 บาท
+              {order.price.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท
             </span>
           </div>
           <div className="flex items-center justify-between">

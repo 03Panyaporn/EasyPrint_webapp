@@ -26,6 +26,7 @@ import {
   getNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  deleteNotification,
 } from "../../lib/api/notifications";
 import { useRouter } from "next/navigation";
 import { SkeletonRow } from "@/components/ui/Skeleton";
@@ -58,9 +59,10 @@ export const NOTIFICATION_TYPES = {
   10: { icon: Key, color: "text-slate-500", bg: "bg-slate-100" }, // เปลี่ยนรหัสผ่าน
   11: { icon: Truck, color: "text-rose-500", bg: "bg-rose-50" }, // เตือนตั้งค่าการจัดส่ง
   12: { icon: Settings, color: "text-rose-500", bg: "bg-rose-50" }, // เตือนตั้งค่าบริการ/ราคา
-  13: { icon: Store, color: "text-slate-500", bg: "bg-slate-100" }, // ร้านปิดอัตโนมัติ
+  // ความหมายต้องตรงกับ backend (cron.ts / utils/notification.ts): 13 = สิ้นสุดช่วงปิดชั่วคราว, 14 = เปิดอัตโนมัติ, 15 = ปิดอัตโนมัติ
+  13: { icon: Unlock, color: "text-blue-500", bg: "bg-blue-50" }, // พ้นช่วงปิดชั่วคราว
   14: { icon: Store, color: "text-green-500", bg: "bg-green-50" }, // ร้านเปิดอัตโนมัติ
-  15: { icon: Unlock, color: "text-blue-500", bg: "bg-blue-50" }, // พ้นช่วงปิดชั่วคราว
+  15: { icon: Store, color: "text-slate-500", bg: "bg-slate-100" }, // ร้านปิดอัตโนมัติ
   16: { icon: Package, color: "text-blue-500", bg: "bg-blue-50" }, // อัปเดตสถานะออเดอร์ (ลูกค้า) — เพิ่มพร้อม BUG-12-01 follow-up (QA Phase 12)
   17: { icon: XCircle, color: "text-red-500", bg: "bg-red-50" }, // ออเดอร์ถูกยกเลิกโดยร้าน (ลูกค้า) — เพิ่มแก้ BUG-17-02 (QA Phase 17)
 };
@@ -155,10 +157,16 @@ export default function ShopNotificationDropdown() {
     }
   };
 
-  const removeNotification = (id: string, e: React.MouseEvent) => {
+  const removeNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Optional: add delete API later if needed
+    const previous = notifications;
     setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await deleteNotification(id); // ลบจริงใน DB — ไม่งั้น poll รอบถัดไปจะดึงกลับมา
+    } catch (err) {
+      console.error(err);
+      setNotifications(previous);
+    }
   };
 
   return (

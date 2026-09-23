@@ -1,8 +1,20 @@
 import { Elysia, t } from "elysia";
-import { and, count, desc, eq, lt } from "drizzle-orm";
-import { rejectShopSchema, suspendShopSchema, adminUpdateShopSchema, type AdminDashboardResponse } from "@easyprint/shared";
+import { and, count, desc, eq, inArray, lt } from "drizzle-orm";
+import {
+  rejectShopSchema,
+  suspendShopSchema,
+  adminUpdateShopSchema,
+  createAnnouncementSchema,
+  notificationSettingKeyForType,
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type AdminDashboardResponse,
+  type AnnouncementListResponse,
+  type NotificationSettings,
+} from "@easyprint/shared";
 import { db } from "../db";
-import { shops, users } from "../../drizzle/schema";
+import { shops, users, announcements, notifications } from "../../drizzle/schema";
+
+const ANNOUNCEMENT_NOTIFICATION_TYPE_ID = 5; // 5 = ประกาศจากแอดมิน (ดู NOTIFICATION_TYPES ฝั่งเว็บ)
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { objectStorage } from "../storage";
 import { createNotification } from "../utils/notification";
@@ -40,6 +52,7 @@ function serializeShopListItem(row: {
     id: row.shop.id,
     name: row.shop.name,
     phone: row.shop.phone,
+    email: row.shop.email, // อีเมลติดต่อของร้าน (shops.email) — คนละอันกับ ownerEmail ที่ใช้ login
     address: row.shop.address,
     serviceTypes: row.shop.serviceTypes,
     deliveryMethods: row.shop.deliveryMethods,
@@ -54,6 +67,37 @@ function serializeShopListItem(row: {
     ownerFirstname: row.owner?.firstname ?? null,
     ownerLastname: row.owner?.lastname ?? null,
   };
+}
+
+type ShopApprovalStatus = (typeof shops.$inferSelect)["approvalStatus"];
+
+// การเปลี่ยนสถานะร้านที่อนุญาต — เดิมเปลี่ยนจากสถานะไหนไปไหนก็ได้ (เช่น ปฏิเสธร้านที่เปิดขายอยู่แล้ว หรือระงับร้านที่ยังไม่เคยอนุมัติ)
+//   approve: pending (อนุมัติร้านใหม่) / suspended (คืนสถานะ) / rejected (พิจารณาใหม่)
+//   reject:  pending เท่านั้น (ใบสมัครใหม่ไม่ผ่าน) | suspend: approved เท่านั้น (ร้านที่เปิดขายอยู่แล้ว)
+const ALLOWED_SHOP_TRANSITIONS: Record<"approve" | "reject" | "suspend", ShopApprovalStatus[]> = {
+  approve: ["pending", "suspended", "rejected"],
+  reject: ["pending"],
+  suspend: ["approved"],
+};
+
+const SHOP_STATUS_LABEL: Record<ShopApprovalStatus, string> = {
+  pending: "รอตรวจสอบ",
+  approved: "อนุมัติแล้ว",
+  rejected: "ไม่อนุมัติ",
+  suspended: "ระงับการใช้งาน",
+};
+
+// คืน { status, error } ถ้าไม่พบร้าน/เปลี่ยนสถานะไม่ได้ หรือ null ถ้าทำได้
+async function checkShopTransition(
+  shopId: string,
+  action: keyof typeof ALLOWED_SHOP_TRANSITIONS
+): Promise<{ status: number; error: string } | null> {
+  const [row] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.id, shopId));
+  if (!row) return { status: 404, error: "ไม่พบร้านค้านี้" };
+  if (!ALLOWED_SHOP_TRANSITIONS[action].includes(row.approvalStatus)) {
+    return { status: 409, error: `ทำรายการนี้ไม่ได้ เนื่องจากร้านอยู่ในสถานะ "${SHOP_STATUS_LABEL[row.approvalStatus]}"` };
+  }
+  return null;
 }
 
 export const adminRoutes = new Elysia({ prefix: "/admin" })
@@ -219,6 +263,12 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
 
+    const transitionError = await checkShopTransition(params.id, "approve");
+    if (transitionError) {
+      set.status = transitionError.status;
+      return { error: transitionError.error };
+    }
+
     const [before] = await db.select({ approvalStatus: shops.approvalStatus }).from(shops).where(eq(shops.id, params.id));
     const isReinstate = before?.approvalStatus === "suspended";
 
@@ -256,6 +306,12 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
+    const transitionError = await checkShopTransition(params.id, "reject");
+    if (transitionError) {
+      set.status = transitionError.status;
+      return { error: transitionError.error };
+    }
+
     const [shop] = await db
       .update(shops)
       .set({ approvalStatus: "rejected", rejectedReason: parsed.data.reason })
@@ -290,6 +346,12 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
+    const transitionError = await checkShopTransition(params.id, "suspend");
+    if (transitionError) {
+      set.status = transitionError.status;
+      return { error: transitionError.error };
+    }
+
     const [shop] = await db
       .update(shops)
       .set({ approvalStatus: "suspended", rejectedReason: parsed.data.reason })
@@ -312,40 +374,86 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     return { shop };
   })
 
-  // ── ส่งประกาศระบบถึงผู้ใช้งานทั้งหมด (หรือทุกร้านค้า) ──────────
+  // ── ประวัติประกาศจากระบบ (ล่าสุด 20 รายการ) — แสดงในการ์ด "ประกาศจากระบบ" หน้าแดชบอร์ดแอดมิน ──────────
+  .get("/announcements", async ({ cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const rows = await db.select().from(announcements).orderBy(desc(announcements.createdAt)).limit(20);
+    const response: AnnouncementListResponse = {
+      announcements: rows.map((r) => ({
+        id: r.id,
+        category: r.category,
+        target: r.target,
+        title: r.title,
+        message: r.message,
+        recipientCount: r.recipientCount,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    };
+    return response;
+  })
+
+  // ── ส่งประกาศระบบ: บันทึกประวัติ + ส่งแจ้งเตือนในแอป (typeId 5 = ประกาศจากแอดมิน) ถึงกลุ่มเป้าหมาย ──────────
+  // เดิมหน้าเว็บไม่เคยเรียก endpoint นี้ (ฟอร์มในแดชบอร์ดเพิ่มแค่ใน state) และ endpoint ใช้ typeId 4 (= "แอดมินอนุมัติ")
+  // รวมถึงส่งหาแอดมินด้วยเมื่อ target = all — แก้เป็น Zod จาก shared, ไม่รวมแอดมิน, insert แจ้งเตือนเป็นชุดแทนทีละแถว
   .post("/announcements", async ({ body, cookie, set }) => {
     const authError = await requireAdmin(cookie, set);
     if (authError) return authError;
 
-    const { title, message, target } = body;
-
-    // หาผู้ใช้ตามเป้าหมาย (ทั้งหมด, เลือกร้านค้า, เลือกลูกค้า)
-    let targetUsers: { id: string }[] = [];
-    if (target === "all") {
-      targetUsers = await db.select({ id: users.id }).from(users);
-    } else if (target === "shops") {
-      targetUsers = await db.select({ id: users.id }).from(users).where(eq(users.role, "shop_owner"));
-    } else if (target === "customers") {
-      targetUsers = await db.select({ id: users.id }).from(users).where(eq(users.role, "customer"));
+    const parsed = createAnnouncementSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: parsed.error.errors[0]?.message ?? "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
+    const { category, target, title, message } = parsed.data;
 
-    let successCount = 0;
-    for (const u of targetUsers) {
-      await createNotification({
-        userId: u.id,
-        typeId: 4,
-      category: "general", // ใช้ typeId = 4 (คำร้องถูกอนุมัติ/ประกาศจากแอดมิน - ชั่วคราวไปก่อน หรือ type ใหม่)
-        title,
-        message,
-      });
-      successCount++;
-    }
+    const roles: ("shop_owner" | "customer")[] =
+      target === "shops" ? ["shop_owner"] : target === "customers" ? ["customer"] : ["shop_owner", "customer"];
+    const recipients = await db
+      .select({ id: users.id, role: users.role, notificationSettings: shops.notificationSettings })
+      .from(users)
+      .leftJoin(shops, eq(shops.ownerId, users.id))
+      .where(inArray(users.role, roles));
 
-    return { ok: true, sent: successCount };
-  }, {
-    body: t.Object({
-      title: t.String({ minLength: 1 }),
-      message: t.String({ minLength: 1 }),
-      target: t.Union([t.Literal("all"), t.Literal("shops"), t.Literal("customers")]),
-    })
+    // เคารพสวิตช์ "อัปเดตจากผู้ดูแลระบบ" ของร้าน — กติกาเดียวกับ createNotification() (utils/notification.ts)
+    const settingKey = notificationSettingKeyForType(ANNOUNCEMENT_NOTIFICATION_TYPE_ID);
+    const allowed = recipients.filter((r) => {
+      if (r.role !== "shop_owner" || !r.notificationSettings || !settingKey) return true;
+      const settings = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(r.notificationSettings as Partial<NotificationSettings>) };
+      return settings[settingKey] !== false;
+    });
+
+    const adminToken = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = adminToken ? verifyAuthToken(adminToken) : null;
+    const [announcement] = await db.transaction(async (tx) => {
+      const created = await tx
+        .insert(announcements)
+        .values({ category, target, title, message, recipientCount: allowed.length, createdBy: payload?.userId ?? null })
+        .returning();
+      for (let i = 0; i < allowed.length; i += 500) {
+        await tx.insert(notifications).values(
+          allowed.slice(i, i + 500).map((r) => ({
+            userId: r.id,
+            typeId: ANNOUNCEMENT_NOTIFICATION_TYPE_ID,
+            category: "general",
+            title,
+            message,
+          }))
+        );
+      }
+      return created;
+    });
+
+    return {
+      announcement: {
+        id: announcement.id,
+        category: announcement.category,
+        target: announcement.target,
+        title: announcement.title,
+        message: announcement.message,
+        recipientCount: announcement.recipientCount,
+        createdAt: announcement.createdAt.toISOString(),
+      },
+    };
   });

@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import {
   registerSchema,
   loginSchema,
@@ -12,7 +12,7 @@ import {
   updateProfileSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { users, passwordResetTokens, shops, orders, carts } from "../../drizzle/schema";
+import { users, passwordResetTokens, shops, orders, carts, addresses, contactAdminMessages } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
 import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
@@ -61,6 +61,12 @@ function formatShopAddress(input: {
   return parts.filter(Boolean).join(" ");
 }
 
+// หา user ด้วยอีเมลแบบไม่สนตัวพิมพ์ — input ผ่าน emailSchema (lowercase แล้ว) ส่วนฝั่ง DB ใช้ lower() ด้วย
+// เผื่อแถวเก่าที่ถูกบันทึกเป็นตัวพิมพ์ใหญ่ไว้ก่อน migration 0021 จะรัน (ใช้ index users_email_lower_unique ได้)
+function emailEquals(email: string) {
+  return sql`lower(${users.email}) = ${email.toLowerCase()}`;
+}
+
 export const authRoutes = new Elysia({ prefix: "/auth" })
 
   // สมัครสมาชิกลูกค้า (หน้า /register ฝั่ง web) — role เป็น "customer" เสมอ ร้านค้าสมัครผ่านช่องทางแยก (/register/shop-register)
@@ -77,7 +83,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: passwordError };
     }
 
-    const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
+    const existing = await db.query.users.findFirst({ where: emailEquals(parsed.data.email) });
     if (existing) {
       set.status = 409;
       return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
@@ -88,20 +94,39 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     // (เช่น กด submit ซ้ำเร็วๆ/double-click) ทั้งคู่อาจผ่าน SELECT ก่อนที่ INSERT ตัวแรกจะ commit
     // แล้วตัวที่สองไปชน unique constraint ตอน INSERT จริง ต้อง catch แล้วแปลงเป็น 409 ที่สุภาพ
     // แทน raw 500 (ยืนยันบั๊กจริงจาก QA: BUG-P01-02) — pattern เดียวกับที่ใช้ใน services.ts (BUG-06-01/06-02)
+    // สร้าง user + ที่อยู่หลักแรก (ถ้ากรอกมา) ใน transaction เดียว — ที่อยู่บันทึกไม่ผ่านต้องไม่ได้บัญชีครึ่งๆ กลางๆ
     let user: typeof users.$inferSelect;
     try {
-      [user] = await db
-        .insert(users)
-        .values({
-          email: parsed.data.email,
-          passwordHash,
-          role: "customer",
-          firstname: parsed.data.firstname,
-          lastname: parsed.data.lastname,
-          phone: parsed.data.phone,
-          address: parsed.data.address,
-        })
-        .returning();
+      user = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(users)
+          .values({
+            email: parsed.data.email,
+            passwordHash,
+            role: "customer",
+            firstname: parsed.data.firstname,
+            lastname: parsed.data.lastname,
+            phone: parsed.data.phone,
+          })
+          .returning();
+
+        const addr = parsed.data.defaultAddress;
+        if (addr) {
+          await tx.insert(addresses).values({
+            userId: created.id,
+            receiverName: addr.receiverName || `${created.firstname} ${created.lastname}`.trim(),
+            phone: addr.phone || created.phone,
+            address: addr.address,
+            subdistrict: addr.subdistrict,
+            district: addr.district,
+            province: addr.province,
+            postalCode: addr.postalCode,
+            label: "บ้าน",
+            isDefault: true, // ที่อยู่แรกของบัญชี = ที่อยู่หลักเสมอ (เพิ่มที่อยู่อื่นได้ภายหลังที่หน้าโปรไฟล์)
+          });
+        }
+        return created;
+      });
     } catch (err) {
       if (isUniqueViolation(err)) {
         set.status = 409;
@@ -141,7 +166,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: passwordError };
     }
 
-    const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
+    const existing = await db.query.users.findFirst({ where: emailEquals(parsed.data.email) });
     if (existing) {
       set.status = 409;
       return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
@@ -179,6 +204,11 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
             shopPhotoUrl: parsed.data.shopPhotoUrl,
             socialMedia: parsed.data.socialMedia,
             openingHours: parsed.data.openingHours,
+            bankName: parsed.data.bankName || null,
+            bankAccountNumber: parsed.data.bankAccountNumber || null,
+            bankAccountName: parsed.data.bankAccountName || null,
+            promptpayNumber: parsed.data.promptpayNumber || null,
+            promptpayQrUrl: parsed.data.promptpayQrUrl || null,
           })
           .returning();
 
@@ -226,7 +256,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
-    const user = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
+    const user = await db.query.users.findFirst({ where: emailEquals(parsed.data.email) });
     const passwordOk = user ? await verifyPassword(user.passwordHash, parsed.data.password) : false;
 
     if (!user || !passwordOk) {
@@ -327,7 +357,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
-    const user = await db.query.users.findFirst({ where: eq(users.email, parsed.data.email) });
+    const user = await db.query.users.findFirst({ where: emailEquals(parsed.data.email) });
     if (user) {
       const { token, tokenHash } = generateResetToken();
       await db.insert(passwordResetTokens).values({
@@ -466,7 +496,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     }
     
     // Check if new email is already used
-    const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.data.newEmail) });
+    const existing = await db.query.users.findFirst({ where: emailEquals(parsed.data.newEmail) });
     if (existing) {
       set.status = 409;
       return { error: "อีเมลนี้ถูกใช้งานแล้ว" };
@@ -524,10 +554,18 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     // ล้างข้อมูลที่ไม่ใช่ประวัติสำคัญทางธุรกิจ (ตะกร้าที่ยังไม่ checkout / token รีเซ็ตรหัสผ่านเก่า) ก่อนลบผู้ใช้เสมอ —
     // ทั้งคู่ไม่มี CASCADE เช่นกัน (carts.customer_id, password_reset_tokens.user_id) แต่ไม่ใช่ข้อมูลที่ต้องเก็บรักษาแบบ order/shop
     // จึงลบทิ้งตรงนี้ได้เลยแทนที่จะ block การลบบัญชีเหมือน 2 เคสด้านบน (cart_items/addons/option_selections มี CASCADE ผูกกับ cart อยู่แล้ว)
-    await db.delete(carts).where(eq(carts.customerId, user.id));
-    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+    // addresses.user_id / contact_admin_messages.user_id ก็ไม่มี CASCADE — เดิมไม่ได้ล้าง ทำให้ลูกค้าที่มีที่อยู่บันทึกไว้
+    // หรือเคยติดต่อแอดมินลบบัญชีไม่ได้ (FK violation → 500) ที่อยู่ลบได้เลย (ออเดอร์เก็บที่อยู่เป็น snapshot ใน orders.delivery_address แล้ว)
+    // ส่วนข้อความถึงแอดมินเก็บไว้เป็นประวัติแต่ตัดการผูกกับบัญชีออก (user_id เป็น nullable อยู่แล้ว)
+    // ทำทั้งหมดใน transaction เดียว — ถ้าขั้นไหนพัง ข้อมูลที่ลบไปก่อนหน้า (เช่น ตะกร้า) ต้องไม่หายไปด้วย
+    await db.transaction(async (tx) => {
+      await tx.delete(carts).where(eq(carts.customerId, user.id));
+      await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+      await tx.delete(addresses).where(eq(addresses.userId, user.id));
+      await tx.update(contactAdminMessages).set({ userId: null }).where(eq(contactAdminMessages.userId, user.id));
 
-    await db.delete(users).where(eq(users.id, user.id));
+      await tx.delete(users).where(eq(users.id, user.id));
+    });
 
     cookie[COOKIE_NAME]?.remove();
 

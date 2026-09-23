@@ -1,4 +1,5 @@
 import type {
+  ShopApprovalStatus,
   RegisterInput,
   LoginInput,
   ForgotPasswordInput,
@@ -33,7 +34,7 @@ export type PublicShop = {
   googleMapLink: string | null;
   idCardUrl: string | null;
   shopPhotoUrl: string | null;
-  approvalStatus: "pending" | "approved" | "rejected";
+  approvalStatus: ShopApprovalStatus;
   deliveryEnabled: boolean;
   createdAt: string;
 };

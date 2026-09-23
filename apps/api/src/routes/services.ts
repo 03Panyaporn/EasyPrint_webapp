@@ -343,7 +343,7 @@ export const servicesRoutes = new Elysia()
         requiresFileUpload: parsed.data.requiresFileUpload,
         allowedFileTypes: parsed.data.allowedFileTypes,
         pageCountingMode: parsed.data.pageCountingMode,
-        minArea: parsed.data.minArea?.toFixed(2),
+        minArea: parsed.data.minArea != null ? parsed.data.minArea.toFixed(2) : null,
         areaRoundingIncrement: parsed.data.areaRoundingIncrement.toFixed(2),
         unit: parsed.data.unit,
         estimatedTime: parsed.data.estimatedTime,
@@ -377,7 +377,7 @@ export const servicesRoutes = new Elysia()
 
     return {
       service: serializeMainService(service, parsed.data.addOns, insertedOptions, insertedColorTiers, insertedQuantityTiers),
-      warnings: buildServiceWarnings(parsed.data.minArea),
+      warnings: buildServiceWarnings(parsed.data.minArea ?? undefined),
     };
   })
 
@@ -503,7 +503,8 @@ export const servicesRoutes = new Elysia()
     const updateData = {
       ...rest,
       ...(basePrice !== undefined ? { basePrice: basePrice.toFixed(2) } : {}),
-      ...(minArea !== undefined ? { minArea: minArea?.toFixed(2) } : {}),
+      // null = ล้างพื้นที่ขั้นต่ำออก (กลับเป็น "ไม่มีขั้นต่ำ") — เดิมส่งว่างมาแล้วค่าเก่าใน DB ค้างอยู่ตลอด
+      ...(minArea !== undefined ? { minArea: minArea === null ? null : minArea.toFixed(2) } : {}),
       ...(areaRoundingIncrement !== undefined ? { areaRoundingIncrement: areaRoundingIncrement.toFixed(2) } : {}),
     };
 
@@ -561,7 +562,7 @@ export const servicesRoutes = new Elysia()
 
     return {
       service: serializeMainService(service, currentAddOns, currentOptions, currentColorTiers, currentQuantityTiers),
-      warnings: buildServiceWarnings(minArea),
+      warnings: buildServiceWarnings(minArea ?? undefined),
     };
   })
 
@@ -716,6 +717,18 @@ export const servicesRoutes = new Elysia()
   .get("/shops/:shopId/delivery-options", async ({ params, cookie }) => {
     if (!(await canViewShopPublicly(params.shopId, cookie))) {
       return { deliveryOptions: [] };
+    }
+
+    // ร้านปิดระบบจัดส่งทั้งร้าน (สวิตช์ในหน้า /shop/services) → ลูกค้าไม่เห็นตัวเลือกจัดส่งเลย เหลือแค่รับเองที่ร้าน
+    // แต่เจ้าของร้านยังต้องเห็นรายการทั้งหมดเพื่อจัดการต่อได้
+    const [shop] = await db
+      .select({ deliveryEnabled: shops.deliveryEnabled, ownerId: shops.ownerId })
+      .from(shops)
+      .where(eq(shops.id, params.shopId));
+    if (shop && !shop.deliveryEnabled) {
+      const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+      const payload = token ? verifyAuthToken(token) : null;
+      if (payload?.userId !== shop.ownerId) return { deliveryOptions: [] };
     }
 
     const rows = await db

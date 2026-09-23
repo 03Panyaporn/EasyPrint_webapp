@@ -1,18 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, Clock, UserCog, Package, CheckCircle2, XCircle, ArrowUp, ArrowDown } from "lucide-react";
+import { Wallet, Clock, UserCog, Truck, CheckCircle2, XCircle, ArrowUp, ArrowDown } from "lucide-react";
 import { getMyShop } from "@/lib/api/services";
 import { listShopOrders } from "@/lib/api/orders";
+import { getShopReport } from "@/lib/api/reports";
+import { toBangkokDateStr } from "@/lib/shopHours";
 import { toOrder } from "@/lib/ordersAdapter";
 import { Order } from "../orders/types";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-// แปลงเป็นวันที่ "YYYY-MM-DD" ตามเวลาไทย (Asia/Bangkok) เสมอ — ห้ามใช้ toISOString().split('T')[0] ตรงๆ
-// เพราะนั่นคือวันที่แบบ UTC ซึ่งจะผิดในช่วง 00:00-06:59 น. เวลาไทย (ตอนนั้นวันที่ UTC ยังเป็นเมื่อวาน)
-function toBangkokDateStr(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(date);
-}
 
 export default function StatCards() {
   const [loading, setLoading] = useState(true);
@@ -34,9 +31,9 @@ export default function StatCards() {
       title: "รอตรวจสอบ",
       value: "0",
       unit: "รายการ",
-      trend: "up",
-      trendValue: "0",
-      trendText: "จากเมื่อวาน",
+      trend: "none",
+      trendValue: "",
+      trendText: "ค้างอยู่ตอนนี้",
       icon: Clock,
       iconColor: "text-orange-500",
       iconBg: "bg-orange-50",
@@ -47,9 +44,9 @@ export default function StatCards() {
       title: "กำลังดำเนินการ",
       value: "0",
       unit: "รายการ",
-      trend: "up",
-      trendValue: "0",
-      trendText: "จากเมื่อวาน",
+      trend: "none",
+      trendValue: "",
+      trendText: "ค้างอยู่ตอนนี้",
       icon: UserCog,
       iconColor: "text-blue-600",
       iconBg: "bg-blue-100",
@@ -57,7 +54,20 @@ export default function StatCards() {
       isHighlighted: false,
     },
     {
-      title: "เสร็จสิ้น",
+      title: "กำลังจัดส่ง",
+      value: "0",
+      unit: "รายการ",
+      trend: "none",
+      trendValue: "",
+      trendText: "ค้างอยู่ตอนนี้",
+      icon: Truck,
+      iconColor: "text-violet-600",
+      iconBg: "bg-violet-100",
+      bgColor: "bg-white",
+      isHighlighted: false,
+    },
+    {
+      title: "เสร็จสิ้นวันนี้",
       value: "0",
       unit: "รายการ",
       trend: "up",
@@ -70,7 +80,7 @@ export default function StatCards() {
       isHighlighted: false,
     },
     {
-      title: "ยกเลิก",
+      title: "ยกเลิกวันนี้",
       value: "0",
       unit: "รายการ",
       trend: "down",
@@ -89,75 +99,58 @@ export default function StatCards() {
       if (!isSilent) setLoading(true);
       try {
         const { shop } = await getMyShop();
-        const { orders: apiOrders } = await listShopOrders(shop.id);
+        // รายได้วันนี้ใช้ตัวเลขจาก /reports ชุดเดียวกับหน้ารายงาน (ยอดจริง ไม่ปัดเศษ, นับตามวันที่งานเสร็จ,
+        // เทียบกับเมื่อวานช่วงเวลาเดียวกัน) — เดิมคำนวณเองฝั่งเว็บคนละสูตร ทำให้ 2 หน้าแสดงรายได้ไม่ตรงกัน
+        const [{ orders: apiOrders }, report] = await Promise.all([
+          listShopOrders(shop.id),
+          getShopReport(shop.id, "today"),
+        ]);
         const allOrders = apiOrders.map(toOrder);
-        
+
         const now = new Date();
         const todayStr = toBangkokDateStr(now);
         const yesterdayStr = toBangkokDateStr(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
-        const todayOrders = allOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === todayStr);
-        const yesterdayOrders = allOrders.filter(o => toBangkokDateStr(new Date(o.createdAt)) === yesterdayStr);
+        // "เสร็จสิ้น/ยกเลิกวันนี้" นับตามวันที่ออเดอร์จบจริง (finishedAt) ไม่ใช่วันที่สั่ง
+        const finishedOn = (o: Order, dateStr: string) =>
+          !!o.finishedAt && toBangkokDateStr(new Date(o.finishedAt)) === dateStr;
 
-        const calculateTrend = (today: number, yesterday: number) => {
-          if (today === 0 && yesterday === 0) return 0;
-          if (yesterday === 0) return 100;
+        // null = เมื่อวานไม่มีข้อมูลให้เทียบ (ไม่แสดง %) — ตรงกับ pctChange ฝั่ง API
+        const calculateTrend = (today: number, yesterday: number): number | null => {
+          if (yesterday === 0) return null;
           return Math.round(((today - yesterday) / yesterday) * 100);
         };
 
-        // 1. Income
-        const todayIncome = todayOrders
-          .filter(o => o.status === "completed")
-          .reduce((sum, o) => sum + (o.price || 0), 0);
-          
-        const yesterdayIncome = yesterdayOrders
-          .filter(o => o.status === "completed")
-          .reduce((sum, o) => sum + (o.price || 0), 0);
+        // คิว (รอตรวจ/กำลังทำ/กำลังส่ง) = งานที่ค้างอยู่ตอนนี้ทั้งหมด ไม่ว่าจะสั่งวันไหน — ออเดอร์เมื่อวานที่ยังไม่รับต้องไม่หายไปจากการ์ด
+        const pendingNow = allOrders.filter((o) => o.status === "pending_review").length;
+        const processingNow = allOrders.filter((o) => o.status === "accepted" || o.status === "in_progress").length;
+        const shippingNow = allOrders.filter((o) => o.status === "shipping").length;
 
-        const incomeTrend = calculateTrend(todayIncome, yesterdayIncome);
+        const compToday = allOrders.filter((o) => o.status === "completed" && finishedOn(o, todayStr)).length;
+        const compYesterday = allOrders.filter((o) => o.status === "completed" && finishedOn(o, yesterdayStr)).length;
+        const cancToday = allOrders.filter((o) => o.status === "cancelled" && finishedOn(o, todayStr)).length;
+        const cancYesterday = allOrders.filter((o) => o.status === "cancelled" && finishedOn(o, yesterdayStr)).length;
 
-        // 2. New Orders (รอตรวจสอบ)
-        const newToday = todayOrders.filter(o => o.status === "pending_review").length;
-        const newYesterday = yesterdayOrders.filter(o => o.status === "pending_review").length;
-        const newTrend = calculateTrend(newToday, newYesterday);
+        const applyTrend = (stat: (typeof stats)[number], change: number | null) => {
+          stat.trend = change === null ? "none" : change >= 0 ? "up" : "down";
+          stat.trendValue = change === null ? "-" : `${Math.abs(change)}%`;
+        };
 
-        // 3. Processing Orders (กำลังดำเนินการ)
-        const procToday = todayOrders.filter(o => o.status === "in_progress" || o.status === "accepted").length;
-        const procYesterday = yesterdayOrders.filter(o => o.status === "in_progress" || o.status === "accepted").length;
-        const procTrend = calculateTrend(procToday, procYesterday);
-        
-        // 4. Completed (เสร็จสิ้น)
-        const compToday = todayOrders.filter(o => o.status === "completed").length;
-        const compYesterday = yesterdayOrders.filter(o => o.status === "completed").length;
-        const compTrend = calculateTrend(compToday, compYesterday);
+        setStats((prev) => {
+          const newStats = prev.map((st) => ({ ...st }));
 
-        // 5. Cancelled (ยกเลิก)
-        const cancToday = todayOrders.filter(o => o.status === "cancelled").length;
-        const cancYesterday = yesterdayOrders.filter(o => o.status === "cancelled").length;
-        const cancTrend = calculateTrend(cancToday, cancYesterday);
+          newStats[0].value = report.metrics.todayRevenue.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+          applyTrend(newStats[0], report.metrics.todayRevenueChange);
 
-        setStats(prev => {
-          const newStats = [...prev];
-          
-          newStats[0].value = todayIncome.toLocaleString();
-          newStats[0].trendValue = `${Math.abs(incomeTrend)}%`;
-          newStats[0].trend = incomeTrend >= 0 ? "up" : "down";
-          
-          newStats[1].value = newToday.toString();
-          newStats[1].trendValue = `${Math.abs(newTrend)}%`;
-          newStats[1].trend = newTrend >= 0 ? "up" : "down";
-          
-          newStats[2].value = procToday.toString();
-          newStats[2].trendValue = `${Math.abs(procTrend)}%`;
-          newStats[2].trend = procTrend >= 0 ? "up" : "down";
-          
-          newStats[3].value = compToday.toString();
-          newStats[3].trendValue = `${Math.abs(compTrend)}%`;
-          newStats[3].trend = compTrend >= 0 ? "up" : "down";
-          
-          newStats[4].value = cancToday.toString();
-          newStats[4].trendValue = `${Math.abs(cancTrend)}%`;
-          newStats[4].trend = cancTrend >= 0 ? "up" : "down";
+          newStats[1].value = pendingNow.toString();
+          newStats[2].value = processingNow.toString();
+          newStats[3].value = shippingNow.toString();
+
+          newStats[4].value = compToday.toString();
+          applyTrend(newStats[4], calculateTrend(compToday, compYesterday));
+
+          newStats[5].value = cancToday.toString();
+          applyTrend(newStats[5], calculateTrend(cancToday, cancYesterday));
 
           return newStats;
         });
@@ -180,11 +173,11 @@ export default function StatCards() {
   if (loading) {
     return (
       <div
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4"
         aria-live="polite"
         aria-busy="true"
       >
-        {Array.from({ length: 5 }).map((_, idx) => (
+        {Array.from({ length: 6 }).map((_, idx) => (
           <div
             key={idx}
             className="rounded-2xl p-4 sm:p-5 border bg-white border-gray-100 shadow-sm flex flex-col justify-between"
@@ -202,11 +195,14 @@ export default function StatCards() {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
       {stats.map((stat, idx) => {
         const Icon = stat.icon;
         const TrendIcon = stat.trend === "up" ? ArrowUp : ArrowDown;
-        const trendColor = stat.trend === "up" ? "text-emerald-500" : "text-red-500";
+        // การ์ดยกเลิก: ยิ่งเพิ่มยิ่งแย่ → เพิ่ม = แดง, ลด = เขียว (การ์ดอื่นกลับกัน)
+        const isBadWhenUp = stat.title.startsWith("ยกเลิก");
+        const isGood = stat.trend === "up" ? !isBadWhenUp : isBadWhenUp;
+        const trendColor = isGood ? "text-emerald-500" : "text-red-500";
 
         return (
           <div
@@ -232,10 +228,12 @@ export default function StatCards() {
             </div>
 
             <div className="flex items-center gap-1.5 text-xs font-medium">
-              <span className={`flex items-center gap-0.5 ${trendColor}`}>
-                <TrendIcon size={12} strokeWidth={3} />
-                {stat.trendValue}
-              </span>
+              {stat.trend !== "none" && (
+                <span className={`flex items-center gap-0.5 ${trendColor}`}>
+                  <TrendIcon size={12} strokeWidth={3} />
+                  {stat.trendValue}
+                </span>
+              )}
               <span className="text-slate-400">{stat.trendText}</span>
             </div>
           </div>

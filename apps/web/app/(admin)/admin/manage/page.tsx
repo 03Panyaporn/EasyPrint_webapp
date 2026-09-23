@@ -240,11 +240,13 @@ export default function AdminManageShopsPage() {
   // Open Edit Modal
   const handleOpenEditModal = (shop: MockShop) => {
     setEditShopModal(shop);
+    // เติมฟอร์มด้วยค่าจริงจาก DB เท่านั้น — ห้ามใช้ค่าที่แสดงผล (อีเมลเจ้าของ/placeholder "-")
+    // ไม่งั้นกดบันทึกแล้วอีเมล login ของเจ้าของ และ "-" จะถูกเขียนทับลงข้อมูลร้านจริง
     setEditForm({
       name: shop.name,
-      email: shop.email,
-      phone: shop.phone,
-      address: shop.address,
+      email: shop.shopEmail ?? "",
+      phone: shop.phone === "-" ? "" : shop.phone,
+      address: shop.address === "-" ? "" : shop.address,
       serviceTypes: [...(shop.serviceTypes ?? [])],
     });
     setEditError("");
@@ -277,7 +279,8 @@ export default function AdminManageShopsPage() {
             ? {
                 ...s,
                 name: editForm.name.trim(),
-                email: editForm.email.trim(),
+                email: editForm.email.trim() || s.email,
+                shopEmail: editForm.email.trim(),
                 phone: editForm.phone.trim(),
                 address: editForm.address.trim(),
                 serviceTypes: editForm.serviceTypes,

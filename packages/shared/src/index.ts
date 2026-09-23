@@ -10,3 +10,5 @@ export * from "./schemas/report";
 export * from "./schemas/notification";
 export * from "./schemas/address";
 export * from "./pricing/engine";
+export * from "./schemas/announcement";
+export * from "./schemas/favorite";

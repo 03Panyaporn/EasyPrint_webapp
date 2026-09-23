@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { and, eq, ne } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 import { addressInputSchema, addressUpdateSchema } from "@easyprint/shared";
 
 import { db } from "../db";
@@ -86,7 +86,15 @@ export const addressRoutes = new Elysia({
         const data = parsed.data;
 
 
-        const [address] = await db
+        // ที่อยู่แรกของผู้ใช้เป็นที่อยู่หลักอัตโนมัติ (หน้า checkout เลือกที่อยู่หลักให้เอง) และถ้าตั้งที่อยู่ใหม่เป็นหลัก
+        // ต้องปิด default ของที่อยู่อื่นๆ ใน transaction เดียวกัน — กันผู้ใช้มีที่อยู่หลักหลายที่พร้อมกัน
+        const [address] = await db.transaction(async (tx) => {
+          const [{ total }] = await tx.select({ total: count() }).from(addresses).where(eq(addresses.userId, userId));
+          const isDefault = Number(total) === 0 ? true : (data.isDefault ?? false);
+          if (isDefault) {
+            await tx.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, userId));
+          }
+          return tx
             .insert(addresses)
             .values({
 
@@ -104,10 +112,11 @@ export const addressRoutes = new Elysia({
 
                 label: data.label ?? "บ้าน",
 
-                isDefault: data.isDefault ?? false,
+                isDefault,
 
             })
             .returning();
+        });
 
 
 
@@ -164,7 +173,9 @@ export const addressRoutes = new Elysia({
             return { error: "ไม่มีข้อมูลที่จะแก้ไข" };
         }
 
-        const [address] = await db
+        // ตั้งเป็นที่อยู่หลัก → ปิด default ของที่อยู่อื่นๆ ของผู้ใช้คนนี้ใน transaction เดียวกัน (เหมือน PATCH /:id/default)
+        const [address] = await db.transaction(async (tx) => {
+          const updated = await tx
             .update(addresses)
             .set(updateValues)
             .where(
@@ -174,6 +185,14 @@ export const addressRoutes = new Elysia({
                 )
             )
             .returning();
+          if (updated[0] && data.isDefault === true) {
+            await tx
+              .update(addresses)
+              .set({ isDefault: false })
+              .where(and(eq(addresses.userId, userId), ne(addresses.id, params.id)));
+          }
+          return updated;
+        });
 
         if (!address) {
             set.status = 404;

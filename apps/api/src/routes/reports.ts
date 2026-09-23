@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, lt, or } from "drizzle-orm";
 import {
   reportQuerySchema,
   orderStatusSchema,
@@ -73,6 +73,9 @@ interface OrderRow {
   id: string;
   status: string;
   createdAt: Date;
+  // วันที่ใช้นับ "รายได้" = วันที่งานเสร็จ (finishedAt) — ออเดอร์ที่สั่งเมื่อวานแต่เสร็จวันนี้ต้องเป็นรายได้ของวันนี้
+  // ออเดอร์เก่าที่ไม่มี finishedAt fallback เป็น createdAt; ส่วน "จำนวนออเดอร์"/สถานะยังนับตามวันที่สั่ง (createdAt) เหมือนเดิม
+  revenueAt: Date;
   shippingFee: number;
   items: { service: string; total: number }[];
 }
@@ -87,7 +90,7 @@ function orderRevenue(o: OrderRow): number {
 
 function sumRevenue(list: OrderRow[], start: Date, end: Date): number {
   return list
-    .filter((o) => o.status === "completed" && o.createdAt >= start && o.createdAt < end)
+    .filter((o) => o.status === "completed" && o.revenueAt >= start && o.revenueAt < end)
     .reduce((sum, o) => sum + orderRevenue(o), 0);
 }
 
@@ -96,28 +99,29 @@ function countOrders(list: OrderRow[], start: Date, end: Date, statusFilter: (s:
 }
 
 function buildCategories(list: OrderRow[], start: Date, end: Date, prevStart: Date, prevEnd: Date): ReportCategory[] {
-  const current = new Map<string, { revenue: number; count: number }>();
+  // orderIds = ออเดอร์ที่มีหมวดนี้อยู่ (ไม่ซ้ำ) — คอลัมน์ "จำนวนออเดอร์" ต้องนับเป็นออเดอร์ ไม่ใช่นับทีละรายการสินค้า
+  const current = new Map<string, { revenue: number; orderIds: Set<string> }>();
   const previous = new Map<string, number>();
 
-  const addToMap = (map: Map<string, { revenue: number; count: number }>, name: string, amount: number) => {
-    const c = map.get(name) ?? { revenue: 0, count: 0 };
+  const addToMap = (name: string, orderId: string, amount: number) => {
+    const c = current.get(name) ?? { revenue: 0, orderIds: new Set<string>() };
     c.revenue += amount;
-    c.count += 1;
-    map.set(name, c);
+    c.orderIds.add(orderId);
+    current.set(name, c);
   };
 
   for (const o of list) {
     if (o.status !== "completed") continue;
-    const inCurrent = o.createdAt >= start && o.createdAt < end;
-    const inPrevious = o.createdAt >= prevStart && o.createdAt < prevEnd;
+    const inCurrent = o.revenueAt >= start && o.revenueAt < end;
+    const inPrevious = o.revenueAt >= prevStart && o.revenueAt < prevEnd;
     if (!inCurrent && !inPrevious) continue;
     for (const item of o.items) {
-      if (inCurrent) addToMap(current, item.service, item.total);
+      if (inCurrent) addToMap(item.service, o.id, item.total);
       else previous.set(item.service, (previous.get(item.service) ?? 0) + item.total);
     }
     // ค่าจัดส่งไม่ผูกกับหมวดสินค้าไหน — แยกเป็นแถวของตัวเอง ไม่งั้นยอดรวมของตาราง/กราฟวงกลมจะขาดหายไปจาก "รายได้รวม" ที่รวมค่าจัดส่งด้วย
     if (o.shippingFee > 0) {
-      if (inCurrent) addToMap(current, SHIPPING_CATEGORY_NAME, o.shippingFee);
+      if (inCurrent) addToMap(SHIPPING_CATEGORY_NAME, o.id, o.shippingFee);
       else previous.set(SHIPPING_CATEGORY_NAME, (previous.get(SHIPPING_CATEGORY_NAME) ?? 0) + o.shippingFee);
     }
   }
@@ -127,7 +131,7 @@ function buildCategories(list: OrderRow[], start: Date, end: Date, prevStart: Da
   return [...current.entries()]
     .map(([name, c]) => ({
       name,
-      orders: c.count,
+      orders: c.orderIds.size,
       revenue: c.revenue,
       percentage: totalRevenue > 0 ? Math.round((c.revenue / totalRevenue) * 1000) / 10 : 0,
       change: pctChange(c.revenue, previous.get(name) ?? 0),
@@ -154,26 +158,28 @@ function buildStatusBreakdown(list: OrderRow[], start: Date, end: Date): ReportS
 
 // bucket ยอดขายตามช่วงเวลาไว้ขึ้นกราฟ — granularity ต่างกันตาม period เพื่อไม่ให้กราฟรกเกินไปเมื่อช่วงยาว
 function buildSeries(period: ReportPeriod, start: Date, now: Date, completed: OrderRow[]): ReportSeriesPoint[] {
-  const inRange = completed.filter((o) => o.status === "completed" && o.createdAt >= start && o.createdAt < now);
+  const inRange = completed.filter((o) => o.status === "completed" && o.revenueAt >= start && o.revenueAt < now);
 
   if (period === "today") {
     const buckets = Array.from({ length: 24 }, (_, h) => ({ label: `${String(h).padStart(2, "0")}:00`, revenue: 0 }));
-    for (const o of inRange) buckets[bangkokHour(o.createdAt)].revenue += orderRevenue(o);
+    for (const o of inRange) buckets[bangkokHour(o.revenueAt)].revenue += orderRevenue(o);
     return buckets;
   }
 
   // ช่วงเป็นวัน (7days/30days/thisMonth) — แบ่งเป็นก้อนตามจำนวนวันที่กำหนด แล้ว sum ยอดของแต่ละก้อน
   const chunkDays = period === "7days" ? 1 : period === "30days" ? 6 : 7; // thisMonth = รายสัปดาห์
   if (period !== "thisYear") {
-    const totalDays = Math.max(1, Math.round((now.getTime() - start.getTime()) / DAY_MS));
+    // ปัดขึ้นเสมอ — วันนี้ (ที่ยังไม่ครบ 24 ชม.) ต้องมีก้อนของตัวเอง เดิมใช้ Math.round ทำให้ช่วงก่อนเที่ยงไม่มีก้อนของวันนี้เลย
+    const totalDays = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / DAY_MS));
     const points: ReportSeriesPoint[] = [];
     for (let offset = 0; offset < totalDays; offset += chunkDays) {
       const chunkStart = new Date(start.getTime() + offset * DAY_MS);
       const chunkEnd = new Date(Math.min(chunkStart.getTime() + chunkDays * DAY_MS, now.getTime() + 1));
       const revenue = inRange
-        .filter((o) => o.createdAt >= chunkStart && o.createdAt < chunkEnd)
+        .filter((o) => o.revenueAt >= chunkStart && o.revenueAt < chunkEnd)
         .reduce((s, o) => s + orderRevenue(o), 0);
-      const label = chunkDays === 1 ? formatThaiDate(chunkStart) : `${formatThaiDate(chunkStart)}-${formatThaiDate(new Date(chunkEnd.getTime() - DAY_MS))}`;
+      // วันสุดท้ายของก้อน = instant สุดท้ายก่อน chunkEnd (ก้อนสุดท้ายจบที่ "ตอนนี้" ต้องได้วันนี้ ไม่ใช่เมื่อวาน)
+      const label = chunkDays === 1 ? formatThaiDate(chunkStart) : `${formatThaiDate(chunkStart)}-${formatThaiDate(new Date(chunkEnd.getTime() - 1))}`;
       points.push({ label, revenue });
     }
     return points;
@@ -186,7 +192,7 @@ function buildSeries(period: ReportPeriod, start: Date, now: Date, completed: Or
     const monthStart = bangkokMidnightUtc(y, month, 1);
     const monthEnd = month === currentMonth ? now : bangkokMidnightUtc(y, month + 1, 1);
     const revenue = inRange
-      .filter((o) => o.createdAt >= monthStart && o.createdAt < monthEnd)
+      .filter((o) => o.revenueAt >= monthStart && o.revenueAt < monthEnd)
       .reduce((s, o) => s + orderRevenue(o), 0);
     points.push({ label: THAI_MONTHS_SHORT[month], revenue });
   }
@@ -223,6 +229,7 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
       orderId: orders.id,
       status: orders.status,
       createdAt: orders.createdAt,
+      finishedAt: orders.finishedAt,
       shippingFeeSnapshot: orders.shippingFeeSnapshot,
       legacyServiceType: orders.serviceType,
       legacyTotalPrice: orders.totalPrice,
@@ -231,7 +238,14 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
     })
     .from(orders)
     .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
-    .where(and(eq(orders.shopId, params.shopId), gte(orders.createdAt, widestStart), lt(orders.createdAt, now)));
+    // ดึงทั้งออเดอร์ที่สั่งในช่วงนี้ และออเดอร์เก่าที่ "เสร็จ" ในช่วงนี้ (รายได้นับตาม finishedAt)
+    .where(
+      and(
+        eq(orders.shopId, params.shopId),
+        or(gte(orders.createdAt, widestStart), gte(orders.finishedAt, widestStart)),
+        lt(orders.createdAt, now)
+      )
+    );
 
   // rows เป็นผลจาก leftJoin (1 แถวต่อ order_item) — รวมกลับเป็น 1 ออเดอร์ต่อ 1 entry ก่อนคำนวณต่อ
   // ออเดอร์เก่าก่อนมีระบบ snapshot (Schema v1) ไม่มีแถวใน order_items เลย (itemService เป็น null) — fallback ไปใช้ totalPrice/serviceType เดิมของออเดอร์แทน (totalPrice เดิมรวมค่าจัดส่งอยู่แล้ว จึงไม่ต้องบวก shippingFee ซ้ำ — ออเดอร์เก่ากลุ่มนี้ไม่มี shippingFeeSnapshot อยู่แล้ว)
@@ -240,13 +254,20 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
   for (const r of rows) {
     let entry = orderMap.get(r.orderId);
     if (!entry) {
-      entry = { id: r.orderId, status: r.status, createdAt: r.createdAt, shippingFee: Number(r.shippingFeeSnapshot ?? 0), items: [] };
+      entry = {
+        id: r.orderId,
+        status: r.status,
+        createdAt: r.createdAt,
+        revenueAt: r.finishedAt ?? r.createdAt,
+        shippingFee: Number(r.shippingFeeSnapshot ?? 0),
+        items: [],
+      };
       orderMap.set(r.orderId, entry);
     }
     if (r.itemService) {
       entry.items.push({ service: r.itemService, total: Number(r.itemTotal ?? 0) });
     } else if (entry.items.length === 0 && r.legacyTotalPrice != null) {
-      entry.items.push({ service: r.legacyServiceType ?? "อื่นๆ", total: r.legacyTotalPrice });
+      entry.items.push({ service: r.legacyServiceType ?? "อื่นๆ", total: Number(r.legacyTotalPrice) });
     }
   }
   const list = [...orderMap.values()];
@@ -260,8 +281,11 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
   const prevTodayRevenue = sumRevenue(list, yesterdayStart, yesterdayElapsedEnd);
   const totalOrders = countOrders(list, start, now, notCancelled);
   const prevTotalOrders = countOrders(list, prevStart, prevEnd, notCancelled);
-  const completedOrders = countOrders(list, start, now, isCompleted);
-  const prevCompletedOrders = countOrders(list, prevStart, prevEnd, isCompleted);
+  // ออเดอร์ที่สำเร็จนับตามวันที่งานเสร็จ (revenueAt) ให้ตรงกับรายได้และตารางหมวดสินค้า
+  const countCompleted = (from: Date, to: Date) =>
+    list.filter((o) => isCompleted(o.status) && o.revenueAt >= from && o.revenueAt < to).length;
+  const completedOrders = countCompleted(start, now);
+  const prevCompletedOrders = countCompleted(prevStart, prevEnd);
 
   const response: ShopReportResponse = {
     period,
@@ -347,7 +371,7 @@ export const reportsRoutes = new Elysia().get("/shops/:shopId/reports", async ({
         entry.subtotal += Number(r.itemTotal ?? 0);
       } else if (entry.itemsList.length === 0 && r.legacyTotalPrice != null) {
         entry.itemsList.push(r.legacyServiceType ?? "อื่นๆ");
-        entry.subtotal += r.legacyTotalPrice;
+        entry.subtotal += Number(r.legacyTotalPrice);
       }
     }
 

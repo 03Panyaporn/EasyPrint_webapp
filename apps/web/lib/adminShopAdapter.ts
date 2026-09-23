@@ -50,7 +50,8 @@ export function toMockShop(shop: AdminShop | AdminShopDetail): MockShop {
   return {
     id: shop.id,
     name: shop.name,
-    email: shop.ownerEmail ?? "-",
+    email: shop.email ?? shop.ownerEmail ?? "-",
+    shopEmail: shop.email ?? "",
     phone: shop.phone ?? "-",
     ownerFirstname: shop.ownerFirstname ?? "-",
     ownerLastname: shop.ownerLastname ?? "",

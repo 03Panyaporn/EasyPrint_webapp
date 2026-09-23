@@ -74,7 +74,7 @@ export default function FilePreviewLightbox({
                   <div className="flex items-end justify-between mt-auto">
                     <p className="text-[11px] font-medium text-slate-500 leading-none">ยอดที่ต้องชำระ</p>
                     <p className="text-[22px] font-bold text-blue-600 leading-none tracking-tight">
-                      ฿{order.price.toLocaleString()}.00
+                      ฿{order.price.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>

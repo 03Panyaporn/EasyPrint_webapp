@@ -16,6 +16,7 @@ import {
 } from "@/components/shop/services/types";
 import {
   getMyShop,
+  setShopDeliveryEnabled,
   getMainServices,
   createMainService,
   updateMainService,
@@ -343,6 +344,18 @@ function ServicesContent() {
     }
   };
 
+  const handleToggleAllDelivery = async () => {
+    const nextState = !isAllDeliveryEnabled;
+    setIsAllDeliveryEnabled(nextState);
+    try {
+      const { deliveryEnabled } = await setShopDeliveryEnabled(nextState);
+      setIsAllDeliveryEnabled(deliveryEnabled);
+    } catch (err) {
+      setIsAllDeliveryEnabled(!nextState);
+      showApiError(err, "เปลี่ยนสถานะการจัดส่งทั้งร้านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
   // ── 5. Modal Trigger Helpers ───────────────────
   const openAddServiceModal = (type: "main" | "addon") => {
     setEditingAddOnService(null);
@@ -434,7 +447,9 @@ function ServicesContent() {
         <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium">
           {shop.approvalStatus === "pending"
             ? "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน ยังตั้งบริการและราคาไม่ได้"
-            : `ร้านค้าถูกปฏิเสธ${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังตั้งบริการและราคาไม่ได้`}
+            : shop.approvalStatus === "suspended"
+              ? `ร้านค้าถูกระงับการใช้งาน${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังแก้ไขบริการและราคาไม่ได้ — ติดต่อแอดมินเพื่อสอบถามเพิ่มเติม`
+              : `ร้านค้าถูกปฏิเสธ${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังตั้งบริการและราคาไม่ได้`}
         </div>
       )}
 
@@ -473,7 +488,7 @@ function ServicesContent() {
         <DeliverySettingsTable
           deliveryOptions={deliveryOptions}
           isAllDeliveryEnabled={isAllDeliveryEnabled}
-          onToggleAllDelivery={() => setIsAllDeliveryEnabled(!isAllDeliveryEnabled)}
+          onToggleAllDelivery={handleToggleAllDelivery}
           onAddClick={openAddDeliveryModal}
           onEditClick={openEditDeliveryModal}
           onDeleteClick={handleDeleteDelivery}

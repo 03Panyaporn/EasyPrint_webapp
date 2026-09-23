@@ -13,11 +13,10 @@ const ALL_FILE_TYPES: { value: AllowedFileType; label: string }[] = [
   { value: "pdf", label: "PDF" },
   { value: "jpg", label: "JPG" },
   { value: "png", label: "PNG" },
-  { value: "ai", label: "AI" },
-  { value: "psd", label: "PSD" },
+  // ไม่มี AI/PSD — ระบบอัปโหลดรับแค่ PDF/รูปภาพ (ดู UPLOADABLE_FILE_TYPES ใน @easyprint/shared)
 ];
 
-const EXTRA_FILE_TYPES: AllowedFileType[] = ["pdf", "jpg", "png", "ai", "psd"];
+const EXTRA_FILE_TYPES: AllowedFileType[] = ["pdf", "jpg", "png"];
 
 interface Step4FileUploadProps {
   data: Step4Data;

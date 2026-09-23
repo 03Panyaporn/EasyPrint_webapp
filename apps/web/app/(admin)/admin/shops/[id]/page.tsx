@@ -186,15 +186,17 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
             </button>
             <button
               onClick={() => setModalType("approve")}
+              // อนุมัติได้จาก: รอตรวจสอบ / ไม่อนุมัติ (พิจารณาใหม่) / ระงับการใช้งาน (คืนสถานะ) — ตรงกับ ALLOWED_SHOP_TRANSITIONS ใน admin.ts
               disabled={status === "อนุมัติแล้ว"}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition-colors shadow-sm shadow-green-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <CheckCircle size={15} />
-              อนุมัติร้านค้า
+              {status === "ระงับการใช้งาน" ? "คืนสถานะร้านค้า" : "อนุมัติร้านค้า"}
             </button>
             <button
               onClick={() => setModalType("reject")}
-              disabled={status === "ไม่อนุมัติ"}
+              // "ไม่อนุมัติ" ใช้กับใบสมัครที่รอตรวจสอบเท่านั้น — ร้านที่อนุมัติแล้ว/ถูกระงับ ต้องใช้การระงับแทน (backend ตอบ 409)
+              disabled={status !== "รอตรวจสอบ"}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition-colors shadow-sm shadow-red-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <XCircle size={15} />
@@ -276,8 +278,9 @@ export default function ShopDetailPage({ params }: { params: { id: string } }) {
 
         {/* Right: rejection info (if rejected) */}
         <div className="space-y-4">
-          {status === "ไม่อนุมัติ" && shop.rejectedReason && (
-            <InfoCard title="เหตุผลที่ไม่อนุมัติ" accent="red">
+          {(status === "ไม่อนุมัติ" || status === "ระงับการใช้งาน") && shop.rejectedReason && (
+            // เหตุผลการระงับเก็บในคอลัมน์ rejectedReason เดียวกัน (admin.ts suspend)
+            <InfoCard title={status === "ระงับการใช้งาน" ? "เหตุผลที่ระงับการใช้งาน" : "เหตุผลที่ไม่อนุมัติ"} accent="red">
               <p className="text-sm text-red-700">{shop.rejectedReason}</p>
             </InfoCard>
           )}

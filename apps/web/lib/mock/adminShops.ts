@@ -15,7 +15,8 @@ export interface MockDocument {
 export interface MockShop {
   id: string;
   name: string;
-  email: string;
+  email: string; // อีเมลที่แสดงผล (อีเมลร้าน ถ้าไม่มีใช้อีเมลเจ้าของแทน)
+  shopEmail?: string; // ค่าจริงของ shops.email ("" = ยังไม่ได้ตั้ง) — ใช้เติมฟอร์มแก้ไขเท่านั้น
   phone: string;
   ownerFirstname: string;
   ownerLastname: string;

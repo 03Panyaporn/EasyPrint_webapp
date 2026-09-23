@@ -33,9 +33,7 @@ export function toOrder(api: ApiOrder): Order {
     ? firstItem.addOnsSnapshot.map((a) => a.name)
     : (api.selectedAddOns ?? []);
 
-  // รองรับทั้งราคาเดิม (สตางค์ > 10,000 หรือ order เก่า) และราคาใหม่ (บาท)
-  // ถ้า total_price > 1000 และเป็น integer เก่า (เช่น 5000 = 50 บาท) ให้หาร 100
-  // ถ้าเป็น numeric บาท (เช่น 50.00) ให้ใช้ค่านั้นตรงๆ
+  // total_price เก็บเป็นบาท (numeric) เสมอ — ไม่ต้องแปลงหน่วย
   const finalPrice = typeof api.totalPrice === "number" ? api.totalPrice : Number(api.totalPrice ?? 0);
 
   return {
@@ -62,9 +60,22 @@ export function toOrder(api: ApiOrder): Order {
     rawSlipUrl: api.slipSignedUrl || null,
     status: api.status,
     createdAt: api.createdAt,
+    finishedAt: api.finishedAt ?? null,
     createdAtLabel: formatCreatedAtLabel(api.createdAt),
     note: api.note,
     cancelReason: api.cancelReason,
     cancelNote: api.cancelNote,
+  };
+}
+
+// อัปเดตเฉพาะฟิลด์ที่เปลี่ยนตามสถานะจาก response ของ PATCH /orders/:id/status ลงออเดอร์ที่มีอยู่แล้วใน state
+// (response ไม่มี items/signed URL แนบมา ถ้าแทนทั้งก้อนด้วย toOrder() รายการสินค้า/ไฟล์ในตารางจะหายไป)
+export function mergeStatusFields(existing: Order, updated: ApiOrder): Order {
+  return {
+    ...existing,
+    status: updated.status,
+    finishedAt: updated.finishedAt ?? null,
+    cancelReason: updated.cancelReason,
+    cancelNote: updated.cancelNote,
   };
 }

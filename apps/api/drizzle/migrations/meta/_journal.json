@@ -134,6 +134,34 @@
       "when": 1788675600000,
       "tag": "0018_add_message_is_file_attachment",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790150400000,
+      "tag": "0019_backfill_option_value_is_duplex",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790154000000,
+      "tag": "0020_order_total_price_numeric",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790157600000,
+      "tag": "0021_users_email_case_insensitive",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790161200000,
+      "tag": "0022_announcements_favorite_shops",
+      "breakpoints": true
     }
   ]
 }

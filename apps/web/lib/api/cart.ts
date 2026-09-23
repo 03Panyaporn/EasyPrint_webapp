@@ -18,7 +18,7 @@ export type CartItemOptionSelection = {
 };
 
 export type CartItemUnitBreakdown =
-  | { mode: "per_page"; pageCount: number }
+  | { mode: "per_page"; pageCount: number; sheetCount: number } // pageCount = หน้าจริงของไฟล์, sheetCount = แผ่นที่คิดค่ากระดาษ
   | { mode: "per_sqm"; widthCm: number; heightCm: number }
   | null;
 
@@ -96,7 +96,7 @@ export function clearShopCart(shopId: string) {
 
 // แปลงตะกร้าของร้านนี้เป็นออเดอร์จริง — deliveryAddress บังคับกรอกเฉพาะตอนตะกร้าเลือกวิธีจัดส่งไว้แล้วเท่านั้น (ดู deliveryOption ของ cart)
 export function checkoutCart(shopId: string, input: CheckoutCartInput) {
-  return apiFetch<{ order: ApiOrder }>(`/shops/${shopId}/cart/checkout`, {
+  return apiFetch<{ order: Pick<ApiOrder, "id" | "code" | "ref" | "totalPrice"> }>(`/shops/${shopId}/cart/checkout`, {
     method: "POST",
     body: JSON.stringify(input),
   });

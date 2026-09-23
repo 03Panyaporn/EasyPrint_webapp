@@ -31,3 +31,9 @@ export function isUniqueViolation(err: unknown): boolean {
 export function isForeignKeyViolation(err: unknown): boolean {
   return pgErrorCode(err) === POSTGRES_FOREIGN_KEY_VIOLATION;
 }
+
+// 22P02 = invalid_text_representation — เกิดเมื่อส่งค่าที่ไม่ใช่ UUID เข้า query บนคอลัมน์ uuid (เช่น /shops/abc/reviews)
+// route ส่วนใหญ่ไม่ได้เช็ค isValidUUID เอง — index.ts ใช้ตัวนี้แปลงเป็น 404 แทน raw 500 ทั้งระบบ
+export function isInvalidTextRepresentation(err: unknown): boolean {
+  return pgErrorCode(err) === "22P02";
+}

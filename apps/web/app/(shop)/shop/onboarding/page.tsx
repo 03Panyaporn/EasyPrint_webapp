@@ -69,15 +69,19 @@ export default function ShopOnboardingPage() {
     );
   }
 
-  // ร้านที่ถูกปฏิเสธ — ไม่มี checklist ให้ทำต่อ มีแค่เหตุผล + ทางติดต่อแอดมิน
-  if (shop.approvalStatus === "rejected") {
+  // ร้านที่ถูกปฏิเสธ/ถูกระงับ — ไม่มี checklist ให้ทำต่อ มีแค่เหตุผล + ทางติดต่อแอดมิน
+  // (backend บล็อกการแก้ข้อมูลร้าน/บริการของทั้งสองสถานะนี้อยู่แล้ว)
+  if (shop.approvalStatus === "rejected" || shop.approvalStatus === "suspended") {
+    const isSuspended = shop.approvalStatus === "suspended";
     return (
       <div className="max-w-xl mx-auto">
         <div className="bg-white rounded-2xl border border-red-100 p-8 text-center space-y-3">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-red-50 flex items-center justify-center">
             <AlertTriangle className="text-red-500" size={26} />
           </div>
-          <h1 className="text-lg font-bold text-gray-900">ใบสมัครร้านค้าไม่ผ่านการอนุมัติ</h1>
+          <h1 className="text-lg font-bold text-gray-900">
+            {isSuspended ? "ร้านค้าถูกระงับการใช้งาน" : "ใบสมัครร้านค้าไม่ผ่านการอนุมัติ"}
+          </h1>
           {shop.rejectedReason && (
             <p className="text-sm text-gray-500">เหตุผล: {shop.rejectedReason}</p>
           )}
@@ -121,7 +125,9 @@ export default function ShopOnboardingPage() {
   ];
 
   const allDone = items.every((i) => i.done);
-  const isPending = shop.approvalStatus !== "approved";
+  // ร้านที่รออนุมัติแก้ข้อมูลร้าน/เพิ่มบริการไม่ได้ (PUT /shops/me และ requireShopOwner ตอบ 403) เพราะแอดมินกำลังตรวจข้อมูล
+  // ที่ส่งมาตอนสมัครอยู่ — ห้ามพาไปหน้าตั้งค่าที่กดบันทึกแล้วจะ error แสดงสถานะ checklist ให้ดูอย่างเดียว
+  const isPending = shop.approvalStatus === "pending";
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -129,8 +135,8 @@ export default function ShopOnboardingPage() {
         <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
           <Clock className="text-amber-500 shrink-0 mt-0.5" size={18} />
           <p className="text-xs text-amber-700">
-            ร้านยังรอแอดมินตรวจสอบและอนุมัติอยู่ — ระหว่างนี้เตรียมข้อมูลด้านล่างให้ครบไว้ก่อนได้เลย
-            พอได้รับอนุมัติแล้วร้านจะขายได้ทันที ไม่ต้องมาตั้งค่าใหม่
+            ร้านยังรอแอดมินตรวจสอบข้อมูลที่ส่งมาตอนสมัครอยู่ — ระหว่างนี้ยังแก้ไขข้อมูลร้านและเพิ่มบริการไม่ได้
+            เมื่อได้รับอนุมัติแล้ว กลับมาทำรายการที่ยังไม่ครบด้านล่างได้ทันที
           </p>
         </div>
       )}
@@ -168,7 +174,10 @@ export default function ShopOnboardingPage() {
               <span className={`flex-1 text-sm ${item.done ? "text-emerald-700 line-through" : "text-gray-700 font-medium"}`}>
                 {item.label}
               </span>
-              {!item.done && (
+              {!item.done && isPending && (
+                <span className="shrink-0 text-xs font-medium text-gray-400 whitespace-nowrap">ทำได้หลังอนุมัติ</span>
+              )}
+              {!item.done && !isPending && (
                 <Link
                   href={item.href}
                   className="shrink-0 flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700 whitespace-nowrap"

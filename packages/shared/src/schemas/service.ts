@@ -24,6 +24,9 @@ export const addOnBindingSchema = z.object({
 export const pricingModelSchema = z.enum(["per_page", "per_piece", "per_sqm", "fixed"]);
 
 export const allowedFileTypeSchema = z.enum(["pdf", "jpg", "png", "ai", "psd"]);
+// ชนิดไฟล์ที่ระบบรับอัปโหลดได้จริง (upload type "order-file" ใน apps/api/src/storage.ts รับแค่ PDF/รูปภาพ)
+// ai/psd ยังอยู่ใน enum เพื่อให้ข้อมูลบริการเก่าที่เคยเลือกไว้ยัง validate ผ่าน แต่ห้ามให้ร้านเลือกเพิ่ม — ลูกค้าอัปโหลดไม่ได้อยู่ดี
+export const UPLOADABLE_FILE_TYPES = ["pdf", "jpg", "png"] as const;
 
 // ตัวเลือกบริการ (service option) ที่ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ"
 export const serviceOptionTypeSchema = z.enum(["dropdown", "radio", "checkbox", "number", "text"]);
@@ -147,7 +150,8 @@ const mainServiceObjectSchema = z.object({
   colorTiers: z.array(colorTierSchema).default([]),
   quantityTiers: z.array(quantityTierSchema).default([]), // ใช้เมื่อ pricingModel = per_piece เท่านั้น
   pageCountingMode: pageCountingModeSchema.default("by_file_page"), // ใช้เมื่อ pricingModel = per_page เท่านั้น
-  minArea: z.number().positive("พื้นที่ขั้นต่ำต้องมากกว่า 0").optional(), // ใช้เมื่อ pricingModel = per_sqm เท่านั้น
+  // ใช้เมื่อ pricingModel = per_sqm เท่านั้น — null = "ไม่มีขั้นต่ำ" (ใช้ล้างค่าเดิมตอนแก้ไข), ไม่ส่ง = ไม่แตะค่าเดิม
+  minArea: z.number().positive("พื้นที่ขั้นต่ำต้องมากกว่า 0").nullable().optional(),
   areaRoundingIncrement: z.number().positive("หน่วยปัดขึ้นต้องมากกว่า 0").default(0.1), // ใช้เมื่อ pricingModel = per_sqm เท่านั้น
   unit: serviceUnitSchema,
   estimatedTime: estimatedTimeSchema.optional(),

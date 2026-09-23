@@ -1,4 +1,9 @@
 import { z } from "zod";
+import { addressInputSchema } from "./address";
+
+// อีเมลเทียบแบบไม่สนตัวพิมพ์เล็ก/ใหญ่เสมอ — ตัดช่องว่างและแปลงเป็นตัวพิมพ์เล็กก่อนตรวจรูปแบบ
+// (กัน "User@x.com" login ไม่ได้ทั้งที่สมัครไว้เป็น "user@x.com" และกันสมัครซ้ำที่ต่างกันแค่ตัวพิมพ์)
+const emailSchema = z.string().trim().toLowerCase().email("อีเมลไม่ถูกต้อง");
 
 // สคีมานี้ใช้ทั้งฝั่ง apps/web (ตอน validate ฟอร์ม) และ apps/api (ตอน validate ก่อนบันทึก DB)
 // แก้ที่นี่ที่เดียว ทั้งสองฝั่งจะตรวจสอบข้อมูลตรงกันเสมอ
@@ -11,18 +16,27 @@ export const phoneSchema = z
   .pipe(z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"));
 
 export const registerSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
   password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
   firstname: z.string().min(1, "กรุณากรอกชื่อ"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุล"),
   phone: phoneSchema,
-  address: z.string().max(500).optional(),
+  // ที่อยู่จัดส่งแรก (ไม่บังคับ) — ถ้ากรอกมา จะถูกบันทึกเป็น "ที่อยู่หลัก" ในตาราง addresses ทันที (ตัวเดียวกับที่หน้าเช็คเอาต์ใช้)
+  // ใช้กติกาเดียวกับฟอร์มที่อยู่ในหน้าโปรไฟล์ — ชื่อผู้รับ/เบอร์ ไม่ส่งมาได้ ระบบจะใช้ชื่อ-นามสกุลและเบอร์ของบัญชีแทน
+  // (เดิมเป็นข้อความอิสระช่องเดียวเก็บลง users.address ที่ไม่มีหน้าไหนใช้ ร้านไม่เคยเห็นที่อยู่นี้)
+  defaultAddress: addressInputSchema
+    .omit({ label: true, isDefault: true })
+    .extend({
+      receiverName: addressInputSchema.shape.receiverName.optional(),
+      phone: addressInputSchema.shape.phone.optional(),
+    })
+    .optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
   password: z.string().min(1, "กรุณากรอกรหัสผ่าน"),
   rememberMe: z.boolean().default(false),
 });
@@ -30,7 +44,7 @@ export const loginSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -51,7 +65,7 @@ export const changePasswordSchema = z.object({
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export const changeEmailSchema = z.object({
-  newEmail: z.string().email("อีเมลไม่ถูกต้อง"),
+  newEmail: emailSchema,
   currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
 });
 
@@ -100,7 +114,7 @@ export const shopDeliveryMethodSchema = z.enum(["รับที่หน้า�
 export const SHOP_DELIVERY_METHODS = shopDeliveryMethodSchema.options;
 
 export const registerShopSchema = z.object({
-  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  email: emailSchema,
   password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
   firstname: z.string().min(1, "กรุณากรอกชื่อเจ้าของร้าน"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุลเจ้าของร้าน"),
@@ -123,6 +137,13 @@ export const registerShopSchema = z.object({
   shopPhotoUrl: z.string().url("กรุณาอัปโหลดรูปภาพร้านค้า"),
   socialMedia: z.string().optional(),
   openingHours: z.any().optional(),
+  // ข้อมูลรับชำระเงิน (ไม่บังคับ) — ต้องเก็บตั้งแต่ตอนสมัคร เพราะร้านที่รออนุมัติแก้ข้อมูลร้านไม่ได้จนกว่าแอดมินจะอนุมัติ
+  // (PUT /shops/me บล็อกร้านที่ไม่ใช่ approved) ชื่อ field ตรงกับ updateShopProfileSchema และคอลัมน์ใน shops
+  bankName: z.string().trim().max(100).optional(),
+  bankAccountNumber: z.string().trim().max(50).optional(),
+  bankAccountName: z.string().trim().max(150).optional(),
+  promptpayNumber: z.string().trim().max(20).optional(),
+  promptpayQrUrl: z.string().url("ลิงก์ QR Code ไม่ถูกต้อง").optional(), // public URL จาก POST /uploads (type "shop-photo")
 });
 
 export type RegisterShopInput = z.infer<typeof registerShopSchema>;
