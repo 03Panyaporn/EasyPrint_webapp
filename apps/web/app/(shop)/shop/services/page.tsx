@@ -447,7 +447,9 @@ function ServicesContent() {
         <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium">
           {shop.approvalStatus === "pending"
             ? "ร้านค้ายังไม่ได้รับการอนุมัติจากแอดมิน ยังตั้งบริการและราคาไม่ได้"
-            : `ร้านค้าถูกปฏิเสธ${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังตั้งบริการและราคาไม่ได้`}
+            : shop.approvalStatus === "suspended"
+              ? `ร้านค้าถูกระงับการใช้งาน${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังแก้ไขบริการและราคาไม่ได้ — ติดต่อแอดมินเพื่อสอบถามเพิ่มเติม`
+              : `ร้านค้าถูกปฏิเสธ${shop.rejectedReason ? `: ${shop.rejectedReason}` : ""} ยังตั้งบริการและราคาไม่ได้`}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import type {
+  ShopApprovalStatus,
   CreateMainServiceInput,
   UpdateMainServiceInput,
   CreateAddOnServiceInput,
@@ -12,7 +13,7 @@ import { apiFetch } from "./client";
 export type MyShop = {
   id: string;
   name: string;
-  approvalStatus: "pending" | "approved" | "rejected";
+  approvalStatus: ShopApprovalStatus;
   rejectedReason: string | null;
   deliveryEnabled: boolean;
 };

@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { NotificationSettings } from "@easyprint/shared";
+import type { NotificationSettings, ShopApprovalStatus } from "@easyprint/shared";
 
 export type ShopOpeningHours = {
   day: string;
@@ -45,7 +45,7 @@ export type MyShopProfile = {
   id: string;
   name: string;
   description: string | null;
-  approvalStatus: string;
+  approvalStatus: ShopApprovalStatus;
   rejectedReason: string | null;
   deliveryEnabled: boolean;
   serviceTypes: string[] | null;

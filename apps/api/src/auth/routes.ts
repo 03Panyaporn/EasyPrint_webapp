@@ -185,6 +185,11 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
             shopPhotoUrl: parsed.data.shopPhotoUrl,
             socialMedia: parsed.data.socialMedia,
             openingHours: parsed.data.openingHours,
+            bankName: parsed.data.bankName || null,
+            bankAccountNumber: parsed.data.bankAccountNumber || null,
+            bankAccountName: parsed.data.bankAccountName || null,
+            promptpayNumber: parsed.data.promptpayNumber || null,
+            promptpayQrUrl: parsed.data.promptpayQrUrl || null,
           })
           .returning();
 

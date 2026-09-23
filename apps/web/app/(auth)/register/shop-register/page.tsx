@@ -25,7 +25,6 @@ import {
   Building2,
   DollarSign,
 } from "lucide-react";
-import { on } from "events";
 import { SHOP_SERVICE_TYPES, SHOP_DELIVERY_METHODS } from "@easyprint/shared";
 import { registerShop } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
@@ -157,9 +156,10 @@ export default function ShopRegisterPage() {
     setIsSubmitting(true);
     try {
       setSubmitStage("uploading");
-      const [idCardResult, shopPhotoResult] = await Promise.all([
+      const [idCardResult, shopPhotoResult, promptPayQrResult] = await Promise.all([
         uploadFile(idCardFile, "id-card"),
         uploadFile(shopPhotoFile, "shop-photo"),
+        promptPayQrFile ? uploadFile(promptPayQrFile, "shop-photo") : Promise.resolve(null),
       ]);
 
       setSubmitStage("registering");
@@ -184,6 +184,12 @@ export default function ShopRegisterPage() {
         openingHours: schedule,
         idCardUrl: idCardResult.path,
         shopPhotoUrl: shopPhotoResult.url!,
+        // ข้อมูลรับชำระเงิน — ต้องส่งตั้งแต่ตอนสมัคร เพราะระหว่างรออนุมัติร้านแก้ข้อมูลร้านไม่ได้
+        bankName: form.bankName || undefined,
+        bankAccountNumber: form.bankAccountNumber || undefined,
+        bankAccountName: form.bankAccountName || undefined,
+        promptpayNumber: form.promptpayNumber || undefined,
+        promptpayQrUrl: promptPayQrResult?.url ?? undefined,
       });
       setSubmitted(true);
     } catch (err) {
@@ -672,6 +678,16 @@ export default function ShopRegisterPage() {
                   className={inputCls}
                 />
               </Field>
+              <Field label="หมายเลขพร้อมเพย์" icon={<Phone className="w-4 h-4" />} optional>
+                <input
+                  type="text"
+                  name="promptpayNumber"
+                  value={form.promptpayNumber}
+                  onChange={handleChange}
+                  placeholder="เบอร์โทรหรือเลขบัตรประชาชน"
+                  className={inputCls}
+                />
+              </Field>
               <Field
                 label="QR พร้อมเพย์ (PromptPay)"
                 icon={<Upload className="w-4 h-4" />}
@@ -685,7 +701,7 @@ export default function ShopRegisterPage() {
                 />
 
                 <p className="text-xs text-slate-400 mt-1">
-                  อัปโหลดรูป QR พร้อมเพย์ของธนาคาร (สามารถเพิ่มภายหลังได้)
+                  อัปโหลดรูป QR พร้อมเพย์ของธนาคาร (แก้ไขภายหลังได้หลังร้านได้รับการอนุมัติ)
                 </p>
 
                 {promptPayQrFile && (

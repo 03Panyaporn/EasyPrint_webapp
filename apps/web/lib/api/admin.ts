@@ -1,4 +1,5 @@
 import type {
+  ShopApprovalStatus,
   RejectShopInput,
   SuspendShopInput,
   AdminDashboardResponse,
@@ -47,7 +48,7 @@ export type AdminShop = {
   shopPhotoUrl: string | null;
   socialMedia: string | null;
   openingHours: AdminOpeningHoursDay[] | null;
-  approvalStatus: "pending" | "approved" | "rejected" | "suspended";
+  approvalStatus: ShopApprovalStatus;
   rejectedReason: string | null;
   createdAt: string;
   ownerEmail: string | null;

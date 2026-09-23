@@ -127,6 +127,13 @@ export const registerShopSchema = z.object({
   shopPhotoUrl: z.string().url("กรุณาอัปโหลดรูปภาพร้านค้า"),
   socialMedia: z.string().optional(),
   openingHours: z.any().optional(),
+  // ข้อมูลรับชำระเงิน (ไม่บังคับ) — ต้องเก็บตั้งแต่ตอนสมัคร เพราะร้านที่รออนุมัติแก้ข้อมูลร้านไม่ได้จนกว่าแอดมินจะอนุมัติ
+  // (PUT /shops/me บล็อกร้านที่ไม่ใช่ approved) ชื่อ field ตรงกับ updateShopProfileSchema และคอลัมน์ใน shops
+  bankName: z.string().trim().max(100).optional(),
+  bankAccountNumber: z.string().trim().max(50).optional(),
+  bankAccountName: z.string().trim().max(150).optional(),
+  promptpayNumber: z.string().trim().max(20).optional(),
+  promptpayQrUrl: z.string().url("ลิงก์ QR Code ไม่ถูกต้อง").optional(), // public URL จาก POST /uploads (type "shop-photo")
 });
 
 export type RegisterShopInput = z.infer<typeof registerShopSchema>;

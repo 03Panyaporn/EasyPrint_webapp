@@ -6,6 +6,11 @@ const phoneSchema = z
   .transform((val) => val.replace(/[\s-]/g, ""))
   .pipe(z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").max(10, "เบอร์โทรศัพท์ไม่ถูกต้อง"));
 
+// สถานะอนุมัติร้าน — ต้องตรงกับ shopApprovalStatusEnum ใน apps/api/drizzle/schema.ts
+// suspended = ร้านที่เคยอนุมัติแล้วถูกแอดมินระงับทีหลัง (คนละความหมายกับ rejected = ใบสมัครไม่ผ่าน)
+export const shopApprovalStatusSchema = z.enum(["pending", "approved", "rejected", "suspended"]);
+export type ShopApprovalStatus = z.infer<typeof shopApprovalStatusSchema>;
+
 // ค่าเริ่มต้นของการตั้งค่าแจ้งเตือนร้าน = เปิดทุกหมวด — ตรงกับพฤติกรรมจริงของ backend ที่ส่งทุกอย่างเมื่อร้านยังไม่เคยตั้งค่า
 // (shops.notification_settings = null) ใช้ค่าชุดนี้ที่เดียวทั้ง backend (utils/notification.ts), หน้าตั้งค่า และ toast listener
 // เดิมหน้าเว็บตั้ง default เป็น false เกือบทั้งหมด ทำให้สวิตช์แสดงว่า "ปิด" ทั้งที่จริงได้รับอยู่ และพอกดบันทึกครั้งแรกก็ปิดจริงไปเงียบๆ
