@@ -15,7 +15,7 @@ const ROLE_HOME: Record<PublicUser["role"], string> = {
  * Client-side auth guard สำหรับ layout ที่ต้องจำกัดเฉพาะ role เดียว (เช่น admin, shop_owner)
  * — เดิม (admin)/layout.tsx และ (shop)/layout.tsx ไม่มีการเช็คสิทธิ์เลยฝั่ง frontend
  * พึ่งพาแค่ API 401/403 รายจุด ทำให้ role อื่น (หรือคน logout ไปแล้ว) ยังเห็นหน้า UI shell เต็มรูปแบบได้
- * (ยืนยันบั๊กจริงจาก QA Phase 01 — ดู BUG-01-02 ใน QA_BUG_REPORT.md)
+ * (ยืนยันบั๊กจริงจาก QA Phase 01 — ดู BUG-01-02 ใน docs/qa/QA_BUG_REPORT.md)
  *
  * ใช้ตรวจสอบทันทีตอน mount แล้ว redirect ก่อน render children:
  * - ไม่ได้ login เลย (401) → ไป /login
