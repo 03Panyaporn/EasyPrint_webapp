@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import StepIndicator from "./StepIndicator";
+import TemplatePicker from "./TemplatePicker";
 import Step1BasicInfo, { type Step1Data } from "./Step1BasicInfo";
-import Step2Pricing, { type Step2Data } from "./Step2Pricing";
+import Step2Pricing, { type Step2Data, type PricingMode } from "./Step2Pricing";
 import Step3Options, { type Step3Data } from "./Step3Options";
 import Step4FileUpload, { type Step4Data } from "./Step4FileUpload";
 import Step5AddOns, { type Step5Data } from "./Step5AddOns";
@@ -27,7 +28,10 @@ export interface WizardFormData {
 }
 
 // Map wizard pricingMode → backend pricingModel
-function toPricingModel(mode: Step2Data["pricingMode"]): PricingModel {
+// คืนค่า null ได้เฉพาะตอนร้านค้ายังไม่เลือกอะไรเลยในฟอร์มเปล่าเริ่มต้น — ไปไม่ถึง Step 3/บันทึกจริงได้
+// เพราะ Step2Pricing บังคับเลือกก่อนกด "ถัดไป" เสมอแล้ว (ดู validate() ใน Step2Pricing.tsx)
+function toPricingModel(mode: Step2Data["pricingMode"]): PricingModel | null {
+  if (!mode) return null;
   if (mode === "quantity_tier") return "per_piece";
   return mode;
 }
@@ -40,6 +44,10 @@ function isColorMode(pricingMode: Step2Data["pricingMode"]): boolean {
 
 function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
   const model = toPricingModel(form.step2.pricingMode);
+  if (!model) {
+    // ไปไม่ถึงจุดนี้ได้จริงถ้า Step2Pricing บังคับเลือกไว้ก่อนกด "ถัดไป" แล้ว — กันเหนียวไว้เผื่อ flow ผิดพลาด
+    throw new Error("กรุณาเลือกวิธีคิดราคาก่อนบันทึกบริการ");
+  }
   const colorMode = isColorMode(form.step2.pricingMode);
   const [baseColorTier, ...extraColorTiers] = form.step3.colorTiers;
 
@@ -85,7 +93,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
 const INITIAL_FORM: WizardFormData = {
   step1: { name: "", description: "", imageUrl: "", status: "active" },
   step2: {
-    pricingMode: "per_page",
+    pricingMode: null,
     basePrice: 1,
     minArea: "",
     areaRoundingIncrement: 0.1,
@@ -150,7 +158,9 @@ export default function ServiceBuilderWizard({
   onSuccess,
 }: ServiceBuilderWizardProps) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
+  // create: เริ่มที่ step 0 (เลือกประเภทบริการ — TemplatePicker) ก่อนเข้า step 1 เสมอ
+  // edit: ไม่มี step 0 (แก้บริการเดิม ไม่ต้องเลือก template ใหม่) เริ่มที่ step 1 ตามเดิม
+  const [currentStep, setCurrentStep] = useState(mode === "create" ? 0 : 1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [form, setForm] = useState<WizardFormData>(
     initialService ? formFromService(initialService) : INITIAL_FORM
@@ -158,6 +168,10 @@ export default function ServiceBuilderWizard({
   const [step3IsFirstRender, setStep3IsFirstRender] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  // ชื่อ template ที่เลือกไว้ใน TemplatePicker (step 0) — null = ยังไม่เลือก/เลือก "กำหนดเอง"/แก้บริการเดิม
+  // ใช้แสดง banner "ตั้งค่าเริ่มต้นจากเทมเพลตแล้ว" ใน Step2Pricing/Step3Options — เคลียร์ทิ้งเมื่อเปลี่ยนวิธีคิดราคา
+  // (ข้อมูลที่ prefill มาจาก template เดิมไม่ตรงกับโหมดใหม่อีกต่อไป)
+  const [templateLabel, setTemplateLabel] = useState<string | null>(null);
 
   const markCompleted = (step: number) => {
     setCompletedSteps((prev) => (prev.includes(step) ? prev : [...prev, step]));
@@ -171,12 +185,23 @@ export default function ServiceBuilderWizard({
 
   const next = () => goTo(currentStep + 1);
   const back = () => {
-    if (currentStep === 1) {
+    if (currentStep === 0) {
       router.push("/shop/services");
-    } else {
-      setCurrentStep((s) => s - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
+    if (currentStep === 1) {
+      // create: ย้อนกลับจาก step 1 ไปหน้าเลือกประเภทบริการ (step 0) แทนที่จะออกจาก wizard ไปเลย
+      // edit: ไม่มี step 0 ให้ย้อนกลับไป ออกจาก wizard ตามพฤติกรรมเดิม
+      if (mode === "create") {
+        setCurrentStep(0);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        router.push("/shop/services");
+      }
+      return;
+    }
+    setCurrentStep((s) => s - 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // เลือก Service Template ใน Step1 — seed ค่าเริ่มต้นให้ Step2/Step3 เท่านั้น ไม่ล็อก logic ใดๆ ร้านแก้ไขต่อได้ทั้งหมด
@@ -196,8 +221,11 @@ export default function ServiceBuilderWizard({
         options: tpl.options.map((o) => ({ ...o, values: o.values.map((v) => ({ ...v })) })),
       },
     });
-    // ปิด auto-populate เริ่มต้นของ Step3 เพราะ template seed ให้แล้ว (รวมถึง "กำหนดเอง" ที่ตั้งใจให้ว่างเปล่า)
-    setStep3IsFirstRender(false);
+    // ไม่ต้อง setStep3IsFirstRender(false) ที่นี่แล้ว (เดิมมีไว้กัน auto-populate ทับข้อมูล template)
+    // เพราะเงื่อนไข auto-populate ใน Step3Options (data.options.length === 0) กันตัวเองอยู่แล้วถ้ามาจาก template
+    // และปล่อยให้ isInitialRender ยังเป็น true ต่อไปจนกว่า Step3Options เองจะเรียก onInitialRenderDone()
+    // ตอน mount ครั้งแรกจริงๆ — จำเป็นเพื่อให้ logic "พับทุกหัวข้อไว้ก่อนตอนเพิ่งเข้า Step3" (Phase 2 ของแผน
+    // Option B) ทำงานได้ ไม่งั้น Step3Options เห็น isInitialRender=false ไปแล้วตั้งแต่ยังไม่ทัน mount เลย
   };
 
   const handleSave = async () => {
@@ -240,11 +268,14 @@ export default function ServiceBuilderWizard({
               ออกโดยไม่บันทึก ✕
             </button>
           </div>
-          <StepIndicator
-            currentStep={currentStep}
-            completedSteps={completedSteps}
-            onStepClick={(s) => s <= Math.max(...completedSteps, 1) && goTo(s)}
-          />
+          {/* ซ่อน indicator ตอนอยู่หน้าเลือกประเภทบริการ (step 0) — เป็นหน้าเกริ่นก่อนเข้า 6 ขั้นตอนจริง ไม่นับรวมใน progress */}
+          {currentStep > 0 && (
+            <StepIndicator
+              currentStep={currentStep}
+              completedSteps={completedSteps}
+              onStepClick={(s) => s <= Math.max(...completedSteps, 1) && goTo(s)}
+            />
+          )}
         </div>
       </div>
 
@@ -257,29 +288,52 @@ export default function ServiceBuilderWizard({
             </div>
           )}
 
+          {currentStep === 0 && mode === "create" && (
+            <TemplatePicker
+              onSelect={(tpl) => {
+                handleSelectTemplate(tpl);
+                // "กำหนดเอง" (BLANK_TEMPLATE) ไม่ได้ prefill อะไรจริง — ไม่ต้องโชว์ banner "ตั้งค่าจากเทมเพลตแล้ว"
+                setTemplateLabel(tpl.id === "blank" ? null : tpl.label);
+                goTo(1);
+              }}
+              onBack={back}
+            />
+          )}
+
           {currentStep === 1 && (
             <Step1BasicInfo
               data={form.step1}
               onChange={(d) => setForm({ ...form, step1: d })}
               onNext={next}
               onBack={back}
-              mode={mode}
-              onSelectTemplate={handleSelectTemplate}
             />
           )}
 
           {currentStep === 2 && (
             <Step2Pricing
               data={form.step2}
+              fromTemplate={templateLabel}
+              hasDataToReset={
+                form.step3.options.length > 0 ||
+                form.step3.colorTiers.length > 0 ||
+                form.step2.quantityTiers.length > 0
+              }
               onChange={(d) => {
                 // Reset step3 options when pricing mode changes
                 const modeChanged = d.pricingMode !== form.step2.pricingMode;
                 setForm({
                   ...form,
-                  step2: d,
+                  // เปลี่ยนวิธีคิดราคาแล้วต้องล้าง quantityTiers เดิมด้วยเสมอ ไม่งั้นถ้าร้านเคยตั้งไว้ตอนเลือก
+                  // "per_piece"/"ตามจำนวน" แล้วเปลี่ยนไปโหมดอื่น ค่าที่เหลือค้างจะโดน backend ปฏิเสธตอนบันทึกจริง
+                  // (refineQuantityTiersOnlyForPerPiece ใน packages/shared/schemas/service.ts อนุญาตแค่ per_piece เท่านั้น)
+                  step2: modeChanged ? { ...d, quantityTiers: [] } : d,
                   step3: modeChanged ? { colorTiers: [], options: [] } : form.step3,
                 });
-                if (modeChanged) setStep3IsFirstRender(true);
+                if (modeChanged) {
+                  setStep3IsFirstRender(true);
+                  // ข้อมูลจาก template เดิมไม่ตรงกับวิธีคิดราคาใหม่อีกต่อไป — เอา banner ออก
+                  setTemplateLabel(null);
+                }
               }}
               onNext={next}
               onBack={back}
@@ -289,9 +343,11 @@ export default function ServiceBuilderWizard({
           {currentStep === 3 && (
             <Step3Options
               data={form.step3}
-              pricingMode={form.step2.pricingMode}
-              pricingModel={pricingModel}
+              // การันตีไม่เป็น null แล้ว ณ จุดนี้เสมอ เพราะ Step2Pricing บังคับเลือกก่อนกด "ถัดไป" มาถึง Step 3 ได้
+              pricingMode={form.step2.pricingMode as PricingMode}
+              pricingModel={pricingModel as PricingModel}
               pageCountingMode={form.step2.pageCountingMode}
+              fromTemplate={templateLabel}
               onChange={(d) => setForm({ ...form, step3: d })}
               onNext={next}
               onBack={back}

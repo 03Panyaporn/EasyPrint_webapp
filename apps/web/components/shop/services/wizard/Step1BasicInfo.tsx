@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { ImageIcon, Upload, X, Check } from "lucide-react";
+import { ImageIcon, Upload, X } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
-import { SERVICE_TEMPLATES, BLANK_TEMPLATE, type ServiceTemplate } from "./serviceTemplates";
 import { Spinner } from "@/components/ui/Spinner";
 
 // สถานะบริการมีแค่ 2 แบบ — เปิดใช้งาน (ลูกค้าเห็น) กับ แบบร่าง (ซ่อนจากลูกค้า ร้านกลับมาแก้ไข/เปิดใช้งานทีหลังได้)
@@ -27,20 +26,12 @@ interface Step1BasicInfoProps {
   onChange: (data: Step1Data) => void;
   onNext: () => void;
   onBack: () => void;
-  mode: "create" | "edit";
-  onSelectTemplate: (template: ServiceTemplate) => void;
 }
 
-export default function Step1BasicInfo({ data, onChange, onNext, onBack, mode, onSelectTemplate }: Step1BasicInfoProps) {
+export default function Step1BasicInfo({ data, onChange, onNext, onBack }: Step1BasicInfoProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof Step1Data, string>>>({});
   const [uploading, setUploading] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleTemplateClick = (tpl: ServiceTemplate) => {
-    setSelectedTemplateId(tpl.id);
-    onSelectTemplate(tpl);
-  };
 
   const validate = () => {
     const errs: typeof errors = {};
@@ -71,42 +62,6 @@ export default function Step1BasicInfo({ data, onChange, onNext, onBack, mode, o
         <h2 className="text-xl font-bold text-gray-900">ข้อมูลพื้นฐาน</h2>
         <p className="text-sm text-gray-500 mt-1">กรอกข้อมูลเบื้องต้นของบริการที่จะสร้าง</p>
       </div>
-
-      {/* Service Template — เลือกประเภทสินค้าเพื่อ prefill ตัวเลือก/สี/ราคาเริ่มต้น (แค่ค่าเริ่มต้น แก้ไขได้ทั้งหมดในขั้นตอนถัดไป) */}
-      {mode === "create" && (
-        <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-gray-700">เลือกประเภทบริการ (ไม่บังคับ)</label>
-          <p className="text-xs text-gray-400">
-            ระบบจะสร้างตัวเลือก/สี/ราคาเริ่มต้นให้ตามประเภทที่เลือก — แก้ไข เพิ่ม หรือลบได้ทั้งหมดในขั้นตอนถัดไป
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[...SERVICE_TEMPLATES, BLANK_TEMPLATE].map((tpl) => {
-              const selected = selectedTemplateId === tpl.id;
-              const Icon = tpl.icon;
-              return (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  onClick={() => handleTemplateClick(tpl)}
-                  className={`relative flex flex-col items-center gap-1 p-3 rounded-xl border-2 text-center transition-all ${
-                    selected
-                      ? "border-orange-400 bg-orange-50 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"
-                  }`}
-                >
-                  <Icon size={20} className={selected ? "text-orange-500" : "text-gray-400"} strokeWidth={1.75} />
-                  <span className={`text-xs font-semibold ${selected ? "text-orange-700" : "text-gray-700"}`}>{tpl.label}</span>
-                  {selected && (
-                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-                      <Check size={10} className="text-white" strokeWidth={3} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Service Name */}
       <div className="space-y-1.5">

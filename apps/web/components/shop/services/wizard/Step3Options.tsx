@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import type {
   ServiceOption,
   ServiceOptionValue,
@@ -155,6 +155,8 @@ function OptionSection({
   pricingModel,
   pageCountingMode,
   isStandard,
+  collapsed,
+  onToggleCollapse,
   onChange,
   onRemove,
 }: {
@@ -162,6 +164,8 @@ function OptionSection({
   pricingModel: PricingModel;
   pageCountingMode: PageCountingMode;
   isStandard: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onChange: (o: ServiceOption) => void;
   onRemove: () => void;
 }) {
@@ -203,10 +207,19 @@ function OptionSection({
     <div className="rounded-2xl border border-gray-200 overflow-hidden">
       {/* Section header */}
       <div className={`flex items-center justify-between px-4 py-3 ${isStandard ? "bg-gray-50" : "bg-orange-50"}`}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span title="ลากเพื่อจัดเรียงลำดับ" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition p-0.5 -ml-1">
             <GripVertical size={15} />
           </span>
+          {/* พับ/ขยายหัวข้อ — ลดความรกของหน้าจอตอนมีหลายหัวข้อพร้อมกัน (เช่น ตอน prefill มาจาก template หรือค่าเริ่มต้นมาตรฐาน) */}
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="text-gray-400 hover:text-gray-600 transition p-0.5 shrink-0"
+            title={collapsed ? "ขยายดูตัวเลือก" : "พับหัวข้อนี้"}
+          >
+            {collapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+          </button>
           {isStandard ? (
             <span className="text-sm font-bold text-gray-700">{option.name}</span>
           ) : (
@@ -221,6 +234,13 @@ function OptionSection({
           {isStandard && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-gray-200 text-gray-500 font-medium">
               มาตรฐาน
+            </span>
+          )}
+          {collapsed && (
+            <span className="text-xs text-gray-400 truncate">
+              {option.values.length > 0
+                ? `${option.values.length} ตัวเลือก`
+                : "ยังไม่มีตัวเลือก"}
             </span>
           )}
         </div>
@@ -263,42 +283,44 @@ function OptionSection({
         </div>
       </div>
 
-      {/* Values */}
-      <div className="p-4 space-y-2">
-        {option.values.map((v, i) => (
-          <ValueRow
-            key={i}
-            value={v}
-            scopeLabel={scopeLabels[groupScope]}
-            showDuplexToggle={option.priceCategory === "printing_side"}
-            onChange={(updated) => updateValue(i, updated)}
-            onSetDuplex={(checked) => setDuplexValue(i, checked)}
-            onRemove={() => removeValue(i)}
-          />
-        ))}
-        {option.values.length === 0 && (
-          <p className="text-xs text-red-400 italic">⚠ ต้องมีอย่างน้อย 1 ตัวเลือก</p>
-        )}
+      {/* Values — ซ่อนตอนพับหัวข้อ (collapsed) ลดความรกของหน้าจอเมื่อมีหลายหัวข้อพร้อมกัน */}
+      {!collapsed && (
+        <div className="p-4 space-y-2">
+          {option.values.map((v, i) => (
+            <ValueRow
+              key={i}
+              value={v}
+              scopeLabel={scopeLabels[groupScope]}
+              showDuplexToggle={option.priceCategory === "printing_side"}
+              onChange={(updated) => updateValue(i, updated)}
+              onSetDuplex={(checked) => setDuplexValue(i, checked)}
+              onRemove={() => removeValue(i)}
+            />
+          ))}
+          {option.values.length === 0 && (
+            <p className="text-xs text-red-400 italic">⚠ ต้องมีอย่างน้อย 1 ตัวเลือก</p>
+          )}
 
-        {/* Add value row */}
-        <div className="flex items-center gap-2 pt-1">
-          <input
-            type="text"
-            value={draftName}
-            onChange={(e) => setDraftName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addValue()}
-            placeholder="+ พิมพ์ชื่อตัวเลือกใหม่ แล้ว Enter"
-            className="flex-1 min-w-[140px] px-2.5 py-1.5 text-xs border border-dashed border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-400 bg-white"
-          />
-          <button
-            onClick={addValue}
-            disabled={!draftName.trim()}
-            className="px-2.5 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition"
-          >
-            เพิ่ม
-          </button>
+          {/* Add value row */}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addValue()}
+              placeholder="+ พิมพ์ชื่อตัวเลือกใหม่ แล้ว Enter"
+              className="flex-1 min-w-[140px] px-2.5 py-1.5 text-xs border border-dashed border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-400 bg-white"
+            />
+            <button
+              onClick={addValue}
+              disabled={!draftName.trim()}
+              className="px-2.5 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition"
+            >
+              เพิ่ม
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -387,6 +409,8 @@ interface Step3OptionsProps {
   onBack: () => void;
   isInitialRender: boolean;
   onInitialRenderDone: () => void;
+  // ชื่อ template ที่เลือกไว้ใน TemplatePicker (ก่อน Step 1) — null/undefined = ไม่ได้มาจาก template
+  fromTemplate?: string | null;
 }
 
 export default function Step3Options({
@@ -399,22 +423,51 @@ export default function Step3Options({
   onBack,
   isInitialRender,
   onInitialRenderDone,
+  fromTemplate,
 }: Step3OptionsProps) {
-  // Auto-generate defaults on first entry if options are empty
-  if (isInitialRender && data.options.length === 0 && data.colorTiers.length === 0) {
-    const defaultOptions = buildDefaultOptions(pricingMode, pricingModel);
-    const needsColor = pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm";
-    onChange({
-      options: defaultOptions,
-      colorTiers: needsColor ? DEFAULT_COLOR_TIERS : [],
-    });
+  const [collapsedIndexes, setCollapsedIndexes] = useState<Set<number>>(new Set());
+
+  // ตอนเพิ่งเข้า Step 3 ครั้งแรก (ของ pricingMode นี้): ถ้ายังไม่มีตัวเลือกเลย ให้สร้างหัวข้อมาตรฐานให้อัตโนมัติเหมือนเดิม
+  // ถ้ามีตัวเลือกอยู่แล้ว (มาจาก template ที่เลือกใน TemplatePicker) ให้คงค่าตามเดิมไว้ แค่พับทุกหัวข้อไว้ก่อน —
+  // ลดความรกของหน้าจอเมื่อมีหลายหัวข้อพร้อมกัน (Phase 2 ของแผน Option B) ร้านกดขยายดู/แก้เฉพาะหัวข้อที่ต้องการเองได้
+  //
+  // ⚠️ ต้องอยู่ใน useEffect ไม่ใช่เรียกตรงในตัว render (แบบที่โค้ดเดิมเคยทำกับ onChange+onInitialRenderDone) —
+  // เพราะ onInitialRenderDone() อัปเดต state ของ parent (ServiceBuilderWizard) เรียกจากกลาง render ของ component
+  // ลูกแบบนี้ ทำให้ setCollapsedIndexes (state ของ component นี้เอง) ที่เรียกในรอบ render เดียวกันมีโอกาสไม่ถูก
+  // commit จริงเพราะ React รีสตาร์ท render ใหม่จาก parent (isInitialRender กลายเป็น false ไปแล้วในรอบถัดมา
+  // ก่อนที่ setCollapsedIndexes รอบแรกจะ commit) ผลคือ "พับตอนเข้าครั้งแรก" ไม่ทำงานเลยแบบเงียบๆ (ยืนยันบั๊กจริงจาก
+  // การทดสอบจริงใน browser หลังพัฒนา Phase 2 — ตัวเลือกที่ prefill จาก template ไม่ถูกพับเลยสักหัวข้อ)
+  useEffect(() => {
+    if (!isInitialRender) return;
+    if (data.options.length === 0 && data.colorTiers.length === 0) {
+      const defaultOptions = buildDefaultOptions(pricingMode, pricingModel);
+      const needsColor = pricingMode === "per_page" || pricingMode === "per_piece" || pricingMode === "per_sqm";
+      onChange({
+        options: defaultOptions,
+        colorTiers: needsColor ? DEFAULT_COLOR_TIERS : [],
+      });
+      setCollapsedIndexes(new Set(defaultOptions.map((_, i) => i)));
+    } else if (data.options.length > 0) {
+      setCollapsedIndexes(new Set(data.options.map((_, i) => i)));
+    }
     onInitialRenderDone();
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialRender]);
 
   const [errors, setErrors] = useState<string[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
+  const toggleCollapse = (i: number) =>
+    setCollapsedIndexes((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+
   // ลากเรียงลำดับ Option Group — backend เก็บลำดับผ่าน sortOrder อยู่แล้ว (ดู writeOptions ฝั่ง services.ts) แค่ต้องส่ง array ตามลำดับใหม่ตอนบันทึก
+  // หมายเหตุ: collapsedIndexes ไม่ remap ตามการลากสลับตำแหน่งนี้ (คงไว้ตาม index เดิม) — ผลเสียแค่หัวข้อที่เคยพับ/ขยายอาจ
+  // ดูสลับที่กันเล็กน้อยหลังลาก ไม่กระทบข้อมูลจริงที่บันทึก จึงไม่คุ้มความซับซ้อนที่ต้องคำนวณ remap เพิ่ม (ต่างจาก removeOption ด้านล่างที่ remap ให้เพราะเกิดบ่อยกว่า)
   const reorderOptions = (from: number, to: number) => {
     if (from === to) return;
     const next = [...data.options];
@@ -441,6 +494,8 @@ export default function Step3Options({
       errs.push("ส่วน 'สี' ต้องมีอย่างน้อย 1 ตัวเลือก");
     }
     setErrors(errs);
+    // มี error แล้ว = อาจซ่อนอยู่ในหัวข้อที่พับไว้ (เช่น หัวข้อที่ยังไม่มีตัวเลือกเลย) — ขยายทุกหัวข้อให้เห็นปัญหาชัดๆ ก่อนให้แก้
+    if (errs.length > 0) setCollapsedIndexes(new Set());
     return errs.length === 0;
   };
 
@@ -451,8 +506,18 @@ export default function Step3Options({
   const updateOption = (i: number, opt: ServiceOption) =>
     onChange({ ...data, options: data.options.map((o, idx) => (idx === i ? opt : o)) });
 
-  const removeOption = (i: number) =>
+  const removeOption = (i: number) => {
     onChange({ ...data, options: data.options.filter((_, idx) => idx !== i) });
+    // ลบหัวข้อที่ index i แล้ว ต้องขยับ index ของ collapsedIndexes ที่อยู่หลังจากนี้ทั้งหมดถอยลง 1 ไม่งั้นจะไปจับคู่กับหัวข้อผิดตัว
+    setCollapsedIndexes((prev) => {
+      const next = new Set<number>();
+      prev.forEach((idx) => {
+        if (idx < i) next.add(idx);
+        else if (idx > i) next.add(idx - 1);
+      });
+      return next;
+    });
+  };
 
   const addCustomOption = () =>
     onChange({
@@ -479,6 +544,16 @@ export default function Step3Options({
           ระบบสร้างหัวข้อมาตรฐานให้อัตโนมัติ — สามารถเพิ่ม/ลบ/แก้ไขตัวเลือกได้ทั้งหมด
         </p>
       </div>
+
+      {/* ตั้งค่าเริ่มต้นจาก Template — บอกร้านว่าตัวเลือก/สีด้านล่างมาจากไหน (Phase 2 ของแผน Option B) */}
+      {fromTemplate && (
+        <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+          <span className="text-orange-500 shrink-0">💡</span>
+          <p className="text-xs text-orange-700">
+            ตัวเลือก/ระดับสีด้านล่างตั้งค่าเริ่มต้นจากเทมเพลต &quot;{fromTemplate}&quot; แล้ว — กดที่หัวข้อเพื่อขยายดูและแก้ไขราคาได้
+          </p>
+        </div>
+      )}
 
       {pricingMode === "per_page" && pageCountingMode === "by_sheet" && (
         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
@@ -520,6 +595,8 @@ export default function Step3Options({
               pricingModel={pricingModel}
               pageCountingMode={pageCountingMode}
               isStandard={isStandard}
+              collapsed={collapsedIndexes.has(i)}
+              onToggleCollapse={() => toggleCollapse(i)}
               onChange={(updated) => updateOption(i, updated)}
               onRemove={() => removeOption(i)}
             />

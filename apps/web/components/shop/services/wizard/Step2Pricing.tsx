@@ -7,7 +7,8 @@ import type { ColorTier, PageCountingMode, QuantityTier } from "../types";
 export type PricingMode = "per_page" | "per_piece" | "per_sqm" | "quantity_tier";
 
 export interface Step2Data {
-  pricingMode: PricingMode;
+  // null = ร้านค้ายังไม่ได้เลือกวิธีคิดราคาเลย (ค่าเริ่มต้นของฟอร์มตอนสร้างบริการใหม่) — ต้องเลือกก่อนไปขั้นตอนถัดไปเสมอ
+  pricingMode: PricingMode | null;
   basePrice: number | "";
   minArea: number | "";
   areaRoundingIncrement: number | "";
@@ -58,6 +59,10 @@ interface Step2PricingProps {
   onChange: (data: Step2Data) => void;
   onNext: () => void;
   onBack: () => void;
+  // ชื่อ template ที่เลือกไว้ใน TemplatePicker (ก่อน Step 1) — null/undefined = ไม่ได้มาจาก template (เลือก "กำหนดเอง" หรือแก้บริการเดิม)
+  fromTemplate?: string | null;
+  // true = มีข้อมูลใน Step 3 (ตัวเลือก/สี) หรือราคาขั้นบันไดที่ตั้งไว้แล้ว ที่จะถูกล้างทิ้งถ้าเปลี่ยนวิธีคิดราคา — ใช้เตือนก่อนเปลี่ยนจริง
+  hasDataToReset?: boolean;
 }
 
 function emptyColorTier(): ColorTier {
@@ -80,13 +85,17 @@ function hasOverlappingQuantityTiers(tiers: QuantityTier[]): boolean {
   return false;
 }
 
-export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2PricingProps) {
+export default function Step2Pricing({ data, onChange, onNext, onBack, fromTemplate, hasDataToReset }: Step2PricingProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const update = (patch: Partial<Step2Data>) => onChange({ ...data, ...patch });
 
   const validate = () => {
     const errs: Record<string, string> = {};
+
+    if (!data.pricingMode) {
+      errs.pricingMode = "กรุณาเลือกวิธีคิดราคาก่อนไปขั้นตอนถัดไป";
+    }
 
     // per_page/per_piece: ราคาพื้นฐาน (ขาวดำ) ย้ายไปตั้งที่ Step3 (ตัวเลือกสินค้า > สี) แล้ว ไม่ต้องเช็คที่นี่
 
@@ -140,7 +149,18 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
         <p className="text-sm text-gray-500 mt-1">เลือกวิธีที่ร้านใช้คิดเงินลูกค้า</p>
       </div>
 
+      {/* ตั้งค่าเริ่มต้นจาก Template — บอกร้านว่าทำไมวิธีคิดราคาถูกเลือกไว้ให้แล้ว (Phase 2 ของแผน Option B) */}
+      {fromTemplate && (
+        <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+          <span className="text-orange-500 shrink-0">💡</span>
+          <p className="text-xs text-orange-700">
+            ตั้งค่าเริ่มต้นจากเทมเพลต &quot;{fromTemplate}&quot; แล้ว — ปรับตัวเลขด้านล่างให้ตรงกับร้านได้เลย
+          </p>
+        </div>
+      )}
+
       {/* Pricing Mode Cards */}
+      {errors.pricingMode && <p className="text-xs text-red-500">{errors.pricingMode}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {PRICING_CARDS.map((card) => {
           const selected = data.pricingMode === card.value;
@@ -149,6 +169,14 @@ export default function Step2Pricing({ data, onChange, onNext, onBack }: Step2Pr
               key={card.value}
               type="button"
               onClick={() => {
+                // เตือนก่อนเปลี่ยนวิธีคิดราคา ถ้ามีตัวเลือก/สี/ราคาขั้นบันไดที่ตั้งไว้แล้ว (ไม่ว่าจะมาจาก template หรือกรอกเอง)
+                // เพราะเปลี่ยนแล้วข้อมูลเหล่านั้นจะถูกล้างทิ้งทันที (ดู reset logic ที่ ServiceBuilderWizard.tsx)
+                if (card.value !== data.pricingMode && hasDataToReset) {
+                  const confirmed = confirm(
+                    `เปลี่ยนวิธีคิดราคาเป็น "${card.title}"?\n\nตัวเลือกสินค้า/ระดับสี/ราคาขั้นบันไดที่ตั้งไว้ในขั้นตอนถัดไปทั้งหมดจะถูกล้างทิ้ง`
+                  );
+                  if (!confirmed) return;
+                }
                 update({ pricingMode: card.value });
                 setErrors({});
               }}
