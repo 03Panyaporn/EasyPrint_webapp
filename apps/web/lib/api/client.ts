@@ -1,5 +1,9 @@
-// ห้ามใช้ localhost:3000 เป็นค่า default — ชนกับพอร์ตเริ่มต้นของ Next.js เอง (apps/web ก็รันที่ 3000)
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+// ค่าเริ่มต้นเป็น "/api" (relative, same-origin) — เรียกผ่าน route proxy ที่ apps/web/app/api/[...path]/route.ts
+// แทนที่จะยิงข้ามโดเมนไปหา Render ตรงๆ กัน cookie ยืนยันตัวตนถูกมองเป็น third-party cookie แล้วโดนเบราว์เซอร์บล็อก
+// (Incognito บล็อกเสมอ, โปรไฟล์ปกติก็ทยอยบล็อกเป็นดีฟอลต์ในเบราว์เซอร์รุ่นใหม่ๆ)
+// dev ท้องถิ่นตั้ง NEXT_PUBLIC_API_URL=http://localhost:4000 ไว้ใน .env.local (ไม่ผ่าน proxy) — ห้ามใช้ localhost:3000
+// เป็นค่า default เพราะชนกับพอร์ตเริ่มต้นของ Next.js เอง (apps/web ก็รันที่ 3000)
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export class ApiError extends Error {
   status: number;
