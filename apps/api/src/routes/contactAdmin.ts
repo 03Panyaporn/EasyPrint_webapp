@@ -88,7 +88,9 @@ async function serializeAsync(
 export const contactAdminRoutes = new Elysia()
   // ── ร้านค้าส่งข้อความถึงแอดมิน ──────────
   .post("/shops/:shopId/contact-admin", async ({ params, body, cookie, set }) => {
-    const authError = await requireShopOwner(cookie, params.shopId, set);
+    // allowUnapproved: true — ร้าน pending/suspended ก็ต้องส่งคำร้องถึงแอดมินได้ (เช่น อุทธรณ์ตอนถูกระงับ)
+    // ดูคอมเมนต์เต็มที่จุดประกาศ requireShopOwner() ใน services.ts — ยืนยันบั๊กจริงจาก QA (DEF-QAI-02)
+    const authError = await requireShopOwner(cookie, params.shopId, set, { allowUnapproved: true });
     if (authError) return authError;
 
     const parsed = createContactAdminMessageSchema.safeParse(body);
@@ -122,7 +124,8 @@ export const contactAdminRoutes = new Elysia()
 
   // ── ประวัติข้อความ contact-admin ของร้านตัวเอง ──────────
   .get("/shops/:shopId/contact-admin", async ({ params, cookie, set }) => {
-    const authError = await requireShopOwner(cookie, params.shopId, set);
+    // ดูประวัติคำร้องของตัวเองต้องทำได้เหมือนกันไม่ว่าสถานะร้านจะเป็นอะไร — เหตุผลเดียวกับ POST ด้านบน
+    const authError = await requireShopOwner(cookie, params.shopId, set, { allowUnapproved: true });
     if (authError) return authError;
 
     const rows = await db

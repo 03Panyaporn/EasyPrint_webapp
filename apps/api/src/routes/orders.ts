@@ -4,7 +4,6 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import {
-  createOrderSchema,
   updateOrderStatusSchema,
   orderListQuerySchema,
   type OrderStatus,
@@ -14,7 +13,7 @@ import { db } from "../db";
 import { orders, orderItems, shops, users } from "../../drizzle/schema";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { requireShopOwner } from "./services";
-import { notifyOrderCreated, notifyOrderCancelled } from "../notifications";
+import { notifyOrderCancelled } from "../notifications";
 import { createAdminNotification } from "../adminNotifications";
 import { createNotification } from "../utils/notification";
 import { objectStorage } from "../storage";
@@ -279,98 +278,19 @@ async function canViewOrder(
 }
 
 export const ordersRoutes = new Elysia()
-  // ── สร้างคำสั่งพิมพ์ใหม่ (ฝั่งลูกค้า) ──────────
-  .post("/orders", async ({ body, cookie, set }) => {
-    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
-    const payload = token ? verifyAuthToken(token) : null;
-    if (!payload || payload.role !== "customer") {
-      set.status = 401;
-      return { error: "ต้องเข้าสู่ระบบด้วยบัญชีลูกค้าก่อนสั่งซื้อ" };
-    }
-
-    const parsed = createOrderSchema.safeParse(body);
-    if (!parsed.success) {
-      set.status = 400;
-      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
-    }
-
-    const shopError = await assertShopAcceptingOrders(parsed.data.shopId);
-    if (shopError) {
-      set.status = 400;
-      return shopError;
-    }
-
-    // TODO: คำนวณราคาจริงตามอัตราของร้าน (ดู docs/proposal.md หัวข้อ 1.3.2.3) — ตอนนี้ยังเป็นสูตรชั่วคราว
-    const totalPrice = parsed.data.pages * parsed.data.copies * 100; // หน่วยสตางค์
-
-    // เลขที่ออเดอร์อาจชนกันได้ถ้าสั่งพร้อมกันเป๊ะๆ (ดูคอมเมนต์ generateOrderCode) — ลองใหม่ไม่เกิน 3 ครั้งถ้าเจอ unique violation
-    let lastError: unknown;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const code = await generateOrderCode(parsed.data.shopId);
-        const ref = generateOrderRef();
-
-        const [order] = await db
-          .insert(orders)
-          .values({
-            shopId: parsed.data.shopId,
-            customerId: payload.userId,
-            code,
-            ref,
-            serviceType: parsed.data.serviceType,
-            pages: parsed.data.pages,
-            copies: parsed.data.copies,
-            colorMode: parsed.data.colorMode,
-            paperSize: parsed.data.paperSize,
-            binding: parsed.data.binding,
-            lamination: parsed.data.lamination,
-            selectedAddOns: parsed.data.selectedAddOns,
-            fileUrl: parsed.data.fileUrl,
-            slipUrl: parsed.data.slipUrl,
-            slipUploadedAt: new Date(),
-            deliveryMethod: parsed.data.deliveryMethod,
-            deliveryAddress: parsed.data.deliveryAddress,
-            totalPrice: Math.round(totalPrice),
-            note: parsed.data.note,
-          })
-          .returning();
-
-        // แจ้งเตือนลูกค้าทางอีเมลว่าสั่งซื้อสำเร็จแบบ best-effort — ส่งไม่สำเร็จก็ไม่ควรทำให้สร้างออเดอร์ (ที่บันทึกลง DB สำเร็จแล้ว) fail ไปด้วย
-        const [customer] = await db
-          .select({ email: users.email, firstname: users.firstname, lastname: users.lastname })
-          .from(users)
-          .where(eq(users.id, payload.userId));
-        if (customer) {
-          notifyOrderCreated({
-            to: customer.email,
-            orderCode: order.code,
-            totalPrice: Number(order.totalPrice ?? 0),
-          }).catch((err) => console.error("ส่งอีเมลยืนยันคำสั่งซื้อไม่สำเร็จ:", err));
-        }
-
-        // แจ้งเตือนร้านค้า (Bell Notification)
-        const [shopInfo] = await db.select({ ownerId: shops.ownerId }).from(shops).where(eq(shops.id, parsed.data.shopId));
-        if (shopInfo) {
-          const customerName = customer ? `${customer.firstname ?? ''} ${customer.lastname ?? ''}`.trim() || "ลูกค้า" : "ลูกค้า";
-          await createNotification({
-            userId: shopInfo.ownerId,
-            typeId: 1, // 1 = ออเดอร์ใหม่
-            title: `ออเดอร์ใหม่ ${order.code}`,
-            message: `คุณได้รับคำสั่งซื้อใหม่จาก ${customerName} กรุณาตรวจสอบและรับงาน`,
-            category: "general",
-            link: `/shop/orders`,
-          });
-        }
-
-        return { order: await withSignedFileUrls(serializeOrder(order, null)) };
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    console.error("สร้างออเดอร์ไม่สำเร็จหลังลองใหม่ 3 ครั้ง:", lastError);
-    set.status = 500;
-    return { error: "สร้างออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  // ── (ปิดการใช้งานแล้ว) สร้างคำสั่งพิมพ์แบบเก่า (Schema v1 — hardcoded serviceType/pages/copies/colorMode ฯลฯ) ──
+  // เดิม endpoint นี้คำนวณราคาด้วยสูตรชั่วคราว `pages * copies * 100` (มี // TODO ค้างมาตั้งแต่ก่อนมีระบบราคาจริง)
+  // ไม่ได้คำนวณตามอัตราจริงของร้าน/ไม่ผ่าน pricing engine เลย — ไม่มี frontend เรียกใช้แล้ว (ยืนยันจาก grep ทั้ง
+  // apps/web: ไม่มีที่ไหน import createOrderSchema/เรียก POST /orders ตรงๆ อีก) ทุกออเดอร์จริงตอนนี้สร้างผ่าน
+  // POST /shops/:shopId/cart/checkout (Schema v2 — snapshot + คำนวณราคาสด server-side) แทนทั้งหมด
+  // เก็บ route ไว้ตอบ 410 แทนการลบทิ้งเงียบๆ กันเคส client เก่า/ภายนอกที่อาจยังยิงมาอยู่ ได้ error ที่สื่อความหมายชัดเจน
+  // แทนที่จะได้ 404 (เข้าใจผิดว่า route หาย) หรือแย่กว่านั้นคือสร้างออเดอร์ราคาผิดสำเร็จแบบเงียบๆ
+  .post("/orders", ({ set }) => {
+    set.status = 410;
+    return {
+      error:
+        "endpoint นี้ปิดใช้งานแล้ว กรุณาสั่งซื้อผ่านตะกร้าสินค้า (POST /shops/:shopId/cart/checkout) แทน",
+    };
   })
 
   // ── รายการออเดอร์ของร้าน (ฝั่งร้านค้า) ──────────
