@@ -45,6 +45,7 @@ type NavItem = NavLeaf | NavSection;
 export interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
+  shopName?: string | null;
 }
 
 // ─────────────────────────────────────────────────
@@ -101,7 +102,7 @@ const navItems: NavItem[] = [
 // ─────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────
-export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+export default function Sidebar({ mobileOpen, onMobileClose, shopName }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const unreadChatCount = useUnreadChatCount(true);
@@ -349,7 +350,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               <Store size={14} className="text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">ร้าน EasyPrint</p>
+              <p className="text-sm font-semibold text-gray-800 truncate">{shopName || "ร้านค้า"}</p>
               <p className="text-[11px] text-orange-500 font-medium">เจ้าของร้าน</p>
             </div>
           </div>

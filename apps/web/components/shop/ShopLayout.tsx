@@ -54,9 +54,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        shopName={shop?.name}
       />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <Topbar onMobileMenuOpen={() => setMobileOpen(true)} />
+        <Topbar onMobileMenuOpen={() => setMobileOpen(true)} shopName={shop?.name} shopEmail={shop?.email} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}
         </main>

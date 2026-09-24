@@ -73,6 +73,7 @@ export default function ChatPage({
         try {
             const res = await getChatRooms();
             setRooms(res.rooms);
+            setLoadError("");
             return res.rooms;
         } catch (err) {
             setLoadError(err instanceof ApiError ? err.message : "โหลดรายการแชทไม่สำเร็จ");
@@ -133,6 +134,7 @@ export default function ChatPage({
             const res = await getOrderMessages(orderId);
             if (selectedOrderIdRef.current !== orderId) return;
             setMessages([...res.messages].reverse());
+            setLoadError("");
             // ข้อความใหม่จากอีกฝ่ายที่เข้ามาระหว่างเปิดห้องนี้ค้างไว้ → mark read ทันที
             // (เดิม mark แค่ตอนเลือกห้อง ทำให้ badge ยังไม่อ่านขึ้นที่ห้องที่กำลังดูอยู่ และอีกฝ่ายไม่เห็นว่าอ่านแล้ว)
             const me = currentUserIdRef.current;

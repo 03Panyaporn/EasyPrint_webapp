@@ -17,9 +17,11 @@ import ShopNotificationDropdown from "./ShopNotificationDropdown";
 
 interface TopbarProps {
   onMobileMenuOpen: () => void;
+  shopName?: string | null;
+  shopEmail?: string | null;
 }
 
-export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
+export default function Topbar({ onMobileMenuOpen, shopName, shopEmail }: TopbarProps) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -101,7 +103,7 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
             </div>
             <div className="hidden sm:flex flex-col items-start min-w-0">
               <span className="text-sm font-semibold text-gray-800 leading-tight max-w-[110px] truncate">
-                ร้าน EasyPrint
+                {shopName || "ร้านค้า"}
               </span>
               <span className="text-[11px] text-orange-500 font-medium leading-tight">
                 เจ้าของร้าน
@@ -118,8 +120,8 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
             <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50">
               {/* Header */}
               <div className="px-4 py-2.5 border-b border-gray-100 mb-1">
-                <p className="text-sm font-semibold text-gray-800">ร้าน EasyPrint</p>
-                <p className="text-xs text-gray-500 mt-0.5">easyprint@shop.com</p>
+                <p className="text-sm font-semibold text-gray-800 truncate">{shopName || "ร้านค้า"}</p>
+                {shopEmail && <p className="text-xs text-gray-500 mt-0.5 truncate">{shopEmail}</p>}
               </div>
 
               <Link
@@ -187,14 +189,9 @@ export default function Topbar({ onMobileMenuOpen }: TopbarProps) {
                 </button>
 
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     setLogoutOpen(false);
-
-                    // เรียก API Logout ตรงนี้
-                    // await authClient.signOut();
-                    // หรือ await fetch("/api/auth/logout",{method:"POST"});
-
-                    window.location.href = "/login";
+                    handleLogout();
                   }}
                   className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition"
                 >
