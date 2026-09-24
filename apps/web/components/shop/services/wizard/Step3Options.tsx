@@ -350,13 +350,14 @@ function ColorSection({
       </div>
       <div className="p-4 space-y-2">
         {tiers.map((tier, i) => {
-          // แถวแรกคือ "ขาวดำ" เสมอ — ล็อกชื่อไว้ แก้ไม่ได้/ลบไม่ได้ เพราะเป็นราคาพื้นฐานของบริการ (ไม่ใช่ Option แยก)
+          // แถวแรกคือราคาพื้นฐานของบริการเสมอ — ล็อกไว้ แก้ชื่อ/ลบไม่ได้ เพราะไม่ใช่ Option แยก (backend เก็บที่ basePrice ตรงๆ)
+          // เดิม label แถวนี้ตายตัวว่า "ขาวดำ" ทั้งที่บางบริการ (เช่น ป้ายไวนิล/สติกเกอร์) เป็นงานสีล้วน ไม่มีขาวดำจริง — เปลี่ยนเป็นข้อความกลางๆ แทน
           const isBase = i === 0;
           return (
             <div key={i} className="flex items-center gap-2 flex-wrap">
               {isBase ? (
                 <span className="flex-1 min-w-[100px] px-2.5 py-1.5 text-xs font-semibold text-gray-700">
-                  ขาวดำ <span className="text-[10px] text-gray-400 font-normal">(ราคาพื้นฐาน)</span>
+                  ราคาพื้นฐาน
                 </span>
               ) : (
                 <input

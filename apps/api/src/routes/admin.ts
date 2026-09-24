@@ -18,6 +18,7 @@ const ANNOUNCEMENT_NOTIFICATION_TYPE_ID = 5; // 5 = ประกาศจาก�
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { objectStorage } from "../storage";
 import { createNotification } from "../utils/notification";
+import { notifyShopApproved, notifyShopRejected } from "../notifications";
 
 // เช็คว่า request มี JWT ที่ login เป็น admin จริง — คืน { error } (ตั้ง set.status ให้แล้ว) ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
 // export ไว้ให้ route อื่น (เช่น adminSettings.ts, uploads.ts) เรียกใช้ร่วมด้วย กันเขียนลอจิกตรวจสิทธิ์ซ้ำ
@@ -293,6 +294,14 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
         : "ยินดีด้วย! บัญชีร้านค้าของคุณผ่านการตรวจสอบและพร้อมเปิดให้บริการแล้ว",
     });
 
+    // ร้าน pending เดิมไม่มีทางรู้ว่าอนุมัติแล้วนอกจาก log in มาเช็คกระดิ่งเอง — ส่งอีเมลเพิ่มเป็นช่องทางเชิงรุกคู่กัน (best-effort เหมือน createAdminNotification ด้านบน)
+    const [owner] = await db.select({ email: users.email }).from(users).where(eq(users.id, shop.ownerId));
+    if (owner) {
+      notifyShopApproved({ to: owner.email, shopName: shop.name, isReinstate }).catch((err) =>
+        console.error("ส่งอีเมลแจ้งอนุมัติร้านไม่สำเร็จ:", err)
+      );
+    }
+
     return { shop };
   })
 
@@ -330,6 +339,14 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
       title: "บัญชีร้านค้าถูกปฏิเสธ/ระงับการใช้งาน",
       message: `เหตุผล: ${parsed.data.reason}`,
     });
+
+    // เหมือนกับตอนอนุมัติ — ส่งอีเมลแจ้งเหตุผลที่ถูกปฏิเสธเพิ่มจากแจ้งเตือนในแอป (best-effort)
+    const [rejectedOwner] = await db.select({ email: users.email }).from(users).where(eq(users.id, shop.ownerId));
+    if (rejectedOwner) {
+      notifyShopRejected({ to: rejectedOwner.email, shopName: shop.name, reason: parsed.data.reason }).catch((err) =>
+        console.error("ส่งอีเมลแจ้งปฏิเสธร้านไม่สำเร็จ:", err)
+      );
+    }
 
     return { shop };
   })

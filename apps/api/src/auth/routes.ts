@@ -12,7 +12,7 @@ import {
   updateProfileSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { users, passwordResetTokens, shops, orders, carts, addresses, contactAdminMessages } from "../../drizzle/schema";
+import { users, passwordResetTokens, shops, orders, carts, addresses, contactAdminMessages, deliveryOptions } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
 import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
@@ -211,6 +211,18 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
             promptpayQrUrl: parsed.data.promptpayQrUrl || null,
           })
           .returning();
+
+        // ร้านติ๊ก "จัดส่งโดยร้าน" ตอนสมัคร แต่ค่านี้เป็นแค่ป้ายบอกความสามารถ (shops.deliveryMethods) ไม่ได้สร้างแถวค่าจัดส่งจริงให้เอง
+        // เดิมลูกค้าจะยังไม่เห็นตัวเลือกจัดส่งใดๆ จนกว่าร้านจะเข้าไปตั้งค่าเองทีหลัง — สร้างแถวเริ่มต้นให้เลยลดขั้นตอน ร้านแก้ค่าธรรมเนียม/ปิดเปิดได้ทีหลังตามปกติ
+        if (parsed.data.deliveryMethods.includes("จัดส่งโดยร้าน")) {
+          await tx.insert(deliveryOptions).values({
+            shopId: shop.id,
+            name: "จัดส่งโดยร้าน",
+            description: "ตั้งค่าเริ่มต้นตอนสมัครร้าน — แก้ไขค่าจัดส่งและเงื่อนไขได้ที่เมนู บริการและราคา > วิธีจัดส่ง",
+            baseFee: "0.00",
+            isActive: true,
+          });
+        }
 
         return { user, shop };
       });

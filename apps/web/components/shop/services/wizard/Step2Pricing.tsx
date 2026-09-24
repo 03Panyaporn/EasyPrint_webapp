@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, FileText, Package, Maximize2, Hash } from "lucide-react";
-import type { ColorTier, PageCountingMode, QuantityTier } from "../types";
+import { SERVICE_UNITS, type ColorTier, type PageCountingMode, type QuantityTier, type ServiceUnit } from "../types";
 
 export type PricingMode = "per_page" | "per_piece" | "per_sqm" | "quantity_tier";
 
@@ -15,6 +15,8 @@ export interface Step2Data {
   colorTiers: ColorTier[];
   quantityTiers: QuantityTier[];
   pageCountingMode: PageCountingMode;
+  // หน่วยนับที่ลูกค้าเห็น — มีผลจริงแค่โหมดต่อชิ้น/ตามจำนวน (per_page ใช้ "หน้า", per_sqm ใช้ "แผ่น" ตายตัวอยู่แล้ว ดู buildServiceInput)
+  unit: ServiceUnit;
 }
 
 const PRICING_CARDS: {
@@ -214,6 +216,29 @@ export default function Step2Pricing({ data, onChange, onNext, onBack, fromTempl
         })}
       </div>
 
+      {/* หน่วยนับ — เฉพาะโหมดต่อชิ้น/ตามจำนวน เพราะโหมดต่อหน้า/ต่อ ตร.ม. หน่วยผูกกับวิธีคำนวณจริงอยู่แล้ว ("หน้า"/"แผ่น") เปลี่ยนเองไม่ได้ตรงนี้ */}
+      {(data.pricingMode === "per_piece" || data.pricingMode === "quantity_tier") && (
+        <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100">
+          <label className="block text-xs font-semibold text-gray-700 mb-2">หน่วยนับ (แสดงให้ลูกค้าเห็น)</label>
+          <div className="flex flex-wrap gap-2">
+            {SERVICE_UNITS.map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => update({ unit: u })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
+                  data.unit === u
+                    ? "bg-orange-50 border-orange-500 text-orange-600 shadow-sm"
+                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Per Page / Per Piece: ราคาพื้นฐาน (ขาวดำ) ตั้งที่ Step ถัดไปแทน ไม่ให้ตั้งซ้ำสองที่ ── */}
       {(data.pricingMode === "per_page" || data.pricingMode === "per_piece") && (
         <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100">
@@ -310,7 +335,7 @@ export default function Step2Pricing({ data, onChange, onNext, onBack, fromTempl
         <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100 space-y-4">
           <h3 className="text-sm font-semibold text-orange-800">ตั้งค่าราคาตามพื้นที่</h3>
           <p className="text-xs text-orange-700">
-            💡 ราคาพื้นฐาน (ขาวดำ) ตั้งได้ในขั้นตอนถัดไป &quot;ตัวเลือกสินค้า&quot; (ส่วนสี)
+            💡 ราคาพื้นฐาน ตั้งได้ในขั้นตอนถัดไป &quot;ตัวเลือกสินค้า&quot; (ส่วนสี)
           </p>
           <div className="space-y-3">
             <div className="flex items-center gap-2">

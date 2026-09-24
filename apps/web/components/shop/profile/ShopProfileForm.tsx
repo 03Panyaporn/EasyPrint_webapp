@@ -7,6 +7,7 @@ import { uploadFile } from "@/lib/api/uploads";
 import { Store, Camera, MapPin, Clock, Info, ExternalLink, FileText, Save, AlertTriangle, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
+import AddressFields, { type AddressFieldsValue } from "@/components/ui/AddressFields";
 
 const DAYS = [
   { id: "mon", label: "จันทร์" },
@@ -16,19 +17,6 @@ const DAYS = [
   { id: "fri", label: "ศุกร์" },
   { id: "sat", label: "เสาร์" },
   { id: "sun", label: "อาทิตย์" },
-];
-
-const PROVINCES = [
-  "กระบี่", "กรุงเทพมหานคร", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", 
-  "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", 
-  "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", 
-  "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", 
-  "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", 
-  "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", 
-  "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", 
-  "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", 
-  "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", 
-  "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"
 ];
 
 const DEFAULT_HOURS: ShopOpeningHours[] = DAYS.map((d) => ({
@@ -623,29 +611,18 @@ export default function ShopProfileForm() {
             <input type="text" value={houseNo} onChange={(e) => setHouseNo(e.target.value)} className="w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition" placeholder="บ้านเลขที่, หมู่, ซอย, ถนน" />
           </div>
           
-          <div>
-            <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">ตำบล/แขวง <span className="text-red-500">*</span></label>
-            <input type="text" value={subdistrict} onChange={(e) => setSubdistrict(e.target.value)} className="w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition" placeholder="แม่กา" />
-          </div>
-          
-          <div>
-            <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">อำเภอ/เขต <span className="text-red-500">*</span></label>
-            <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)} className="w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition" placeholder="เมืองพะเยา" />
-          </div>
-
-          <div>
-            <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">จังหวัด <span className="text-red-500">*</span></label>
-            <select value={province} onChange={(e) => setProvince(e.target.value)} className="w-full px-4 py-2.5 text-[15px] rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition bg-white">
-              <option value="">เลือกจังหวัด</option>
-              {PROVINCES.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="text-[15px] font-medium text-gray-700 mb-1.5 block">รหัสไปรษณีย์ <span className="text-red-500">*</span></label>
-            <input type="text" value={zipcode} onChange={(e) => setZipcode(e.target.value)} className="w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition" placeholder="56000" />
+          <div className="md:col-span-2">
+            <AddressFields
+              value={{ postalCode: zipcode, subdistrict, district, province }}
+              onChange={(next: AddressFieldsValue) => {
+                setZipcode(next.postalCode);
+                setSubdistrict(next.subdistrict);
+                setDistrict(next.district);
+                setProvince(next.province);
+              }}
+              inputClassName="w-full px-4 py-2.5 text-[15px] placeholder:text-[15px] placeholder:text-gray-400 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition bg-white"
+              labelClassName="text-[15px] font-medium text-gray-700 mb-1.5 block"
+            />
           </div>
 
           <div className="md:col-span-2">

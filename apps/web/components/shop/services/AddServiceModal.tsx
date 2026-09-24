@@ -26,7 +26,9 @@ const PRICING_MODEL_OPTIONS: { value: PricingModel; label: string; hint: string;
   { value: "per_page", label: "📄 คิดตามจำนวนหน้า (เช่น เอกสาร, ชีทเรียน)", hint: "ระบบจะนับจำนวนหน้าจากไฟล์ PDF ที่ลูกค้าอัปโหลดให้อัตโนมัติ", priceLabel: "ราคาเริ่มต้นต่อหน้า (บาท) — ขาวดำ" },
   { value: "per_piece", label: "📦 คิดตามจำนวนชิ้น/ชุด (เช่น นามบัตร, การ์ด)", hint: "คูณด้วยจำนวนชุดที่ลูกค้าเลือกสั่งซื้อ", priceLabel: "ราคาต่อชิ้น/ชุด (บาท)" },
   { value: "per_sqm", label: "📏 คิดตามขนาด ตารางเมตร (เช่น ป้ายไวนิล, โปสเตอร์)", hint: "ลูกค้ากรอกความกว้าง x สูง (ซม.) เอง ระบบจะคำนวณเป็น ตร.ม.", priceLabel: "ราคาต่อตารางเมตร (บาท)" },
-  { value: "fixed", label: "🏷️ ราคาเหมาจ่ายคงที่ (เช่น ค่าบริการออกแบบ)", hint: "ราคาเดียวทั้งงาน ไม่คูณตามจำนวนหน้าหรือพื้นที่", priceLabel: "ราคาเหมาจ่ายคงที่ (บาท)" },
+  // pricingModel="fixed" ตัดออกจากตัวเลือกแล้ว — เมนูนี้ (serviceType "main") ไม่มีทางเรียกถึงได้จริงจากหน้า /shop/services
+  // (บริการหลักสร้างผ่าน wizard ที่ /shop/services/new เท่านั้น ดู ServicesContent ที่ page.tsx เรียก editingMainService={null} เสมอ)
+  // แต่เก็บ dead code ที่เหลือของ serviceType "main" ไว้ตามเดิม ไม่ได้อยู่ในขอบเขตที่ขอให้ลบ
 ];
 
 const SERVICE_TEMPLATES = [
@@ -602,7 +604,7 @@ export default function AddServiceModal({
   const [cannedDescriptionLabel, setCannedDescriptionLabel] = useState("");
   // ราคาบริการเสริม (addon) ใช้ฟิลด์นี้ตรงๆ — บริการหลัก (main) ใช้ pricingModel + basePrice แทน
   const [price, setPrice] = useState<number | "">(0);
-  const [pricingModel, setPricingModel] = useState<PricingModel>("fixed");
+  const [pricingModel, setPricingModel] = useState<PricingModel>("per_page");
   const [basePrice, setBasePrice] = useState<number | "">(0);
   const [requiresFileUpload, setRequiresFileUpload] = useState(true);
   const [allowedFileTypes, setAllowedFileTypes] = useState<AllowedFileType[]>(["pdf", "jpg", "png"]);
@@ -632,7 +634,7 @@ export default function AddServiceModal({
       setName(editingMainService.name);
       setDescription(editingMainService.description || "");
       setCannedDescriptionLabel("");
-      setPricingModel(editingMainService.pricingModel || "fixed");
+      setPricingModel(editingMainService.pricingModel || "per_page");
       setBasePrice(editingMainService.basePrice ?? 0);
       setRequiresFileUpload(editingMainService.requiresFileUpload ?? true);
       setAllowedFileTypes(editingMainService.allowedFileTypes?.length ? editingMainService.allowedFileTypes : ["pdf", "jpg", "png"]);
@@ -668,7 +670,7 @@ export default function AddServiceModal({
       setDescription("");
       setCannedDescriptionLabel("");
       setPrice(0);
-      setPricingModel("fixed");
+      setPricingModel("per_page");
       setBasePrice(0);
       setRequiresFileUpload(true);
       setAllowedFileTypes(["pdf", "jpg", "png"]);

@@ -28,6 +28,7 @@ import {
     setDefaultAddress as setDefaultAddressApi,
 } from "@/lib/api/addresses";
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
+import AddressFields, { type AddressFieldsValue } from "@/components/ui/AddressFields";
 
 export interface Address {
     id: string;
@@ -539,6 +540,18 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
 
+                                <AddressFields
+                                    value={{
+                                        postalCode: formAddress.postalCode,
+                                        subdistrict: formAddress.subdistrict,
+                                        district: formAddress.district,
+                                        province: formAddress.province,
+                                    }}
+                                    onChange={(next: AddressFieldsValue) => setFormAddress({ ...formAddress, ...next })}
+                                    inputClassName="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
+                                    labelClassName="text-xs text-slate-600"
+                                />
+
                                 <div className="space-y-1">
                                     <label className="text-xs  text-slate-600">ที่อยู่ (บ้านเลขที่, ซอย, ถนน) *</label>
                                     <input
@@ -548,52 +561,6 @@ export default function ProfilePage() {
                                         value={formAddress.address}
                                         onChange={(e) => setFormAddress({ ...formAddress, address: e.target.value })}
                                     />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-xs text-slate-600">ตำบล / แขวง</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
-                                            placeholder="ตำบล"
-                                            value={formAddress.subdistrict}
-                                            onChange={(e) => setFormAddress({ ...formAddress, subdistrict: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-xs  text-slate-600">อำเภอ / เขต</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
-                                            placeholder="อำเภอ"
-                                            value={formAddress.district}
-                                            onChange={(e) => setFormAddress({ ...formAddress, district: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-xs text-slate-600">จังหวัด *</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
-                                            placeholder="จังหวัด"
-                                            value={formAddress.province}
-                                            onChange={(e) => setFormAddress({ ...formAddress, province: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-xs  text-slate-600">รหัสไปรษณีย์</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition text-slate-800"
-                                            placeholder="รหัสไปรษณีย์"
-                                            value={formAddress.postalCode}
-                                            onChange={(e) => setFormAddress({ ...formAddress, postalCode: e.target.value })}
-                                        />
-                                    </div>
                                 </div>
                             </div>
 

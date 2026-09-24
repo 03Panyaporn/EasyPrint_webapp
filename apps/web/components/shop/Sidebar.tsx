@@ -18,8 +18,8 @@ import {
   X,
   Printer,
   Star,
-  Rocket,
 } from "lucide-react";
+import { useUnreadChatCount } from "@/lib/hooks/useUnreadChatCount";
 
 // ─────────────────────────────────────────────────
 // Types
@@ -56,12 +56,6 @@ const navItems: NavItem[] = [
     label: "หน้าหลัก",
     href: "/shop/dashboard",
     icon: LayoutDashboard,
-  },
-  {
-    kind: "leaf",
-    label: "เตรียมร้านให้พร้อมขาย",
-    href: "/shop/onboarding",
-    icon: Rocket,
   },
   {
     kind: "leaf",
@@ -110,6 +104,7 @@ const navItems: NavItem[] = [
 export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const unreadChatCount = useUnreadChatCount(true);
 
   /** เปิด section ที่มี active child อยู่โดยอัตโนมัติตอน mount */
   const getInitialSections = () => {
@@ -142,12 +137,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     icon: Icon,
     futureDropdown,
     indented = false,
+    badgeCount = 0,
   }: {
     label: string;
     href: string;
     icon: React.ElementType;
     futureDropdown?: boolean;
     indented?: boolean;
+    badgeCount?: number;
   }) => {
     const active = isActive(href);
     return (
@@ -164,18 +161,30 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             : "text-gray-600 hover:bg-orange-50 hover:text-orange-600",
         ].join(" ")}
       >
-        <Icon
-          size={indented ? 16 : 20}
-          className={`shrink-0 ${
-            active
-              ? "text-white"
-              : "text-gray-400 group-hover:text-orange-500"
-          }`}
-        />
+        <span className="relative shrink-0">
+          <Icon
+            size={indented ? 16 : 20}
+            className={
+              active
+                ? "text-white"
+                : "text-gray-400 group-hover:text-orange-500"
+            }
+          />
+          {badgeCount > 0 && collapsed && !indented && (
+            <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-orange-500 text-white text-[8px] font-extrabold inline-flex items-center justify-center leading-none" />
+          )}
+        </span>
 
         {/* Label (hidden when collapsed and not indented) */}
         {(!collapsed || indented) && (
           <span className="flex-1 truncate">{label}</span>
+        )}
+
+        {/* Unread badge (expanded state) */}
+        {badgeCount > 0 && (!collapsed || indented) && (
+          <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-extrabold inline-flex items-center justify-center shrink-0 aspect-square leading-none">
+            {badgeCount > 9 ? "9+" : badgeCount}
+          </span>
         )}
 
         {/* Future dropdown arrow */}
@@ -320,6 +329,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               label={item.label}
               icon={item.icon}
               futureDropdown={item.futureDropdown}
+              badgeCount={item.label === "แชท" ? unreadChatCount : 0}
             />
           ) : (
             <Section key={item.label} {...item} />

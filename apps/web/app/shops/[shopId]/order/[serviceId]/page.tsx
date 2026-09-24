@@ -53,13 +53,14 @@ import { buildLineItemBreakdown, type ScopedAmount } from "@easyprint/shared";
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
 import { isShopOpenNow, formatTodayHours } from "@/lib/shopHours";
 import { getMainServices, getAddOnServices } from "@/lib/api/services";
-import { addCartItem, getShopCart } from "@/lib/api/cart";
+import { addCartItem } from "@/lib/api/cart";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 import type { MainService, AddOnService, AllowedFileType, PriceScope } from "@/components/shop/services/types";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useCart } from "@/contexts/CartContext";
 
 // suffix แสดงขอบเขตราคา AddOn
 const ADDON_SCOPE_SUFFIX: Record<PriceScope, string> = {
@@ -143,6 +144,7 @@ const FILE_TYPE_MIME: Record<AllowedFileType, string> = {
   pdf: "application/pdf",
   jpg: "image/jpeg",
   png: "image/png",
+  webp: "image/webp",
   ai: ".ai",
   psd: ".psd",
 };
@@ -247,12 +249,7 @@ function OrderBuilderForm({
   const pricingModel = mainService.pricingModel;
   const shopClosed = !isShopOpenNow(shop.openingHours);
 
-  const [cartCount, setCartCount] = useState(0);
-  useEffect(() => {
-    getShopCart(shopId)
-      .then((res) => setCartCount(res.cart?.items.length ?? 0))
-      .catch(() => setCartCount(0));
-  }, [shopId]);
+  const { refreshCart } = useCart();
 
   // dynamic options state
   const [optionState, setOptionState] = useState<Record<string, string>>({});
@@ -623,12 +620,13 @@ function OrderBuilderForm({
         fileName: file?.name,
         note: note.trim() || undefined,
       });
+      void cart;
+      await refreshCart();
       setAddedToast(true);
       setTimeout(() => {
         setAddedToast(false);
         router.push("/cart");
       }, 1000);
-      void cart;
     } catch (err) {
       setIsUploading(false);
       if (err instanceof ApiError && err.status === 401) {
@@ -673,7 +671,7 @@ function OrderBuilderForm({
         </div>
       )}
 
-      <CustomerHeader variant="auth" cartCount={cartCount} />
+      <CustomerHeader variant="auth" />
 
       {/* ── 1. การ์ดข้อมูลร้าน (Full Width Vibrant Shop Banner Bar) ── */}
       <div className="w-full bg-white border-b-2 border-sky-200/80 px-4 sm:px-6 lg:px-12 py-3.5 shadow-xs relative overflow-hidden">

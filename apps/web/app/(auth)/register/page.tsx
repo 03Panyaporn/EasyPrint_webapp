@@ -15,6 +15,7 @@ import {
 import { register } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { Spinner } from "@/components/ui/Spinner";
+import AddressFields, { type AddressFieldsValue } from "@/components/ui/AddressFields";
 
 const PASSWORD_REVEAL_MS = 10000;
 
@@ -33,6 +34,7 @@ export default function RegisterPage() {
   const [addr, setAddr] = useState({ address: "", subdistrict: "", district: "", province: "", postalCode: "" });
   const setAddrField = (key: keyof typeof addr) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setAddr((prev) => ({ ...prev, [key]: e.target.value }));
+  const handleAddressFieldsChange = (next: AddressFieldsValue) => setAddr((prev) => ({ ...prev, ...next }));
   const addrValues = Object.values(addr).map((v) => v.trim());
   const addrStarted = addrValues.some((v) => v !== "");
   const addrComplete = addrValues.every((v) => v !== "") && /^\d{5}$/.test(addr.postalCode.trim());
@@ -112,7 +114,7 @@ export default function RegisterPage() {
       });
       // ใช้ replace แทน push (เหมือนหน้า login) — push เฉยๆ แล้วตามด้วย refresh() ทันที
       // ทำให้ navigation ไม่เกิดขึ้นจริงฝั่ง client (RSC fetch สำเร็จแต่หน้าไม่เปลี่ยน) เป็นบั๊กที่ยืนยันแล้วจากการทดสอบจริง
-      router.replace("/orders");
+      router.replace("/Dashboard");
       router.refresh();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -363,20 +365,11 @@ export default function RegisterPage() {
                 maxLength={500}
                 className={inputCls}
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input type="text" value={addr.subdistrict} onChange={setAddrField("subdistrict")} placeholder="ตำบล / แขวง" maxLength={100} className={inputCls} />
-                <input type="text" value={addr.district} onChange={setAddrField("district")} placeholder="อำเภอ / เขต" maxLength={100} className={inputCls} />
-                <input type="text" value={addr.province} onChange={setAddrField("province")} placeholder="จังหวัด" maxLength={100} className={inputCls} />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={addr.postalCode}
-                  onChange={setAddrField("postalCode")}
-                  placeholder="รหัสไปรษณีย์"
-                  maxLength={5}
-                  className={inputCls}
-                />
-              </div>
+              <AddressFields
+                value={{ postalCode: addr.postalCode, subdistrict: addr.subdistrict, district: addr.district, province: addr.province }}
+                onChange={handleAddressFieldsChange}
+                inputClassName={inputCls}
+              />
               {addrStarted && !addrComplete ? (
                 <p className="text-[10px] text-red-500 pl-1">กรุณากรอกที่อยู่ให้ครบทุกช่อง (รหัสไปรษณีย์ 5 หลัก) หรือเว้นว่างทั้งหมดไว้ก่อน</p>
               ) : (
