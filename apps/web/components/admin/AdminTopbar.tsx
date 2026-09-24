@@ -24,6 +24,7 @@ import {
   markAllAdminNotificationsRead,
   ADMIN_NOTIFICATIONS_UPDATED_EVENT,
 } from "@/lib/api/notifications";
+import { getMe, type PublicUser } from "@/lib/api/auth";
 
 interface AdminTopbarProps {
   onMobileMenuOpen: () => void;
@@ -58,10 +59,17 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
   // จำนวนยังไม่อ่านจริงทั้งหมดจาก API (list จำกัดแค่ 50 รายการล่าสุด นับจาก list จะได้ตัวเลขต่ำกว่าจริง)
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState<"all" | AdminNotificationType>("all");
+  const [user, setUser] = useState<PublicUser | null>(null);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    getMe()
+      .then((res) => setUser(res.user))
+      .catch(() => setUser(null));
+  }, []);
 
   const loadNotifications = useCallback(() => {
     getAdminNotifications()
@@ -128,6 +136,7 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
   };
 
   const filteredNotifications = notifications.filter((n) => activeTab === "all" || n.type === activeTab);
+  const displayName = user ? `${user.firstname} ${user.lastname}`.trim() || "Admin" : "Admin";
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-100 shadow-sm flex items-center gap-3 px-4">
@@ -321,7 +330,7 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
             </div>
             <div className="hidden sm:flex flex-col items-start min-w-0">
               <span className="text-sm font-semibold text-gray-800 leading-tight max-w-[110px] truncate">
-                Admin
+                {displayName}
               </span>
               <span className="text-[11px] text-orange-500 font-medium leading-tight">
                 ผู้ดูแลระบบ
@@ -339,8 +348,8 @@ export default function AdminTopbar({ onMobileMenuOpen }: AdminTopbarProps) {
           {profileOpen && (
             <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50">
               <div className="px-4 py-2.5 border-b border-gray-100 mb-1">
-                <p className="text-sm font-semibold text-gray-800">Admin</p>
-                <p className="text-xs text-gray-500 mt-0.5">admin@easyprint.app</p>
+                <p className="text-sm font-semibold text-gray-800 truncate">{displayName}</p>
+                {user?.email && <p className="text-xs text-gray-500 mt-0.5 truncate">{user.email}</p>}
               </div>
 
               <button
