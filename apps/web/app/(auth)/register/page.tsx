@@ -192,7 +192,7 @@ export default function RegisterPage() {
       </div>
 
       {/* RIGHT COLUMN */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 lg:p-16 relative z-10 bg-white lg:bg-slate-50 h-screen lg:overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center p-6 sm:p-12 lg:p-16 relative z-10 bg-white lg:bg-slate-50 h-screen lg:overflow-y-auto">
         <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-[#FFB273]/8 blur-3xl pointer-events-none lg:hidden"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-[#8FD2D5]/8 blur-3xl pointer-events-none lg:hidden"></div>
         
