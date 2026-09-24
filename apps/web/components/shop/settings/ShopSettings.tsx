@@ -7,6 +7,7 @@ import { uploadFile } from "@/lib/api/uploads";
 import { DEFAULT_NOTIFICATION_SETTINGS } from "@easyprint/shared";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
+import PasswordInput from "@/components/ui/PasswordInput";
 import {
   CreditCard,
   Bell,
@@ -26,8 +27,6 @@ import {
   Lock,
   Check,
   CheckCircle,
-  Eye,
-  EyeOff,
   Info,
   Upload,
 } from "lucide-react";
@@ -830,18 +829,14 @@ function SecuritySettingsTab({ shopName, onDeleted, onSaved }: { shopName: strin
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">ยืนยันรหัสผ่านปัจจุบัน</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    required
-                    autoComplete="new-password"
-                    value={emailCurrentPwd}
-                    onChange={(e) => setEmailCurrentPwd(e.target.value)}
-                    placeholder="กรอกรหัสผ่านปัจจุบันเพื่อยืนยัน"
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-                  />
-                  <Eye className="absolute right-4 top-3 w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
-                </div>
+                <PasswordInput
+                  required
+                  autoComplete="new-password"
+                  value={emailCurrentPwd}
+                  onChange={(e) => setEmailCurrentPwd(e.target.value)}
+                  placeholder="กรอกรหัสผ่านปัจจุบันเพื่อยืนยัน"
+                  inputClassName="w-full px-4 py-2.5 pr-11 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
+                />
               </div>
             </div>
             <div className="flex justify-end pt-2">
@@ -874,51 +869,39 @@ function SecuritySettingsTab({ shopName, onDeleted, onSaved }: { shopName: strin
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">รหัสผ่านปัจจุบัน</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    required
-                    autoComplete="new-password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="กรอกรหัสผ่านปัจจุบัน"
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-                  />
-                  <Eye className="absolute right-4 top-3 w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
-                </div>
+                <PasswordInput
+                  required
+                  autoComplete="new-password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder="กรอกรหัสผ่านปัจจุบัน"
+                  inputClassName="w-full px-4 py-2.5 pr-11 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
+                />
               </div>
               <div className="hidden md:block"></div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">รหัสผ่านใหม่</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="กรอกรหัสผ่านใหม่"
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-                  />
-                  <Eye className="absolute right-4 top-3 w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
-                </div>
+                <PasswordInput
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="กรอกรหัสผ่านใหม่"
+                  inputClassName="w-full px-4 py-2.5 pr-11 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">ยืนยันรหัสผ่านใหม่</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
-                  />
-                  <Eye className="absolute right-4 top-3 w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
-                </div>
+                <PasswordInput
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                  inputClassName="w-full px-4 py-2.5 pr-11 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-400"
+                />
               </div>
             </div>
             
@@ -1013,12 +996,11 @@ function SecuritySettingsTab({ shopName, onDeleted, onSaved }: { shopName: strin
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">รหัสผ่านปัจจุบัน</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     autoComplete="new-password"
                     value={deletePwd}
                     onChange={(e) => setDeletePwd(e.target.value)}
-                    className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 placeholder:text-slate-400"
+                    inputClassName="w-full px-4 py-2 pr-11 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 placeholder:text-slate-400"
                     placeholder="กรอกรหัสผ่านเพื่อยืนยันตัวตน"
                   />
                 </div>

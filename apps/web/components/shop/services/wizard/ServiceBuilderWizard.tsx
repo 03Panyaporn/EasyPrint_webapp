@@ -56,6 +56,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
     description: form.step1.description || undefined,
     imageUrl: form.step1.imageUrl || undefined,
     isActive: form.step1.status === "active",
+    estimatedTime: form.step1.estimatedTime || undefined,
     pricingModel: model,
     basePrice:
       form.step2.pricingMode === "quantity_tier"
@@ -63,7 +64,8 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
         : colorMode
           ? (baseColorTier?.pricePerUnit ?? 0)
           : (typeof form.step2.basePrice === "number" ? form.step2.basePrice : 0),
-    unit: model === "per_page" ? "หน้า" : model === "per_sqm" ? "แผ่น" : "ชิ้น",
+    // per_page/per_sqm: หน่วยผูกกับวิธีคำนวณจริงตายตัว — เลือกเองไม่ได้ ส่วน per_piece/quantity_tier ให้ร้านเลือกหน่วยเองที่ Step2 (ดู Step2Pricing.tsx)
+    unit: model === "per_page" ? "หน้า" : model === "per_sqm" ? "แผ่น" : form.step2.unit,
     pageCountingMode: form.step2.pageCountingMode,
     colorTiers: colorMode ? extraColorTiers.map((t) => ({ label: t.label, pricePerUnit: t.pricePerUnit })) : [],
     quantityTiers: form.step2.quantityTiers.map((t) => ({
@@ -94,7 +96,7 @@ function buildServiceInput(form: WizardFormData): CreateMainServiceInput {
 }
 
 const INITIAL_FORM: WizardFormData = {
-  step1: { name: "", description: "", imageUrl: "", status: "active" },
+  step1: { name: "", description: "", imageUrl: "", status: "active", estimatedTime: "" },
   step2: {
     pricingMode: null,
     basePrice: 1,
@@ -103,6 +105,7 @@ const INITIAL_FORM: WizardFormData = {
     colorTiers: [],
     quantityTiers: [],
     pageCountingMode: "by_file_page",
+    unit: "ชิ้น",
   },
   step3: { colorTiers: [], options: [] },
   step4: { requiresFileUpload: true, allowedFileTypes: ["pdf", "jpg", "png"] },
@@ -126,6 +129,7 @@ function formFromService(service: MainService): WizardFormData {
       description: service.description ?? "",
       imageUrl: service.imageUrl ?? "",
       status: service.isActive ? "active" : "draft",
+      estimatedTime: (service.estimatedTime as Step1Data["estimatedTime"]) ?? "",
     },
     step2: {
       pricingMode,
@@ -135,6 +139,7 @@ function formFromService(service: MainService): WizardFormData {
       colorTiers: service.colorTiers,
       quantityTiers: service.quantityTiers,
       pageCountingMode: service.pageCountingMode,
+      unit: (service.unit as Step2Data["unit"]) || "ชิ้น",
     },
     step3: { colorTiers: step3ColorTiers, options: service.options },
     step4: {

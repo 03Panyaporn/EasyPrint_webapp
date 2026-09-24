@@ -8,7 +8,24 @@ export type PricingModel = "per_page" | "per_piece" | "per_sqm" | "fixed";
 
 export type ServiceOptionType = "dropdown" | "radio" | "checkbox" | "number" | "text";
 
-export type AllowedFileType = "pdf" | "jpg" | "png" | "ai" | "psd";
+export type AllowedFileType = "pdf" | "jpg" | "png" | "webp" | "ai" | "psd";
+
+// หน่วยนับของบริการ/บริการเสริม — ต้องตรงกับ serviceUnitSchema ใน packages/shared เป๊ะ
+export const SERVICE_UNITS = ["แผ่น", "เล่ม", "ชิ้น", "หน้า", "งาน"] as const;
+export type ServiceUnit = (typeof SERVICE_UNITS)[number];
+
+// ต้องตรงกับ estimatedTimeSchema ใน packages/shared เป๊ะ
+export const ESTIMATED_TIME_OPTIONS = [
+  "2 นาที",
+  "5 นาที",
+  "10 นาที",
+  "15 นาที",
+  "30 นาที",
+  "1 ชั่วโมง",
+  "2 ชั่วโมง",
+  "1 วัน",
+] as const;
+export type EstimatedTime = (typeof ESTIMATED_TIME_OPTIONS)[number];
 
 // หมวดราคาของ Option — 1 หมวดมีได้แค่ 1 Option ต่อบริการ (ยกเว้น "other") — 'color' ไม่อยู่ใน enum นี้โดยเจตนา สีอยู่ที่ ColorTier เท่านั้น
 export type OptionPriceCategory = "paper" | "printing_side" | "size" | "other";

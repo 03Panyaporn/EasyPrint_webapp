@@ -23,6 +23,7 @@ import {
   type ApiOrder,
 } from "@/lib/api/orders";
 import { createReview, getOrderReview } from "@/lib/api/reviews";
+import { sendChatMessage } from "@/lib/api/messages";
 import type { ReviewResponse } from "@easyprint/shared";
 import { statusConfig } from "@/components/shop/orders/statusConfig";
 import { ApiError, apiFetch } from "@/lib/api/client";
@@ -84,6 +85,7 @@ export default function CustomerOrdersPage() {
   const [chatMessage, setChatMessage] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatSent, setChatSent] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   // — Review (ข้อมูลจริงจาก API เดียวกับหน้า /orders/[orderId] — เลิกใช้ mock state แล้ว)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null);
@@ -203,17 +205,24 @@ export default function CustomerOrdersPage() {
   };
 
   const handleSendChat = async () => {
-    if (!chatMessage.trim()) return;
+    if (!chatOrder || !chatMessage.trim()) return;
     setChatSending(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setChatSending(false);
-    setChatSent(true);
+    setChatError("");
+    try {
+      await sendChatMessage(chatOrder.id, chatMessage.trim());
+      setChatSent(true);
+    } catch (err) {
+      setChatError(err instanceof ApiError ? err.message : "ส่งข้อความไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setChatSending(false);
+    }
   };
 
   const handleOpenChat = (order: ApiOrder) => {
     setChatOrder(order);
     setChatMessage("");
     setChatSent(false);
+    setChatError("");
   };
 
   const handleOpenReview = (order: ApiOrder) => {
@@ -370,7 +379,7 @@ export default function CustomerOrdersPage() {
               เมื่อคุณสั่งพิมพ์งาน รายการคำสั่งซื้อจะแสดงที่หน้านี้
             </p>
             <Link
-              href="/dashboard"
+              href="/Dashboard"
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-md"
             >
               ค้นหาร้านถ่ายเอกสาร
@@ -720,10 +729,17 @@ export default function CustomerOrdersPage() {
                       ร้านค้าจะตอบกลับภายใน 24 ชั่วโมง
                     </p>
                   </div>
+                  <Link
+                    href={`/chat?orderId=${chatOrder.id}`}
+                    onClick={() => setChatOrder(null)}
+                    className="mt-2 rounded-xl bg-orange-500 px-5 py-2.5 text-sm text-white transition hover:bg-orange-600"
+                  >
+                    ไปที่หน้าแชท
+                  </Link>
                   <button
                     type="button"
                     onClick={() => setChatOrder(null)}
-                    className="mt-2 rounded-xl bg-slate-100 px-5 py-2.5 text-sm text-slate-600 transition hover:bg-slate-200"
+                    className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm text-slate-600 transition hover:bg-slate-200"
                   >
                     ปิด
                   </button>
@@ -739,11 +755,15 @@ export default function CustomerOrdersPage() {
                     onChange={(e) => setChatMessage(e.target.value)}
                     placeholder="เช่น ต้องการสอบถามเกี่ยวกับการคืนเงิน หรือสาเหตุการยกเลิก..."
                     rows={4}
+                    maxLength={500}
                     className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder-slate-300 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100"
                   />
                   <p className="mt-1.5 text-right text-[11px] text-slate-300">
                     {chatMessage.length}/500
                   </p>
+                  {chatError && (
+                    <p className="mt-1.5 text-xs text-red-500">{chatError}</p>
+                  )}
                   <button
                     type="button"
                     disabled={!chatMessage.trim() || chatSending}

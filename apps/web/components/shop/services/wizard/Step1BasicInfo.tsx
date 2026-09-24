@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { ImageIcon, Upload, X } from "lucide-react";
 import { uploadFile } from "@/lib/api/uploads";
 import { Spinner } from "@/components/ui/Spinner";
+import { ESTIMATED_TIME_OPTIONS, type EstimatedTime } from "../types";
 
 // สถานะบริการมีแค่ 2 แบบ — เปิดใช้งาน (ลูกค้าเห็น) กับ แบบร่าง (ซ่อนจากลูกค้า ร้านกลับมาแก้ไข/เปิดใช้งานทีหลังได้)
 // ตรงกับ backend ที่มีแค่ main_services.is_active (boolean) เดียว ไม่มีสถานะที่ 3 แยกต่างหาก
@@ -14,6 +15,8 @@ export interface Step1Data {
   description: string;
   imageUrl: string;
   status: ServiceStatus;
+  // "" = ไม่ระบุ (ไม่บังคับกรอก) — เดิม wizard บริการหลักไม่มีช่องนี้เลยทั้งที่ backend รองรับอยู่แล้วและบริการเสริมมีให้กรอก (ดู AddServiceModal.tsx)
+  estimatedTime: EstimatedTime | "";
 }
 
 const STATUS_OPTIONS: { value: ServiceStatus; label: string; color: string; bg: string }[] = [
@@ -182,6 +185,24 @@ export default function Step1BasicInfo({ data, onChange, onNext, onBack }: Step1
         {data.status === "draft" && (
           <p className="text-xs text-amber-600">แบบร่างจะไม่แสดงให้ลูกค้าเห็น จนกว่าจะเปลี่ยนเป็นเปิดใช้งาน</p>
         )}
+      </div>
+
+      {/* Estimated time */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-semibold text-gray-700">เวลาดำเนินการโดยประมาณ</label>
+        <p className="text-xs text-gray-400">แสดงให้ลูกค้าเห็นก่อนสั่งซื้อ — ไม่บังคับกรอก</p>
+        <select
+          value={data.estimatedTime}
+          onChange={(e) => onChange({ ...data, estimatedTime: e.target.value as Step1Data["estimatedTime"] })}
+          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 transition bg-white"
+        >
+          <option value="">ไม่ระบุ</option>
+          {ESTIMATED_TIME_OPTIONS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Navigation */}

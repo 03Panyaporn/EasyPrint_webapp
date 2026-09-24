@@ -21,7 +21,6 @@ import {
 import { getShop, type PublicShopDetail } from "@/lib/api/shops";
 import { isShopOpenNow, formatTodayHours, isShopTempClosed } from "@/lib/shopHours";
 import { getMainServices } from "@/lib/api/services";
-import { getShopCart } from "@/lib/api/cart";
 import { getMe } from "@/lib/api/auth";
 import { getFavoriteShops, addFavoriteShop, removeFavoriteShop } from "@/lib/api/favorites";
 import { getShopReviews } from "@/lib/api/reviews";
@@ -79,7 +78,6 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
   const [user, setUser] = useState<{ id: string; firstname: string; lastname: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [cartCount, setCartCount] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [activeReviewFilter, setActiveReviewFilter] = useState("ทั้งหมด");
@@ -146,12 +144,6 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
     }
   };
 
-  const refreshCartBadge = () => {
-    getShopCart(params.shopId)
-      .then((res) => setCartCount(res.cart?.items.length ?? 0))
-      .catch(() => setCartCount(0));
-  };
-
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -192,7 +184,6 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
         if (!cancelled) setLoading(false);
       });
 
-    refreshCartBadge();
     return () => {
       cancelled = true;
     };
@@ -229,10 +220,7 @@ export default function ShopDetailPage({ params }: { params: { shopId: string } 
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <CustomerHeader
-        variant="auth"
-        cartCount={cartCount}
-      />
+      <CustomerHeader variant="auth" />
 
       {loading ? (
         <div aria-live="polite" aria-busy="true">

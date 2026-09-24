@@ -13,7 +13,6 @@ import {
   Link2,
   Layers,
   Truck,
-  ChevronDown,
   Printer,
   ArrowRight,
   CheckCircle2,
@@ -30,6 +29,8 @@ import { registerShop } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { uploadFile } from "@/lib/api/uploads";
 import { Spinner } from "@/components/ui/Spinner";
+import AddressFields, { type AddressFieldsValue } from "@/components/ui/AddressFields";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 interface DaySchedule {
   day: string;
@@ -134,6 +135,15 @@ export default function ShopRegisterPage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleShopAddressChange = (next: AddressFieldsValue) =>
+    setForm((prev) => ({
+      ...prev,
+      subdistrict: next.subdistrict,
+      district: next.district,
+      province: next.province,
+      postcode: next.postalCode,
+    }));
+
   const passwordsMatch = !form.password || !form.confirmPassword || form.password === form.confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,7 +220,8 @@ export default function ShopRegisterPage() {
           </div>
           <h2 className="text-2xl font-black text-slate-800">สมัครสำเร็จ!</h2>
           <p className="text-slate-500 text-sm leading-relaxed">
-            ข้อมูลร้านค้าของคุณถูกส่งแล้ว ทีมงาน EasyPrint จะตรวจสอบและยืนยันภายใน 1-2 วันทำการ
+            ข้อมูลร้านค้าของคุณถูกส่งแล้ว ทีมงาน EasyPrint จะตรวจสอบและแจ้งผลทางอีเมลภายใน 3 วันทำการ
+            เมื่อได้รับอนุมัติแล้วสามารถเข้าสู่ระบบเพื่อใช้งานได้ทันที
           </p>
           <Link
             href="/"
@@ -321,29 +332,27 @@ export default function ShopRegisterPage() {
               />
             </Field>
             <Field label="รหัสผ่าน" icon={<Lock className="w-4 h-4" />} required>
-              <input
-                type="password"
+              <PasswordInput
                 name="password"
                 value={form.password}
                 onChange={handleChange}
                 placeholder="อย่างน้อย 8 ตัวอักษร"
                 minLength={8}
                 required
-                className={inputCls}
+                inputClassName={`${inputCls} pr-11`}
               />
             </Field>
           </div>
 
           <Field label="ยืนยันรหัสผ่าน" icon={<Lock className="w-4 h-4" />} required>
-            <input
-              type="password"
+            <PasswordInput
               name="confirmPassword"
               value={form.confirmPassword}
               onChange={handleChange}
               placeholder="กรอกรหัสผ่านอีกครั้ง"
               minLength={8}
               required
-              className={inputCls}
+              inputClassName={`${inputCls} pr-11`}
             />
             {!passwordsMatch && (
               <p className="text-xs text-red-500 mt-1">รหัสผ่านไม่ตรงกัน</p>
@@ -462,59 +471,17 @@ export default function ShopRegisterPage() {
                   placeholder="เช่น พหลโยธิน" className={inputCls} />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-500">ตำบล / แขวง</label>
-                <input type="text" name="subdistrict" value={form.subdistrict} onChange={handleChange}
-                  placeholder="ตำบล" required className={inputCls} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-500">อำเภอ / เขต</label>
-                <input type="text" name="district" value={form.district} onChange={handleChange}
-                  placeholder="อำเภอ" required className={inputCls} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-500">จังหวัด</label>
-                <div className="relative">
-                  <select name="province" value={form.province} onChange={handleChange}
-                    required className={`${inputCls} appearance-none pr-9 cursor-pointer`}>
-                    <option value="">-- เลือกจังหวัด --</option>
-                    <option>กรุงเทพมหานคร</option><option>กระบี่</option><option>กาญจนบุรี</option>
-                    <option>กาฬสินธุ์</option><option>กำแพงเพชร</option><option>ขอนแก่น</option>
-                    <option>จันทบุรี</option><option>ฉะเชิงเทรา</option><option>ชัยนาท</option>
-                    <option>ชัยภูมิ</option><option>ชุมพร</option><option>ชลบุรี</option>
-                    <option>เชียงใหม่</option><option>เชียงราย</option><option>ตรัง</option>
-                    <option>ตราด</option><option>ตาก</option><option>นครนายก</option>
-                    <option>นครปฐม</option><option>นครพนม</option><option>นครราชสีมา</option>
-                    <option>นครศรีธรรมราช</option><option>นครสวรรค์</option><option>นราธิวาส</option>
-                    <option>น่าน</option><option>นนทบุรี</option><option>บึงกาฬ</option>
-                    <option>บุรีรัมย์</option><option>ประจวบคีรีขันธ์</option><option>ปราจีนบุรี</option>
-                    <option>ปทุมธานี</option><option>พระนครศรีอยุธยา</option><option>พังงา</option>
-                    <option>พัทลุง</option><option>พิจิตร</option><option>พิษณุโลก</option>
-                    <option>เพชรบุรี</option><option>เพชรบูรณ์</option><option>แพร่</option>
-                    <option>พะเยา</option><option>ภูเก็ต</option><option>มหาสารคาม</option>
-                    <option>มุกดาหาร</option><option>แม่ฮ่องสอน</option><option>ยโสธร</option>
-                    <option>ยะลา</option><option>ร้อยเอ็ด</option><option>ระนอง</option>
-                    <option>ระยอง</option><option>ราชบุรี</option><option>ลพบุรี</option>
-                    <option>ลำปาง</option><option>ลำพูน</option><option>เลย</option>
-                    <option>ศรีสะเกษ</option><option>สกลนคร</option><option>สงขลา</option>
-                    <option>สตูล</option><option>สมุทรปราการ</option><option>สมุทรสงคราม</option>
-                    <option>สมุทรสาคร</option><option>สระแก้ว</option><option>สระบุรี</option>
-                    <option>สิงห์บุรี</option><option>สุโขทัย</option><option>สุพรรณบุรี</option>
-                    <option>สุราษฎร์ธานี</option><option>สุรินทร์</option><option>หนองคาย</option>
-                    <option>หนองบัวลำภู</option><option>อ่างทอง</option><option>อุดรธานี</option>
-                    <option>อุทัยธานี</option><option>อุตรดิตถ์</option><option>อุบลราชธานี</option>
-                    <option>อำนาจเจริญ</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-500">รหัสไปรษณีย์</label>
-                <input type="text" name="postcode" value={form.postcode} onChange={handleChange}
-                  placeholder="รหัสไปรษณีย์" required className={inputCls} />
-              </div>
-            </div>
+            <AddressFields
+              value={{
+                postalCode: form.postcode,
+                subdistrict: form.subdistrict,
+                district: form.district,
+                province: form.province,
+              }}
+              onChange={handleShopAddressChange}
+              inputClassName={inputCls}
+              labelClassName="text-[11px] font-semibold text-slate-500"
+            />
           </div>
 
           {/* Google Maps Link */}

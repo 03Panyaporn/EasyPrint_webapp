@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
+import { CartProvider } from "@/contexts/CartContext";
 import "./globals.css";
 
 const sarabun = Sarabun({
@@ -21,7 +22,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={sarabun.className}>
-      <body className="antialiased bg-gray-50 text-slate-800">{children}</body>
+      <body className="antialiased bg-gray-50 text-slate-800">
+        <CartProvider>{children}</CartProvider>
+      </body>
     </html>
   );
 }

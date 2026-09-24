@@ -23,10 +23,10 @@ export const addOnBindingSchema = z.object({
 // วิธีคิดราคาพื้นฐาน — ดู comment เต็มที่ apps/api/drizzle/schema.ts pricingModelEnum
 export const pricingModelSchema = z.enum(["per_page", "per_piece", "per_sqm", "fixed"]);
 
-export const allowedFileTypeSchema = z.enum(["pdf", "jpg", "png", "ai", "psd"]);
-// ชนิดไฟล์ที่ระบบรับอัปโหลดได้จริง (upload type "order-file" ใน apps/api/src/storage.ts รับแค่ PDF/รูปภาพ)
+export const allowedFileTypeSchema = z.enum(["pdf", "jpg", "png", "webp", "ai", "psd"]);
+// ชนิดไฟล์ที่ระบบรับอัปโหลดได้จริง (upload type "order-file" ใน apps/api/src/storage.ts รองรับ PDF/รูปภาพ JPEG-PNG-WEBP)
 // ai/psd ยังอยู่ใน enum เพื่อให้ข้อมูลบริการเก่าที่เคยเลือกไว้ยัง validate ผ่าน แต่ห้ามให้ร้านเลือกเพิ่ม — ลูกค้าอัปโหลดไม่ได้อยู่ดี
-export const UPLOADABLE_FILE_TYPES = ["pdf", "jpg", "png"] as const;
+export const UPLOADABLE_FILE_TYPES = ["pdf", "jpg", "png", "webp"] as const;
 
 // ตัวเลือกบริการ (service option) ที่ร้านค้าสร้างเองได้ไม่จำกัด เช่น "ประเภทกระดาษ", "สี", "วัสดุ"
 export const serviceOptionTypeSchema = z.enum(["dropdown", "radio", "checkbox", "number", "text"]);

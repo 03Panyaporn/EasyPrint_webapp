@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X } from "lucide-react";
+import { UPLOADABLE_FILE_TYPES } from "@easyprint/shared";
 import type { AllowedFileType } from "../types";
 
 export interface Step4Data {
@@ -9,14 +9,12 @@ export interface Step4Data {
   allowedFileTypes: AllowedFileType[];
 }
 
-const ALL_FILE_TYPES: { value: AllowedFileType; label: string }[] = [
-  { value: "pdf", label: "PDF" },
-  { value: "jpg", label: "JPG" },
-  { value: "png", label: "PNG" },
-  // ไม่มี AI/PSD — ระบบอัปโหลดรับแค่ PDF/รูปภาพ (ดู UPLOADABLE_FILE_TYPES ใน @easyprint/shared)
-];
-
-const EXTRA_FILE_TYPES: AllowedFileType[] = ["pdf", "jpg", "png"];
+// ชนิดไฟล์ที่เลือกได้ต้องมาจาก UPLOADABLE_FILE_TYPES เท่านั้น (ระบบอัปโหลดจริงรับแค่ชุดนี้ — ai/psd ไม่อยู่ในนี้เพราะอัปโหลดไม่ได้จริง)
+// เดิมมีช่องให้พิมพ์นามสกุลไฟล์เองได้อิสระ (เช่น docx) แต่ backend ปฏิเสธค่านอกรายการนี้เสมอ ร้านจะเจอ error ตอนกด "บันทึก" เท่านั้น — ตัดช่องนั้นออก เหลือแค่เลือกจากรายการที่ใช้ได้จริง
+const ALL_FILE_TYPES: { value: AllowedFileType; label: string }[] = UPLOADABLE_FILE_TYPES.map((value) => ({
+  value,
+  label: value.toUpperCase(),
+}));
 
 interface Step4FileUploadProps {
   data: Step4Data;
@@ -26,24 +24,12 @@ interface Step4FileUploadProps {
 }
 
 export default function Step4FileUpload({ data, onChange, onNext, onBack }: Step4FileUploadProps) {
-  const [customType, setCustomType] = useState("");
-
   const toggleFileType = (type: AllowedFileType) => {
     const has = data.allowedFileTypes.includes(type);
     const updated = has
       ? data.allowedFileTypes.filter((t) => t !== type)
       : [...data.allowedFileTypes, type];
     onChange({ ...data, allowedFileTypes: updated });
-  };
-
-  const addCustomType = () => {
-    const val = customType.trim().toLowerCase().replace(/^\./, "") as AllowedFileType;
-    if (!val || data.allowedFileTypes.includes(val)) {
-      setCustomType("");
-      return;
-    }
-    onChange({ ...data, allowedFileTypes: [...data.allowedFileTypes, val] });
-    setCustomType("");
   };
 
   const removeFileType = (type: AllowedFileType) =>
@@ -83,7 +69,7 @@ export default function Step4FileUpload({ data, onChange, onNext, onBack }: Step
           </div>
         </div>
 
-        {/* Custom types (tags row) */}
+        {/* ค่าเก่าที่นอกเหนือจากรายการปัจจุบัน (เช่น เคยกรอกนามสกุลอื่นเองไว้ก่อนตัดช่องนี้ออก) — แสดงไว้ให้ลบทิ้งได้ แต่เพิ่มใหม่ไม่ได้แล้ว */}
         {data.allowedFileTypes.some((t) => !ALL_FILE_TYPES.map((f) => f.value).includes(t)) && (
           <div className="flex flex-wrap gap-1.5">
             {data.allowedFileTypes
@@ -101,26 +87,6 @@ export default function Step4FileUpload({ data, onChange, onNext, onBack }: Step
               ))}
           </div>
         )}
-
-        {/* Add custom type */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 shrink-0">เพิ่มนามสกุลอื่น:</span>
-          <input
-            type="text"
-            value={customType}
-            onChange={(e) => setCustomType(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCustomType()}
-            placeholder="เช่น docx, xlsx"
-            className="flex-1 max-w-[140px] px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/25"
-          />
-          <button
-            onClick={addCustomType}
-            disabled={!customType.trim()}
-            className="px-2.5 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition"
-          >
-            <Plus size={13} />
-          </button>
-        </div>
 
         {data.allowedFileTypes.length === 0 && (
           <p className="text-xs text-red-500">⚠ ต้องเลือกอย่างน้อย 1 ประเภทไฟล์</p>

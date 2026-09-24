@@ -5,6 +5,7 @@ import Link from "next/link";
 import { changePassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { Spinner } from "@/components/ui/Spinner";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -67,25 +68,23 @@ export default function ChangePasswordPage() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">รหัสผ่านปัจจุบัน</label>
-            <input
-              type="password"
+            <PasswordInput
               required
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition"
+              inputClassName="w-full px-4 py-2.5 pr-11 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">รหัสผ่านใหม่</label>
-            <input
-              type="password"
+            <PasswordInput
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition"
+              inputClassName="w-full px-4 py-2.5 pr-11 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition"
             />
             <p className="text-[11px] text-slate-400 mt-1">รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร</p>
             {isSameAsCurrent && (
@@ -95,13 +94,12 @@ export default function ChangePasswordPage() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">ยืนยันรหัสผ่านใหม่</label>
-            <input
-              type="password"
+            <PasswordInput
               required
               value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition"
+              inputClassName="w-full px-4 py-2.5 pr-11 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition"
             />
             {!passwordsMatch && <p className="text-[11px] text-red-500 mt-1">รหัสผ่านไม่ตรงกัน</p>}
           </div>

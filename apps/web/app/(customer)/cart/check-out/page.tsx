@@ -25,6 +25,7 @@ import {
     type Address
 } from "@/lib/api/addresses";
 import { LoadingSection, Spinner } from "@/components/ui/Spinner";
+import { useCart } from "@/contexts/CartContext";
 
 export default function CheckoutPage() {
     return (
@@ -47,6 +48,7 @@ export default function CheckoutPage() {
 function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { refreshCart } = useCart();
 
     const itemsParam = searchParams.get("items");
 
@@ -765,6 +767,8 @@ function CheckoutContent() {
                             alert(
                                 "สั่งซื้อสำเร็จ"
                             );
+
+                            await refreshCart();
 
                             router.push(
                                 "/orders"

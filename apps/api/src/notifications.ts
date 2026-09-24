@@ -56,3 +56,32 @@ export async function notifyOrderCancelled(params: {
     `
   );
 }
+
+// ร้านที่สมัครใหม่เป็น pending อยู่ ไม่มีทางรู้ว่าแอดมินอนุมัติแล้วนอกจาก log in มาเช็คกระดิ่งแจ้งเตือนในแอปเอง (createNotification ใน utils/notification.ts
+// แค่ insert แถวลง DB ไม่ส่งอีเมล) — เพิ่มอีเมลนี้เป็นช่องทางเชิงรุกคู่กับแจ้งเตือนในแอปเดิม เรียกจาก PATCH /admin/shops/:id/approve
+export async function notifyShopApproved(params: { to: string; shopName: string; isReinstate: boolean }) {
+  const { to, shopName, isReinstate } = params;
+  await sendNotificationEmail(
+    to,
+    isReinstate ? `ร้าน "${shopName}" กลับมาเปิดให้บริการได้แล้ว` : `ร้าน "${shopName}" ผ่านการอนุมัติแล้ว!`,
+    isReinstate
+      ? `<p>การระงับการใช้งานร้านค้า <strong>${shopName}</strong> ถูกยกเลิกแล้ว ร้านกลับมาเปิดให้บริการได้ตามปกติ</p>`
+      : `
+        <p>ยินดีด้วย! ร้าน <strong>${shopName}</strong> ผ่านการตรวจสอบและพร้อมเปิดให้บริการแล้ว</p>
+        <p>เข้าสู่ระบบที่เว็บ EasyPrint เพื่อตั้งค่าบริการและเริ่มรับออเดอร์ได้เลย</p>
+      `
+  );
+}
+
+// kind: "rejected" = ใบสมัครใหม่ไม่ผ่านการอนุมัติ / "suspended" = ร้านที่เคยอนุมัติแล้วถูกระงับทีหลัง
+export async function notifyShopRejected(params: { to: string; shopName: string; reason: string }) {
+  const { to, shopName, reason } = params;
+  await sendNotificationEmail(
+    to,
+    `ใบสมัครร้าน "${shopName}" ไม่ผ่านการอนุมัติ`,
+    `
+      <p>ใบสมัครร้านค้า <strong>${shopName}</strong> ของคุณไม่ผ่านการตรวจสอบ</p>
+      <p>เหตุผล: ${reason}</p>
+    `
+  );
+}

@@ -29,9 +29,11 @@ import type { DeliveryOption } from "@/components/shop/services/types";
 import { useRouter } from "next/navigation";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
+import { useCart } from "@/contexts/CartContext";
 
 export default function CartPage() {
   const router = useRouter();
+  const { refreshCart } = useCart();
 
   const [carts, setCarts] = useState<Cart[]>([]);
   const [deliveryOptionsByShop, setDeliveryOptionsByShop] = useState<
@@ -205,6 +207,7 @@ export default function CartPage() {
       );
 
       replaceCart(updated);
+      await refreshCart();
     } catch {
       setLoadError(
         "แก้ไขจำนวนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
@@ -225,6 +228,7 @@ export default function CartPage() {
       );
 
       await load();
+      await refreshCart();
     } catch {
       setLoadError(
         "ลบรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"

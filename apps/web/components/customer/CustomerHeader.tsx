@@ -17,10 +17,13 @@ import {
   MessageCircle,
   Phone,
   PhoneCall,
+  Heart,
 } from "lucide-react";
 import { getMe, logout as logoutApi, type PublicUser } from "@/lib/api/auth";
 import CustomerNotificationDropdown from "@/components/customer/CustomerNotificationDropdown";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useCart } from "@/contexts/CartContext";
+import { useUnreadChatCount } from "@/lib/hooks/useUnreadChatCount";
 
 // nav กลางที่ยังไม่มีหน้าจริงรองรับ (แชท) — ใส่ไว้ให้ตรงหน้าตาม็อคอปก่อน ยังไม่ผูก route จริง
 const NAV_LINKS: { label: string; href: string; match?: (pathname: string) => boolean }[] = [
@@ -30,13 +33,13 @@ const NAV_LINKS: { label: string; href: string; match?: (pathname: string) => bo
 
 interface CustomerHeaderProps {
   variant: "guest" | "auth";
-  cartCount?: number;
   onSignupClick?: () => void;
 }
 
-export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }: CustomerHeaderProps) {
+export default function CustomerHeader({ variant, onSignupClick }: CustomerHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { cartCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -65,6 +68,7 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
   // ผลลัพธ์จริงของ getMe()) แทน variant ในการตัดสินใจว่าจะโชว์ UI แบบ login หรือ guest
   const isLoggedIn = variant === "auth" && !userLoading && user !== null;
   const showAuthChecking = variant === "auth" && userLoading;
+  const unreadChatCount = useUnreadChatCount(isLoggedIn);
 
   // Outside click listener for profile dropdown
   useEffect(() => {
@@ -134,9 +138,14 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
             <Link
               key={l.label}
               href={l.href}
-              className="font-bold pb-0.5 text-sm xl:text-base text-gray-700 hover:text-orange-500 transition"
+              className="relative font-bold pb-0.5 text-sm xl:text-base text-gray-700 hover:text-orange-500 transition"
             >
               {l.label}
+              {l.label === "แชท" && unreadChatCount > 0 && (
+                <span className="absolute -top-2 -right-3 w-4.5 h-4.5 rounded-full bg-orange-500 text-white text-[9px] font-extrabold inline-flex items-center justify-center shrink-0 aspect-square leading-none pointer-events-none">
+                  {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -237,6 +246,20 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                             <PackageSearch size={15} />
                           </div>
                           <span>ประวัติการสั่งซื้อ</span>
+                        </div>
+                        <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
+                      </Link>
+
+                      <Link
+                        href="/favorites"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center group-hover:scale-110 transition">
+                            <Heart size={15} />
+                          </div>
+                          <span>ร้านโปรด</span>
                         </div>
                         <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
                       </Link>
@@ -420,12 +443,26 @@ export default function CustomerHeader({ variant, cartCount = 0, onSignupClick }
                   </Link>
 
                   <Link
+                    href="/favorites"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
+                  >
+                    <Heart className="w-5 h-5 text-orange-500 shrink-0" />
+                    <span>ร้านโปรด</span>
+                  </Link>
+
+                  <Link
                     href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-orange-50 hover:text-orange-500 transition"
                   >
                     <MessageCircle className="w-5 h-5 text-orange-500 shrink-0" />
                     <span>แชท</span>
+                    {unreadChatCount > 0 && (
+                      <span className="ml-auto w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-extrabold inline-flex items-center justify-center shrink-0 aspect-square leading-none">
+                        {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                      </span>
+                    )}
                   </Link>
 
                   <Link
