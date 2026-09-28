@@ -304,8 +304,14 @@ function OrderBuilderForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [addedToast, setAddedToast] = useState(false);
+  const [errorToast, setErrorToast] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  const showErrorToast = (message: string) => {
+    setErrorToast(message);
+    setTimeout(() => setErrorToast(""), 4000);
+  };
 
   const setOption = (optionId: string, value: string) => {
     setOptionState((prev) => ({ ...prev, [optionId]: value }));
@@ -323,6 +329,10 @@ function OrderBuilderForm({
     pricingModel === "per_page"
       ? "application/pdf"
       : mainService.allowedFileTypes.map((t) => FILE_TYPE_MIME[t]).join(",") || undefined;
+
+  // ไฟล์บังคับอัปโหลดถ้าบริการตั้งไว้ (mainService.requiresFileUpload) หรือเป็นบริการคิดราคาตามจำนวนหน้า
+  // ต้องตรงกับเงื่อนไขที่ backend เช็คจริงใน apps/api/src/routes/cart.ts
+  const fileRequired = mainService.requiresFileUpload || pricingModel === "per_page";
 
   // ตรวจชนิด/ขนาดไฟล์ก่อนรับไว้ — ทั้งตอนเลือกไฟล์และลากมาวาง (การลากวางข้ามตัวกรอง accept ของ input ได้)
   // ให้ตรงกับที่ backend รับจริง: per_page ต้องเป็น PDF เท่านั้น, ชนิดไฟล์ต้องอยู่ในที่ร้านเปิดรับ, ขนาดไม่เกิน MAX_ORDER_FILE_MB
@@ -571,7 +581,12 @@ function OrderBuilderForm({
       }
     }
     if (quantity === "" || Number(quantity) < 1) errs.quantity = "กรุณากรอกจำนวนอย่างน้อย 1";
-    if (pricingModel === "per_page" && file && pdfError) errs.file = pdfError;
+
+    if (fileRequired && !file) {
+      errs.file = "กรุณาอัปโหลดไฟล์งานพิมพ์ก่อนดำเนินการต่อ";
+    } else if (pricingModel === "per_page" && file && pdfError) {
+      errs.file = pdfError;
+    }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -581,7 +596,7 @@ function OrderBuilderForm({
     e.preventDefault();
     setNeedsLogin(false);
     if (shopClosed) {
-      setErrors({ submit: "ร้านนี้ปิดทำการอยู่ขณะนี้ ไม่สามารถสั่งพิมพ์ได้ กรุณากลับมาใหม่ตอนร้านเปิด" });
+      showErrorToast("ร้านนี้ปิดทำการอยู่ขณะนี้ ไม่สามารถสั่งพิมพ์ได้ กรุณากลับมาใหม่ตอนร้านเปิด");
       return;
     }
     if (!validate()) return;
@@ -632,7 +647,7 @@ function OrderBuilderForm({
       if (err instanceof ApiError && err.status === 401) {
         setNeedsLogin(true);
       } else {
-        setErrors({ submit: err instanceof ApiError ? err.message : "เพิ่มลงตะกร้าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+        showErrorToast(err instanceof ApiError ? err.message : "เพิ่มลงตะกร้าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       }
     } finally {
       setIsSubmitting(false);
@@ -668,6 +683,13 @@ function OrderBuilderForm({
         <div className="fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 text-white text-sm rounded-2xl shadow-xl border border-slate-700">
           <CheckCircle size={18} className="text-emerald-400" />
           <span>เพิ่ม &quot;{mainService.name}&quot; ลงตะกร้าเรียบร้อยแล้ว</span>
+        </div>
+      )}
+
+      {errorToast && (
+        <div className="fixed top-6 right-6 z-50 flex items-start gap-2 px-4 py-3 bg-rose-600 text-white text-sm rounded-2xl shadow-xl border border-rose-700 max-w-xs">
+          <AlertCircle size={18} className="text-white shrink-0 mt-0.5" />
+          <span>{errorToast}</span>
         </div>
       )}
 
@@ -759,8 +781,13 @@ function OrderBuilderForm({
               {/* Box 1: อัปโหลดไฟล์งาน */}
               <div className="bg-white rounded-2xl border-2 border-sky-200/80 p-4 sm:p-5 shadow-xs space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-extrabold text-slate-900 tracking-wide">
-                    อัปโหลดไฟล์งาน
+                  <h3 className="text-xs font-extrabold text-slate-900 tracking-wide flex items-center gap-1.5">
+                    <span>อัปโหลดไฟล์งาน</span>
+                    {fileRequired ? (
+                      <span className="text-[10px] font-bold text-rose-500">(บังคับ)</span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-medium">(ไม่บังคับ)</span>
+                    )}
                   </h3>
                   <span className="text-[11px] text-slate-400 font-medium">
                     {pricingModel === "per_page" ? "รองรับเฉพาะไฟล์ PDF" : `รองรับไฟล์ ${mainService.allowedFileTypes.map((t) => t.toUpperCase()).join(", ") || "PDF, JPG, PNG"}`} (ขนาดไม่เกิน {MAX_ORDER_FILE_MB}MB)
@@ -1140,6 +1167,9 @@ function OrderBuilderForm({
                       <NumberField label="กว้าง (ซม.)" value={widthCm} onChange={setWidthCm} />
                       <NumberField label="สูง (ซม.)" value={heightCm} onChange={setHeightCm} />
                     </div>
+                    {errors.dimensions && (
+                      <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.dimensions}</p>
+                    )}
                   </div>
                 )}
 
@@ -1183,6 +1213,9 @@ function OrderBuilderForm({
                     <Sparkles size={12} className="text-amber-500" />
                   </span>
                 </div>
+                {errors.quantity && (
+                  <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.quantity}</p>
+                )}
               </div>
 
               {/* Box 5: หมายเหตุถึงร้านค้า */}
