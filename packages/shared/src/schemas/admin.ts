@@ -53,6 +53,85 @@ export interface AdminDashboardResponse {
   pendingShops: AdminDashboardPendingShop[];
 }
 
+// ── จัดการบัญชีลูกค้า (หน้า /admin/users) — เฉพาะ role "customer" เท่านั้น เจ้าของร้านจัดการผ่านหน้าร้านค้า (/admin/manage) ──
+// สถานะคำนวณจาก users.suspended_at (null = active) ไม่มีคอลัมน์ status แยก
+export const adminCustomerStatusSchema = z.enum(["active", "suspended"]);
+export type AdminCustomerStatus = z.infer<typeof adminCustomerStatusSchema>;
+
+// GET /admin/customers — query string มาเป็น string เสมอ เลยใช้ z.coerce กับตัวเลข
+export const adminCustomerListQuerySchema = z.object({
+  q: z.string().trim().max(100, "คำค้นหายาวเกินไป").optional(),
+  status: z.enum(["all", "active", "suspended"]).default("all"),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
+});
+export type AdminCustomerListQuery = z.infer<typeof adminCustomerListQuerySchema>;
+
+// PATCH /admin/customers/:id/suspend
+export const suspendCustomerSchema = z.object({
+  reason: z.string().trim().min(1, "กรุณาระบุเหตุผลในการระงับการใช้งาน").max(500, "เหตุผลยาวเกินไป (ไม่เกิน 500 ตัวอักษร)"),
+});
+export type SuspendCustomerInput = z.infer<typeof suspendCustomerSchema>;
+
+export interface AdminCustomerListItem {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  status: AdminCustomerStatus;
+  suspendedAt: string | null;
+  orderCount: number;
+  createdAt: string;
+}
+
+export interface AdminCustomerListResponse {
+  customers: AdminCustomerListItem[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  // ตัวเลขรวมทั้งระบบ (ไม่ขึ้นกับคำค้นหา/ตัวกรอง) ใช้แสดงการ์ดสถิติด้านบนของหน้า
+  stats: { total: number; active: number; suspended: number };
+}
+
+export interface AdminCustomerAddress {
+  id: string;
+  label: string;
+  receiverName: string;
+  phone: string;
+  fullAddress: string;
+  isDefault: boolean;
+}
+
+export interface AdminCustomerRecentOrder {
+  id: string;
+  ref: string;
+  shopName: string | null;
+  status: string; // ค่า order_status เดียวกับ orders.status
+  totalPrice: number | null;
+  createdAt: string;
+}
+
+// สาเหตุที่ลบบัญชีไม่ได้ — has_orders = มีประวัติคำสั่งซื้อผูกอยู่ (ต้องเก็บไว้เป็นประวัติของร้านค้า ใช้การระงับแทน)
+export type AdminCustomerDeleteBlocker = "has_orders";
+
+export interface AdminCustomerDetail extends AdminCustomerListItem {
+  address: string | null;
+  suspendedReason: string | null;
+  addresses: AdminCustomerAddress[];
+  orderStats: {
+    total: number;
+    active: number; // ยังไม่ completed/cancelled
+    completed: number;
+    cancelled: number;
+    totalSpent: number; // รวมยอดของออเดอร์ที่ completed แล้วเท่านั้น (บาท)
+    lastOrderAt: string | null;
+  };
+  recentOrders: AdminCustomerRecentOrder[];
+  reviewCount: number;
+  favoriteShopCount: number;
+  canDelete: boolean;
+  deleteBlocker: AdminCustomerDeleteBlocker | null;
+}
+
 // GET/PATCH /admin/settings — ตั้งค่าระบบฝั่งแอดมิน (system_settings มีแถวเดียวเสมอ)
 // key ต้องตรงกับ notificationSettings ที่ apps/web/app/(admin)/admin/settings/page.tsx ใช้แสดงผลเป๊ะ
 export const notificationTogglesSchema = z.object({

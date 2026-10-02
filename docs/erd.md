@@ -15,6 +15,8 @@
 | lastname | text | |
 | phone | text | |
 | address | text | ไม่บังคับ |
+| suspended_at | timestamp (nullable) | แอดมินระงับบัญชีลูกค้า (หน้า `/admin/users`) — `null` = ใช้งานปกติ (migration 0023) |
+| suspended_reason | text (nullable) | เหตุผลที่ระงับ — ล้างเป็น `null` ตอนเปิดใช้งานอีกครั้ง |
 | created_at | timestamp | |
 
 ### `password_reset_tokens`

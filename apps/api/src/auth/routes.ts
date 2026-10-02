@@ -12,7 +12,7 @@ import {
   updateProfileSchema,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { users, passwordResetTokens, shops, orders, carts, addresses, contactAdminMessages, deliveryOptions } from "../../drizzle/schema";
+import { users, passwordResetTokens, shops, addresses, deliveryOptions } from "../../drizzle/schema";
 import { hashPassword, verifyPassword, generateResetToken, hashResetToken } from "./password";
 import { signAuthToken, verifyAuthToken, AUTH_COOKIE_NAME } from "./jwt";
 import { sendPasswordResetEmail } from "../email";
@@ -20,6 +20,8 @@ import { createNotification } from "../utils/notification";
 import { createAdminNotification } from "../adminNotifications";
 import { getSystemSettings } from "../systemSettings";
 import { isUniqueViolation } from "../utils/validation";
+import { getAccountDeletionBlocker, deleteUserAccount } from "../utils/userAccount";
+import { getSuspendedAccountMessage, ACCOUNT_SUSPENDED_CODE } from "../utils/accountSuspension";
 
 // เช็คความยาวรหัสผ่านขั้นต่ำตามค่าที่แอดมินตั้งไว้ (system_settings.minPasswordLength) — เสริมจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว
 // คืน error message ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
@@ -274,6 +276,12 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     if (!user || !passwordOk) {
       set.status = 401;
       return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
+    }
+
+    // บัญชีลูกค้าที่แอดมินระงับไว้ — เช็คหลังรหัสผ่านถูกเท่านั้น กันคนนอกใช้หน้า login เช็คว่าอีเมลไหนถูกระงับ
+    if (user.role === "customer" && user.suspendedAt) {
+      set.status = 403;
+      return { error: await getSuspendedAccountMessage(), code: ACCOUNT_SUSPENDED_CODE };
     }
 
     const token = signAuthToken({ userId: user.id, role: user.role }, parsed.data.rememberMe);
@@ -546,38 +554,18 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       return { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
     }
 
-    // shops.owner_id / orders.customer_id ตั้งใจไม่มี ON DELETE CASCADE (กันร้านค้า/ประวัติการขายหายไปเงียบๆ ตอนเจ้าของบัญชีลบตัวเอง —
-    // ดูคอมเมนต์เดียวกันใน services.ts เรื่องลบบริการที่มี cart ผูกอยู่) เลยต้องเช็คก่อนลบเสมอ ไม่งั้น Postgres จะ throw
-    // foreign_key_violation (23503) ดิบๆ ที่ catch ไม่ทัน กลายเป็น raw 500 (ยืนยันบั๊กจริงจาก QA Phase 08 — BUG-08-01
-    // พบว่ากระทบทั้งเจ้าของร้านที่มีร้านผูกอยู่ และลูกค้าทั่วไปที่เคยสั่งซื้อแล้วอย่างน้อย 1 ครั้ง — คือเกือบทุกบัญชีที่ใช้งานจริง)
-    if (user.role === "shop_owner") {
-      const [ownedShop] = await db.select({ id: shops.id }).from(shops).where(eq(shops.ownerId, user.id));
-      if (ownedShop) {
-        set.status = 400;
-        return { error: "ไม่สามารถลบบัญชีได้ เนื่องจากยังมีร้านค้าผูกอยู่กับบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบเพื่อปิด/โอนย้ายร้านค้าก่อนลบบัญชี" };
-      }
+    // กติกาการลบ + การล้างข้อมูลที่ผูกอยู่ อยู่ที่ utils/userAccount.ts (ใช้ร่วมกับ DELETE /admin/customers/:id)
+    const blocker = await getAccountDeletionBlocker(user);
+    if (blocker === "owns_shop") {
+      set.status = 400;
+      return { error: "ไม่สามารถลบบัญชีได้ เนื่องจากยังมีร้านค้าผูกอยู่กับบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบเพื่อปิด/โอนย้ายร้านค้าก่อนลบบัญชี" };
     }
-    const [existingOrder] = await db.select({ id: orders.id }).from(orders).where(eq(orders.customerId, user.id));
-    if (existingOrder) {
+    if (blocker === "has_orders") {
       set.status = 400;
       return { error: "ไม่สามารถลบบัญชีได้ เนื่องจากมีประวัติการสั่งซื้อผูกอยู่กับบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบ" };
     }
 
-    // ล้างข้อมูลที่ไม่ใช่ประวัติสำคัญทางธุรกิจ (ตะกร้าที่ยังไม่ checkout / token รีเซ็ตรหัสผ่านเก่า) ก่อนลบผู้ใช้เสมอ —
-    // ทั้งคู่ไม่มี CASCADE เช่นกัน (carts.customer_id, password_reset_tokens.user_id) แต่ไม่ใช่ข้อมูลที่ต้องเก็บรักษาแบบ order/shop
-    // จึงลบทิ้งตรงนี้ได้เลยแทนที่จะ block การลบบัญชีเหมือน 2 เคสด้านบน (cart_items/addons/option_selections มี CASCADE ผูกกับ cart อยู่แล้ว)
-    // addresses.user_id / contact_admin_messages.user_id ก็ไม่มี CASCADE — เดิมไม่ได้ล้าง ทำให้ลูกค้าที่มีที่อยู่บันทึกไว้
-    // หรือเคยติดต่อแอดมินลบบัญชีไม่ได้ (FK violation → 500) ที่อยู่ลบได้เลย (ออเดอร์เก็บที่อยู่เป็น snapshot ใน orders.delivery_address แล้ว)
-    // ส่วนข้อความถึงแอดมินเก็บไว้เป็นประวัติแต่ตัดการผูกกับบัญชีออก (user_id เป็น nullable อยู่แล้ว)
-    // ทำทั้งหมดใน transaction เดียว — ถ้าขั้นไหนพัง ข้อมูลที่ลบไปก่อนหน้า (เช่น ตะกร้า) ต้องไม่หายไปด้วย
-    await db.transaction(async (tx) => {
-      await tx.delete(carts).where(eq(carts.customerId, user.id));
-      await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
-      await tx.delete(addresses).where(eq(addresses.userId, user.id));
-      await tx.update(contactAdminMessages).set({ userId: null }).where(eq(contactAdminMessages.userId, user.id));
-
-      await tx.delete(users).where(eq(users.id, user.id));
-    });
+    await deleteUserAccount(user.id);
 
     cookie[COOKIE_NAME]?.remove();
 

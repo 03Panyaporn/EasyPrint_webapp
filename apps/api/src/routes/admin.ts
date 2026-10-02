@@ -1,24 +1,31 @@
 import { Elysia, t } from "elysia";
-import { and, count, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import {
   rejectShopSchema,
   suspendShopSchema,
   adminUpdateShopSchema,
   createAnnouncementSchema,
+  adminCustomerListQuerySchema,
+  suspendCustomerSchema,
   notificationSettingKeyForType,
   DEFAULT_NOTIFICATION_SETTINGS,
   type AdminDashboardResponse,
   type AnnouncementListResponse,
   type NotificationSettings,
+  type AdminCustomerListItem,
+  type AdminCustomerListResponse,
+  type AdminCustomerDetail,
 } from "@easyprint/shared";
 import { db } from "../db";
-import { shops, users, announcements, notifications } from "../../drizzle/schema";
+import { shops, users, announcements, notifications, orders, addresses, reviews, favoriteShops } from "../../drizzle/schema";
 
 const ANNOUNCEMENT_NOTIFICATION_TYPE_ID = 5; // 5 = ประกาศจากแอดมิน (ดู NOTIFICATION_TYPES ฝั่งเว็บ)
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { objectStorage } from "../storage";
 import { createNotification } from "../utils/notification";
 import { notifyShopApproved, notifyShopRejected } from "../notifications";
+import { isValidUUID } from "../utils/validation";
+import { getAccountDeletionBlocker, deleteUserAccount } from "../utils/userAccount";
 
 // เช็คว่า request มี JWT ที่ login เป็น admin จริง — คืน { error } (ตั้ง set.status ให้แล้ว) ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
 // export ไว้ให้ route อื่น (เช่น adminSettings.ts, uploads.ts) เรียกใช้ร่วมด้วย กันเขียนลอจิกตรวจสิทธิ์ซ้ำ
@@ -69,6 +76,65 @@ function serializeShopListItem(row: {
     ownerLastname: row.owner?.lastname ?? null,
   };
 }
+
+// ── จัดการบัญชีลูกค้า (หน้า /admin/users) ──
+// จำนวนออเดอร์ของลูกค้าแต่ละคน (correlated subquery)
+// ⚠️ ต้องเขียนชื่อตาราง.คอลัมน์ตรงๆ — ถ้าใช้ ${orders.customerId} = ${users.id} ตอน select จากตารางเดียว drizzle จะ render
+// เป็น "customer_id" = "id" ไม่มีชื่อตารางนำหน้า ทำให้ "id" ใน subquery ไปจับ orders.id แทน users.id แล้วได้ 0 ทุกแถวแบบเงียบๆ
+const customerOrderCount = sql<number>`(select count(*) from "orders" o where o."customer_id" = "users"."id")`.mapWith(Number);
+
+const CUSTOMER_LIST_COLUMNS = {
+  id: users.id,
+  firstname: users.firstname,
+  lastname: users.lastname,
+  email: users.email,
+  phone: users.phone,
+  suspendedAt: users.suspendedAt,
+  createdAt: users.createdAt,
+  orderCount: customerOrderCount,
+};
+
+function serializeCustomerListItem(row: {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  suspendedAt: Date | null;
+  createdAt: Date;
+  orderCount: number;
+}): AdminCustomerListItem {
+  return {
+    id: row.id,
+    firstname: row.firstname,
+    lastname: row.lastname,
+    email: row.email,
+    phone: row.phone,
+    status: row.suspendedAt ? "suspended" : "active",
+    suspendedAt: row.suspendedAt?.toISOString() ?? null,
+    orderCount: row.orderCount,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+// escape อักขระพิเศษของ LIKE (% _ \) ในคำค้นหา — ไม่งั้นพิมพ์ "%" แล้วจะ match ทุกแถว
+function escapeLikePattern(input: string) {
+  return input.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+// หาบัญชีลูกค้า (role customer เท่านั้น) — คืน null ถ้า id ผิดรูปแบบหรือไม่พบ ให้ route ตอบ 404 เหมือนกันทุกกรณี
+async function findCustomer(id: string) {
+  if (!isValidUUID(id)) return null;
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, id), eq(users.role, "customer")));
+  return user ?? null;
+}
+
+const CUSTOMER_NOT_FOUND = "ไม่พบบัญชีลูกค้านี้";
+const CUSTOMER_HAS_ORDERS_ERROR =
+  "ไม่สามารถลบบัญชีนี้ได้ เนื่องจากมีประวัติคำสั่งซื้อผูกอยู่ (ต้องเก็บไว้เป็นประวัติของร้านค้า) — ใช้การระงับการใช้งานแทน";
 
 type ShopApprovalStatus = (typeof shops.$inferSelect)["approvalStatus"];
 
@@ -389,6 +455,232 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
     });
 
     return { shop };
+  })
+
+  // ── จัดการบัญชีลูกค้า (หน้า /admin/users) — เฉพาะ role customer เท่านั้น เจ้าของร้านจัดการผ่าน /admin/shops/* ──
+  // list แบบแบ่งหน้าฝั่ง server (จำนวนลูกค้าโตเร็วกว่าร้านมาก) ค้นหาได้จากชื่อ-นามสกุล/อีเมล/เบอร์โทร
+  .get("/customers", async ({ query, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const parsed = adminCustomerListQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: parsed.error.errors[0]?.message ?? "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+    const { q, status, page, pageSize } = parsed.data;
+
+    const conditions = [eq(users.role, "customer")];
+    if (status === "active") conditions.push(isNull(users.suspendedAt));
+    if (status === "suspended") conditions.push(isNotNull(users.suspendedAt));
+    if (q) {
+      const pattern = `%${escapeLikePattern(q)}%`;
+      conditions.push(
+        or(
+          ilike(sql`${users.firstname} || ' ' || ${users.lastname}`, pattern),
+          ilike(users.email, pattern),
+          ilike(users.phone, pattern)
+        )!
+      );
+    }
+    const where = and(...conditions);
+
+    const [[totalRow], rows, [statsRow]] = await Promise.all([
+      db.select({ c: count() }).from(users).where(where),
+      db
+        .select(CUSTOMER_LIST_COLUMNS)
+        .from(users)
+        .where(where)
+        .orderBy(desc(users.createdAt), desc(users.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({ total: count(), suspended: count(users.suspendedAt) })
+        .from(users)
+        .where(eq(users.role, "customer")),
+    ]);
+
+    const total = Number(totalRow.c);
+    const statsTotal = Number(statsRow.total);
+    const statsSuspended = Number(statsRow.suspended);
+    const response: AdminCustomerListResponse = {
+      customers: rows.map(serializeCustomerListItem),
+      pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+      stats: { total: statsTotal, active: statsTotal - statsSuspended, suspended: statsSuspended },
+    };
+    return response;
+  })
+
+  .get("/customers/:id", async ({ params, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const user = await findCustomer(params.id);
+    if (!user) {
+      set.status = 404;
+      return { error: CUSTOMER_NOT_FOUND };
+    }
+
+    const [addressRows, [orderStatsRow], recentRows, [reviewRow], [favoriteRow], deleteBlocker] = await Promise.all([
+      db
+        .select()
+        .from(addresses)
+        .where(eq(addresses.userId, user.id))
+        .orderBy(desc(addresses.isDefault), desc(addresses.createdAt)),
+      db
+        .select({
+          total: count(),
+          active: sql<number>`count(*) filter (where ${orders.status} not in ('completed', 'cancelled'))`.mapWith(Number),
+          completed: sql<number>`count(*) filter (where ${orders.status} = 'completed')`.mapWith(Number),
+          cancelled: sql<number>`count(*) filter (where ${orders.status} = 'cancelled')`.mapWith(Number),
+          totalSpent: sql<string>`coalesce(sum(${orders.totalPrice}) filter (where ${orders.status} = 'completed'), 0)`,
+        })
+        .from(orders)
+        .where(eq(orders.customerId, user.id)),
+      db
+        .select({
+          id: orders.id,
+          ref: orders.ref,
+          status: orders.status,
+          totalPrice: orders.totalPrice,
+          createdAt: orders.createdAt,
+          shopName: shops.name,
+        })
+        .from(orders)
+        .leftJoin(shops, eq(orders.shopId, shops.id))
+        .where(eq(orders.customerId, user.id))
+        .orderBy(desc(orders.createdAt))
+        .limit(5),
+      db.select({ c: count() }).from(reviews).where(eq(reviews.customerId, user.id)),
+      db.select({ c: count() }).from(favoriteShops).where(eq(favoriteShops.userId, user.id)),
+      getAccountDeletionBlocker(user),
+    ]);
+
+    const orderTotal = Number(orderStatsRow.total);
+    const customer: AdminCustomerDetail = {
+      ...serializeCustomerListItem({ ...user, orderCount: orderTotal }),
+      address: user.address,
+      suspendedReason: user.suspendedReason,
+      addresses: addressRows.map((a) => ({
+        id: a.id,
+        label: a.label,
+        receiverName: a.receiverName,
+        phone: a.phone,
+        fullAddress: `${a.address} ต.${a.subdistrict} อ.${a.district} จ.${a.province} ${a.postalCode}`,
+        isDefault: a.isDefault,
+      })),
+      orderStats: {
+        total: orderTotal,
+        active: orderStatsRow.active,
+        completed: orderStatsRow.completed,
+        cancelled: orderStatsRow.cancelled,
+        totalSpent: Number(orderStatsRow.totalSpent),
+        lastOrderAt: recentRows[0]?.createdAt.toISOString() ?? null,
+      },
+      recentOrders: recentRows.map((o) => ({
+        id: o.id,
+        ref: o.ref,
+        shopName: o.shopName,
+        status: o.status,
+        totalPrice: o.totalPrice === null ? null : Number(o.totalPrice),
+        createdAt: o.createdAt.toISOString(),
+      })),
+      reviewCount: Number(reviewRow.c),
+      favoriteShopCount: Number(favoriteRow.c),
+      // ลูกค้าไม่มีทางมีร้าน (owns_shop ใช้กับ shop_owner เท่านั้น) เหลือสาเหตุเดียวคือ has_orders
+      canDelete: deleteBlocker === null,
+      deleteBlocker: deleteBlocker === "has_orders" ? "has_orders" : null,
+    };
+    return { customer };
+  })
+
+  // ระงับบัญชีลูกค้า — มีผลทันทีทุก API (hook กลางใน index.ts) ไม่ต้องรอ token หมดอายุ
+  // ออเดอร์เดิมของลูกค้ายังอยู่ครบ ร้านค้าดำเนินการต่อได้ตามปกติ — ไม่ยกเลิกออเดอร์ให้อัตโนมัติ
+  .patch("/customers/:id/suspend", async ({ params, body, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const parsed = suspendCustomerSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: parsed.error.errors[0]?.message ?? "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+    }
+
+    const existing = await findCustomer(params.id);
+    if (!existing) {
+      set.status = 404;
+      return { error: CUSTOMER_NOT_FOUND };
+    }
+    if (existing.suspendedAt) {
+      set.status = 409;
+      return { error: "บัญชีนี้ถูกระงับการใช้งานอยู่แล้ว" };
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({ suspendedAt: new Date(), suspendedReason: parsed.data.reason })
+      .where(eq(users.id, existing.id))
+      .returning();
+
+    return {
+      customer: { id: user.id, status: user.suspendedAt ? "suspended" : "active", suspendedAt: user.suspendedAt?.toISOString() ?? null },
+    };
+  })
+
+  .patch("/customers/:id/reinstate", async ({ params, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const existing = await findCustomer(params.id);
+    if (!existing) {
+      set.status = 404;
+      return { error: CUSTOMER_NOT_FOUND };
+    }
+    if (!existing.suspendedAt) {
+      set.status = 409;
+      return { error: "บัญชีนี้ใช้งานได้ตามปกติอยู่แล้ว" };
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({ suspendedAt: null, suspendedReason: null })
+      .where(eq(users.id, existing.id))
+      .returning();
+
+    return {
+      customer: { id: user.id, status: user.suspendedAt ? "suspended" : "active", suspendedAt: user.suspendedAt?.toISOString() ?? null },
+    };
+  })
+
+  // ลบบัญชีลูกค้า — กติกาเดียวกับ DELETE /auth/me (utils/userAccount.ts): ลบไม่ได้ถ้ามีออเดอร์ผูกอยู่ ให้ใช้การระงับแทน
+  .delete("/customers/:id", async ({ params, cookie, set }) => {
+    const authError = await requireAdmin(cookie, set);
+    if (authError) return authError;
+
+    const user = await findCustomer(params.id);
+    if (!user) {
+      set.status = 404;
+      return { error: CUSTOMER_NOT_FOUND };
+    }
+
+    const blocker = await getAccountDeletionBlocker(user);
+    if (blocker) {
+      set.status = 409;
+      return { error: CUSTOMER_HAS_ORDERS_ERROR };
+    }
+
+    try {
+      await deleteUserAccount(user.id);
+    } catch (err) {
+      // กันกรณีลูกค้าสั่งออเดอร์เข้ามาพอดีระหว่างเช็คกับลบ (หรือมีข้อมูลอื่นผูกอยู่ที่ไม่ได้ล้าง) — transaction rollback ให้แล้ว
+      if (isForeignKeyViolation(err)) {
+        set.status = 409;
+        return { error: CUSTOMER_HAS_ORDERS_ERROR };
+      }
+      throw err;
+    }
+
+    return { message: `ลบบัญชี "${user.firstname} ${user.lastname}" เรียบร้อยแล้ว` };
   })
 
   // ── ประวัติประกาศจากระบบ (ล่าสุด 20 รายการ) — แสดงในการ์ด "ประกาศจากระบบ" หน้าแดชบอร์ดแอดมิน ──────────

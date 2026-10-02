@@ -22,10 +22,23 @@ import { adminNotificationsRoutes } from "./routes/adminNotificationsRoutes";
 import { favoritesRoutes } from "./routes/favorites";
 
 import { isInvalidTextRepresentation } from "./utils/validation";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "./auth/jwt";
+import { isCustomerSuspended, getSuspendedAccountMessage, ACCOUNT_SUSPENDED_CODE } from "./utils/accountSuspension";
 const isProd = process.env.NODE_ENV === "production";
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 // ตอน dev พอร์ตของ `next dev` อาจขยับได้ (ชนพอร์ตอื่นแล้ว Next auto-fallback) เลยอนุญาต localhost ทุกพอร์ตแทนการ hardcode
 const corsOrigin = isProd ? WEB_ORIGIN : /^http:\/\/localhost:\d+$/;
+
+// endpoint ที่ไม่ต้องใช้ session เดิม — ปล่อยผ่าน hook ระงับบัญชีด้านล่างเสมอ (login เช็คการระงับเองหลังตรวจรหัสผ่าน)
+// กันไม่ให้ cookie เก่าของบัญชีที่ถูกระงับไปขวางการ logout / login บัญชีอื่น / สมัครใหม่ / รีเซ็ตรหัสผ่าน
+const SUSPENSION_EXEMPT_PATHS = new Set([
+  "/auth/login",
+  "/auth/logout",
+  "/auth/register",
+  "/auth/register/shop",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+]);
 
 const app = new Elysia()
   .use(cors({ origin: corsOrigin, credentials: true }))
@@ -48,6 +61,29 @@ const app = new Elysia()
     console.error(`[API Error] ${code}:`, error);
     set.status = 500;
     return { error: "เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง" };
+  })
+  // บล็อกบัญชีลูกค้าที่แอดมินระงับ (PATCH /admin/customers/:id/suspend) ทุก endpoint ที่จุดเดียว — JWT เป็น stateless
+  // ถ้าเช็คแค่ตอน login ลูกค้าที่ login ค้างไว้จะยังใช้งานได้จน token หมดอายุ (สูงสุด 30 วัน) — query เพิ่มเฉพาะ request
+  // ที่ cookie เป็น role customer เท่านั้น (ร้านค้า/แอดมิน/guest ไม่กระทบ) และล้าง cookie ทิ้งด้วย attribute ชุดเดียวกับ
+  // POST /auth/logout (ดูเหตุผลที่นั่น) ให้ request ถัดไปกลายเป็น guest ปกติ ไม่ติด 403 วนซ้ำในหน้าสาธารณะ
+  .onBeforeHandle({ as: "global" }, async ({ cookie, set, path }) => {
+    if (SUSPENSION_EXEMPT_PATHS.has(path)) return;
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || payload.role !== "customer") return;
+    if (!(await isCustomerSuspended(payload.userId))) return;
+
+    cookie[AUTH_COOKIE_NAME]?.set({
+      value: "",
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      path: "/",
+      maxAge: 0,
+      expires: new Date(0),
+    });
+    set.status = 403;
+    return { error: await getSuspendedAccountMessage(), code: ACCOUNT_SUSPENDED_CODE };
   })
   .get("/", () => ({ status: "ok", service: "EasyPrint API" }))
   .use(servicesRoutes)

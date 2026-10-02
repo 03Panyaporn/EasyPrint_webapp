@@ -162,6 +162,13 @@
       "when": 1790161200000,
       "tag": "0022_announcements_favorite_shops",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790164800000,
+      "tag": "0023_users_suspension",
+      "breakpoints": true
     }
   ]
 }
