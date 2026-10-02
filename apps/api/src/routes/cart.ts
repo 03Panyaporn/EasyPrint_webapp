@@ -285,7 +285,8 @@ async function buildCartResponse(cart: typeof carts.$inferSelect) {
 
   let deliveryFee = 0;
   let deliveryOption: { id: string; name: string; baseFee: number; freeShippingThreshold?: number } | undefined;
-  if (cart.deliveryOptionId) {
+  // ตะกร้าว่าง (ไม่มีสินค้า) ต้องไม่มีค่าจัดส่งเลย แม้ยังมี deliveryOptionId ค้างอยู่จากก่อนลบสินค้าชิ้นสุดท้าย
+  if (cart.deliveryOptionId && items.length > 0) {
     const [opt] = await db.select().from(deliveryOptions).where(eq(deliveryOptions.id, cart.deliveryOptionId));
     if (opt) {
       const threshold = opt.freeShippingThreshold != null ? Number(opt.freeShippingThreshold) : undefined;
@@ -597,7 +598,14 @@ export const cartRoutes = new Elysia()
 
     await db.delete(cartItems).where(eq(cartItems.id, params.id)); // cascade ลบ cart_item_addons/cart_item_option_selections ให้อัตโนมัติ
 
-    return { cart: await buildCartResponse(existing.cart) };
+    const remaining = await db.select().from(cartItems).where(eq(cartItems.cartId, existing.cart.id));
+    let cart = existing.cart;
+    if (remaining.length === 0 && cart.deliveryOptionId) {
+      // ตะกร้าว่างแล้ว ล้าง deliveryOptionId ค้างทิ้งไว้ไม่ได้ ไม่งั้นร้านจะลบประเภทการจัดส่งนี้ไม่ได้ (foreign_key_violation)
+      [cart] = await db.update(carts).set({ deliveryOptionId: null }).where(eq(carts.id, cart.id)).returning();
+    }
+
+    return { cart: await buildCartResponse(cart) };
   })
 
   .patch("/shops/:shopId/cart", async ({ params, body, cookie, set }) => {

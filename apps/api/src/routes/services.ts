@@ -833,10 +833,21 @@ export const servicesRoutes = new Elysia()
     const authError = await requireShopOwner(cookie, params.shopId, set);
     if (authError) return authError;
 
-    const [deleted] = await db
-      .delete(deliveryOptions)
-      .where(and(eq(deliveryOptions.id, params.id), eq(deliveryOptions.shopId, params.shopId)))
-      .returning();
+    // carts.delivery_option_id ไม่มี CASCADE (กันลบตัวเลือกที่ลูกค้าเลือกอยู่แบบเงียบๆ)
+    // ถ้ามีตะกร้าอ้างอิงอยู่ Postgres จะ throw foreign_key_violation
+    let deleted: typeof deliveryOptions.$inferSelect | undefined;
+    try {
+      [deleted] = await db
+        .delete(deliveryOptions)
+        .where(and(eq(deliveryOptions.id, params.id), eq(deliveryOptions.shopId, params.shopId)))
+        .returning();
+    } catch (err) {
+      if (isForeignKeyViolation(err)) {
+        set.status = 400;
+        return { error: "ไม่สามารถลบได้ เนื่องจากมีลูกค้าเลือกใช้ประเภทการจัดส่งนี้อยู่ในตะกร้า กรุณาปิดใช้งานแทนการลบ" };
+      }
+      throw err;
+    }
 
     if (!deleted) {
       set.status = 404;
