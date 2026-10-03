@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   Loader2,
   Save,
+  OctagonAlert,
 } from "lucide-react";
 import {
   getAdminStorageOverview,
@@ -33,10 +34,21 @@ import {
   updateAdminShop,
 } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
+import { formatStoragePercent, STORAGE_WARNING_PERCENT, STORAGE_DANGER_PERCENT } from "@easyprint/shared";
 import type { AdminStorageOverviewResponse, AdminStorageShopSummary, AdminStorageFile, StorageStatus } from "@easyprint/shared";
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
-const STATUS_LABEL: Record<StorageStatus, string> = { normal: "ปกติ", warning: "ใกล้เต็ม", danger: "ใกล้เต็มมาก" };
+// status มาจาก backend (getStorageStatus ใน packages/shared) — หน้านี้ห้ามเทียบ threshold เองซ้ำ ใช้ shop.status อย่างเดียว
+const STATUS_LABEL: Record<StorageStatus, string> = {
+  normal: "ปกติ",
+  warning: "ใกล้เต็ม",
+  danger: "ใกล้เต็มมาก",
+  full: "เต็ม",
+  over: "เกินโควต้า",
+};
+
+const isNearLimit = (s: AdminStorageShopSummary) => s.status === "warning" || s.status === "danger";
+const isOverQuota = (s: AdminStorageShopSummary) => s.status === "full" || s.status === "over";
 // เกณฑ์ "ไฟล์ขนาดใหญ่" — ต้องต่ำกว่าเพดานอัปโหลดจริง (order-file/ไฟล์แนบสูงสุด 20MB ใน apps/api/src/storage.ts)
 // เดิมตั้ง 1 GB ซึ่งไม่มีไฟล์ไหนใหญ่ถึงได้เลย การ์ด/แท็บนี้จึงว่างตลอด
 const LARGE_FILE_MB = 10;
@@ -52,9 +64,24 @@ function fileExt(fileName: string | null) {
 }
 
 function statusBadgeClass(status: StorageStatus) {
+  if (status === "full" || status === "over") return "bg-red-600 text-white border border-red-700";
   if (status === "danger") return "bg-red-50 text-red-600 border border-red-200";
   if (status === "warning") return "bg-amber-50 text-amber-600 border border-amber-200";
   return "bg-emerald-50 text-emerald-600 border border-emerald-200";
+}
+
+function statusTextClass(status: StorageStatus) {
+  if (status === "full" || status === "over") return "text-red-700";
+  if (status === "danger") return "text-red-600";
+  if (status === "warning") return "text-amber-600";
+  return "text-slate-600";
+}
+
+function statusBarClass(status: StorageStatus) {
+  if (status === "full" || status === "over") return "bg-red-700";
+  if (status === "danger") return "bg-red-500";
+  if (status === "warning") return "bg-amber-500";
+  return "bg-emerald-500";
 }
 
 export default function AdminStoragePage() {
@@ -65,7 +92,7 @@ export default function AdminStoragePage() {
 
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [activeMainTab, setActiveMainTab] = useState<"overview" | "large_files" | "near_limit">("overview");
+  const [activeMainTab, setActiveMainTab] = useState<"overview" | "large_files" | "near_limit" | "over_quota">("overview");
 
   const [selectedShop, setSelectedShop] = useState<AdminStorageShopSummary | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
@@ -80,6 +107,7 @@ export default function AdminStoragePage() {
 
   const [quotaInput, setQuotaInput] = useState("");
   const [quotaSaving, setQuotaSaving] = useState(false);
+  const [quotaSaved, setQuotaSaved] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -103,7 +131,14 @@ export default function AdminStoragePage() {
     if (selectedShop) setQuotaInput(String(Math.round(selectedShop.quotaMb)));
   }, [selectedShop]);
 
+  // ข้อความ "บันทึกโควต้าเรียบร้อย" ผูกกับร้านที่เปิดอยู่ — เปลี่ยน/ปิด slide-over แล้วต้องหายไป
+  useEffect(() => {
+    setQuotaSaved(false);
+  }, [selectedShop?.shopId]);
+
   const largeFiles = useMemo(() => allFiles.filter((f) => f.sizeMb >= LARGE_FILE_MB), [allFiles]);
+  const nearLimitShops = useMemo(() => overview?.shops.filter(isNearLimit) ?? [], [overview]);
+  const overQuotaShops = useMemo(() => overview?.shops.filter(isOverQuota) ?? [], [overview]);
 
   const filteredShops = useMemo(() => {
     if (!overview) return [];
@@ -195,6 +230,7 @@ export default function AdminStoragePage() {
   const saveQuota = async (resetToDefault: boolean) => {
     if (!selectedShop) return;
     setQuotaSaving(true);
+    setQuotaSaved(false);
     setActionError("");
     try {
       const value = resetToDefault ? null : Number(quotaInput);
@@ -204,6 +240,7 @@ export default function AdminStoragePage() {
       }
       await updateAdminShop(selectedShop.shopId, { storageQuotaMb: value });
       await fetchAll();
+      setQuotaSaved(true);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "บันทึกโควต้าไม่สำเร็จ");
     } finally {
@@ -228,8 +265,8 @@ export default function AdminStoragePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs space-y-2">
               <div className="flex items-center justify-between">
                 <Skeleton className="h-3 w-24" />
@@ -276,8 +313,8 @@ export default function AdminStoragePage() {
 
       {overview && (
         <>
-          {/* ── 4 Top Overview Metrics Cards ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* ── 5 Top Overview Metrics Cards ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500">พื้นที่ใช้งานรวมทั้งหมด</span>
@@ -310,6 +347,19 @@ export default function AdminStoragePage() {
               <div>
                 <p className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{overview.summary.shopsNearLimitCount} ร้านค้า</p>
                 <p className="text-[10px] text-slate-400 font-semibold mt-0.5">จาก {overview.summary.totalShopsCount} ร้านค้าในระบบ</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500">ร้านค้าเต็ม/เกินโควต้า</span>
+                <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                  <OctagonAlert size={16} />
+                </div>
+              </div>
+              <div>
+                <p className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{overview.summary.shopsOverQuotaCount} ร้านค้า</p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">ใช้พื้นที่ตั้งแต่ 100% ของโควต้า</p>
               </div>
             </div>
 
@@ -362,6 +412,13 @@ export default function AdminStoragePage() {
               <AlertTriangle size={13} />
               <span>ร้านค้าใกล้เต็มพื้นที่</span>
             </button>
+            <button
+              onClick={() => setActiveMainTab("over_quota")}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${activeMainTab === "over_quota" ? "bg-orange-500 text-white shadow-2xs" : "text-slate-600 hover:bg-slate-50"}`}
+            >
+              <OctagonAlert size={13} />
+              <span>ร้านค้าเต็ม/เกินโควต้า</span>
+            </button>
           </div>
 
           {actionError && (
@@ -392,8 +449,10 @@ export default function AdminStoragePage() {
                 >
                   <option value="all">สถานะพื้นที่ทั้งหมด</option>
                   <option value="normal">ปกติ</option>
-                  <option value="warning">ใกล้เต็ม (&gt;65%)</option>
-                  <option value="danger">ใกล้เต็มมาก (&gt;85%)</option>
+                  <option value="warning">ใกล้เต็ม (&gt;{STORAGE_WARNING_PERCENT}%)</option>
+                  <option value="danger">ใกล้เต็มมาก (&gt;{STORAGE_DANGER_PERCENT}%)</option>
+                  <option value="full">เต็ม (100%)</option>
+                  <option value="over">เกินโควต้า (&gt;100%)</option>
                 </select>
                 <button
                   onClick={() => {
@@ -434,7 +493,7 @@ export default function AdminStoragePage() {
                       </tr>
                     ) : (
                       filteredShops.map((shop) => {
-                        const percent = Math.round(shop.percent);
+                        const percent = formatStoragePercent(shop.percent);
                         return (
                           <tr key={shop.shopId} className="hover:bg-orange-50/30 transition">
                             <td className="py-2.5 px-3">
@@ -449,13 +508,11 @@ export default function AdminStoragePage() {
                             <td className="py-2.5 px-3 text-slate-500">{formatSize(shop.quotaMb)}</td>
                             <td className="py-2.5 px-3">
                               <div className="w-28 space-y-1">
-                                <span className={percent > 85 ? "text-red-600 text-[10px] font-bold" : percent > 65 ? "text-amber-600 text-[10px] font-bold" : "text-slate-600 text-[10px] font-bold"}>
-                                  {percent}%
-                                </span>
+                                <span className={`text-[10px] font-bold ${statusTextClass(shop.status)}`}>{percent}%</span>
                                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${percent > 85 ? "bg-red-500" : percent > 65 ? "bg-amber-500" : "bg-emerald-500"}`}
-                                    style={{ width: `${Math.min(100, percent)}%` }}
+                                    className={`h-full rounded-full ${statusBarClass(shop.status)}`}
+                                    style={{ width: `${Math.min(100, shop.percent)}%` }}
                                   />
                                 </div>
                               </div>
@@ -536,16 +593,18 @@ export default function AdminStoragePage() {
             <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
                 <AlertTriangle className="text-amber-500" size={18} />
-                <h3 className="text-xs font-extrabold text-slate-900">ร้านค้าที่ใช้งานพื้นที่เกิน 65%</h3>
+                <h3 className="text-xs font-extrabold text-slate-900">
+                  ร้านค้าที่ใช้งานพื้นที่เกิน {STORAGE_WARNING_PERCENT}% (ยังไม่ถึงโควต้า)
+                </h3>
               </div>
-              {overview.shops.filter((s) => s.status !== "normal").length === 0 ? (
+              {nearLimitShops.length === 0 ? (
                 <div className="p-6 text-center text-slate-400 space-y-1">
                   <CheckCircle2 size={24} className="mx-auto text-emerald-400" />
                   <p className="text-xs font-bold text-slate-700">ไม่มีร้านค้าที่ใกล้เต็มพื้นที่</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {overview.shops.filter((s) => s.status !== "normal").map((shop) => (
+                  {nearLimitShops.map((shop) => (
                     <div key={shop.shopId} className="p-3 rounded-xl border border-amber-200/80 bg-amber-50/40 flex items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-black text-[10px] flex items-center justify-center shadow-xs">
@@ -554,7 +613,7 @@ export default function AdminStoragePage() {
                         <div>
                           <h4 className="text-xs font-extrabold text-slate-900">{shop.shopName}</h4>
                           <p className="text-[10px] text-slate-500 font-medium">
-                            เหลือพื้นที่ {formatSize(Math.max(0, shop.quotaMb - shop.usedMb))} ({Math.round(shop.percent)}% ใช้งานแล้ว)
+                            เหลือพื้นที่ {formatSize(shop.quotaMb - shop.usedMb)} ({formatStoragePercent(shop.percent)}% ใช้งานแล้ว)
                           </p>
                         </div>
                       </div>
@@ -564,6 +623,55 @@ export default function AdminStoragePage() {
                           setSelectedFileIds([]);
                         }}
                         className="px-3 py-1.5 text-[11px] font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition shadow-xs"
+                      >
+                        จัดการพื้นที่ร้านนี้
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. Shops Full / Over Quota */}
+          {activeMainTab === "over_quota" && (
+            <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                <OctagonAlert className="text-red-600" size={18} />
+                <h3 className="text-xs font-extrabold text-slate-900">ร้านค้าที่ใช้พื้นที่เต็มหรือเกินโควต้า (ตั้งแต่ 100%)</h3>
+              </div>
+              {overQuotaShops.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 space-y-1">
+                  <CheckCircle2 size={24} className="mx-auto text-emerald-400" />
+                  <p className="text-xs font-bold text-slate-700">ไม่มีร้านค้าที่เต็มหรือเกินโควต้า</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {overQuotaShops.map((shop) => (
+                    <div key={shop.shopId} className="p-3 rounded-xl border border-red-200/80 bg-red-50/40 flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-red-600 text-white font-black text-[10px] flex items-center justify-center shadow-xs">
+                          {shop.shopName[0]}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-extrabold text-slate-900">{shop.shopName}</h4>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${statusBadgeClass(shop.status)}`}>
+                              {STATUS_LABEL[shop.status]}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-medium">
+                            {shop.status === "over" ? `เกินโควต้า ${formatSize(shop.usedMb - shop.quotaMb)}` : "ใช้พื้นที่ครบโควต้าพอดี"} (
+                            {formatSize(shop.usedMb)} / {formatSize(shop.quotaMb)} • {formatStoragePercent(shop.percent)}%)
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedShop(shop);
+                          setSelectedFileIds([]);
+                        }}
+                        className="px-3 py-1.5 text-[11px] font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-xs"
                       >
                         จัดการพื้นที่ร้านนี้
                       </button>
@@ -644,6 +752,20 @@ export default function AdminStoragePage() {
                 >
                   ใช้ค่า default กลาง
                 </button>
+                <div className="basis-full flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusBadgeClass(selectedShop.status)}`}>
+                    {STATUS_LABEL[selectedShop.status]}
+                  </span>
+                  <span className={statusTextClass(selectedShop.status)}>
+                    ใช้ไป {formatStoragePercent(selectedShop.percent)}% ของโควต้า
+                  </span>
+                  {quotaSaved && (
+                    <span className="inline-flex items-center gap-1 text-emerald-600">
+                      <CheckCircle2 size={12} />
+                      บันทึกโควต้าเรียบร้อยแล้ว
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-2 gap-2">

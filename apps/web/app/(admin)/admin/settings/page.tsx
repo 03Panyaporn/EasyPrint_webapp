@@ -20,6 +20,7 @@ import {
 import { getAdminSettings, updateAdminSettings } from "@/lib/api/admin";
 import { uploadFile } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
+import { PASSWORD_MIN_LENGTH } from "@easyprint/shared";
 import type { AdminSettingsResponse, NotificationToggles } from "@easyprint/shared";
 import { Spinner, LoadingSection } from "@/components/ui/Spinner";
 
@@ -64,7 +65,9 @@ function applySettings(s: AdminSettingsResponse, set: {
   set.setMainWebsite(s.website ?? "");
   set.setLogoUrl(s.logoUrl);
   set.setNotifications(s.notificationSettings ?? DEFAULT_NOTIFICATIONS);
-  set.setMinPasswordLength(s.minPasswordLength);
+  // ค่าเก่าที่บันทึกไว้ก่อนยกขั้นต่ำเป็น PASSWORD_MIN_LENGTH (เช่น 6-7) ไม่เคยมีผลจริงอยู่แล้ว (Zod ฝั่ง auth บังคับ 8 เสมอ)
+  // แสดงเป็นค่าที่บังคับใช้จริงแทน ไม่งั้นกดบันทึกการตั้งค่าอื่นจะโดน 400 จากค่าที่แอดมินไม่ได้แตะเลย
+  set.setMinPasswordLength(Math.max(s.minPasswordLength, PASSWORD_MIN_LENGTH));
   set.setRequireSpecialChar(s.requireSpecialChar);
   set.setEnable2FA(s.enable2fa);
   set.setAutoLogoutTime(minutesToLabel(s.autoLogoutMinutes));
@@ -471,7 +474,7 @@ export default function AdminSettingsPage() {
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                min={6}
+                min={PASSWORD_MIN_LENGTH}
                 max={32}
                 value={minPasswordLength}
                 onChange={(e) => setMinPasswordLength(Number(e.target.value))}
@@ -479,7 +482,7 @@ export default function AdminSettingsPage() {
               />
               <span className="text-xs  text-slate-600">ตัวอักษร</span>
             </div>
-            <p className="text-[11px] text-slate-400">บังคับใช้จริงตอนสมัคร/เปลี่ยนรหัสผ่าน (6-32 ตัวอักษร)</p>
+            <p className="text-[11px] text-slate-400">บังคับใช้จริงตอนสมัคร/เปลี่ยนรหัสผ่าน ({PASSWORD_MIN_LENGTH}-32 ตัวอักษร)</p>
           </div>
 
           {/* Require Special Char & 2FA Checkboxes */}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PASSWORD_MIN_LENGTH } from "./auth";
 
 // สคีมานี้ใช้ทั้งฝั่ง apps/web (ตอน validate ฟอร์ม) และ apps/api (ตอน validate ก่อนบันทึก DB)
 
@@ -153,7 +154,7 @@ export const updateAdminSettingsSchema = z.object({
   website: z.string().trim().url("ลิงก์เว็บไซต์ไม่ถูกต้อง").or(z.literal("")).nullable().optional(),
   notificationSettings: notificationTogglesSchema.optional(),
   // บังคับใช้จริงตอนสมัคร/เปลี่ยนรหัสผ่าน (ดู apps/api/src/auth/routes.ts) — field security อื่นด้านล่างเก็บไว้แสดงผลเฉยๆ ยังไม่บังคับใช้จริง
-  minPasswordLength: z.number().int().min(6, "อย่างน้อย 6 ตัวอักษร").max(32, "ไม่เกิน 32 ตัวอักษร").optional(),
+  minPasswordLength: z.number().int().min(PASSWORD_MIN_LENGTH, `ความยาวรหัสผ่านขั้นต่ำต้องอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`).max(32, "ความยาวรหัสผ่านขั้นต่ำต้องไม่เกิน 32 ตัวอักษร").optional(),
   requireSpecialChar: z.boolean().optional(),
   enable2fa: z.boolean().optional(),
   autoLogoutMinutes: z.number().int().min(5, "อย่างน้อย 5 นาที").max(240, "ไม่เกิน 240 นาที").optional(),
