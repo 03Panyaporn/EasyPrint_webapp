@@ -251,6 +251,20 @@
 
 ⚠️ **ขอบเขตของฟิลด์ "ความปลอดภัย":** `minPasswordLength` เท่านั้นที่บังคับใช้จริง (เช็คที่ `POST /auth/register`, `POST /auth/register/shop`, `POST /auth/reset-password`, `POST /auth/change-password` เพิ่มจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว) ส่วน `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` เก็บค่าไว้ในฐานข้อมูลจริงแต่**ยังไม่มีผลบังคับใช้จริงในระบบ** เก็บไว้ให้ UI แสดงผล/แก้ไขได้ก่อนเฉยๆ
 
+## Admin — ประวัติและสถานะระบบ (หน้า `/admin/logs`)
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/admin/audit-logs` | ประวัติการทำรายการของแอดมิน ใหม่สุดก่อน — query: `q` (อีเมลแอดมิน/id ข้อมูลที่ถูกแก้), `action` (key ใน `AUDIT_ACTIONS`), `page`, `pageSize` (≤50) คืน `{ logs, pagination }` | ต้อง login เป็น admin |
+| GET | `/admin/login-history` | ประวัติการเข้าสู่ระบบทุก role ทั้งสำเร็จ/ล้มเหลว — query: `q` (อีเมล/IP), `status` (`all`/`success`/`failed`), `role`, `page`, `pageSize` คืน `{ logins, pagination, last24h }` | ต้อง login เป็น admin |
+| GET | `/admin/system-health` | สถานะระบบ ณ ตอนเรียก: API (uptime/หน่วยความจำ), DB (`select 1`), R2 (`HeadBucket` order-files) พร้อม latency, อีเมล (มี `RESEND_API_KEY` หรือไม่) — timeout ต่อบริการ 5 วินาที ไม่เก็บประวัติ | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/adminLogs.ts` — Zod/type ที่ `packages/shared/src/schemas/adminLogs.ts`
+
+**การบันทึก Audit Log:** ไม่ได้แทรกโค้ดในแต่ละ route — `onAfterHandle` กลางใน `apps/api/src/index.ts` เรียก `recordAdminAudit()` (`apps/api/src/utils/auditLog.ts`) หลัง handler ทำงานเสร็จ บันทึกเฉพาะ endpoint ที่อยู่ใน `AUDITED_ROUTES` + JWT เป็น role admin + status < 400 เก็บ body ที่ส่งมา (ซ่อน key ที่ลงท้ายด้วย password/token/secret/otp, ตัดข้อความยาวเกิน 500 ตัวอักษร) และ `message` จาก response ⚠️ เพิ่ม endpoint แอดมินที่แก้ข้อมูลใหม่เมื่อไหร่ ต้องเพิ่มใน `AUDITED_ROUTES` และป้ายใน `AUDIT_ACTIONS` ด้วย ไม่งั้นจะไม่ถูกบันทึก
+
+**การบันทึก Login History:** `POST /auth/login` บันทึกทุกครั้งผ่าน `recordLogin()` (`apps/api/src/utils/loginHistory.ts`) — `failure_reason`: `invalid_credentials` (อีเมลไม่มี/รหัสผิด) หรือ `suspended` (ลูกค้าถูกระงับ) IP อ่านจาก `x-forwarded-for` (Render อยู่หลัง proxy) ไม่มีค่อยใช้ IP ของ connection — ทั้งสองแบบเป็น best-effort บันทึกไม่สำเร็จไม่ทำให้การทำรายการ/login ล้ม
+
 ## ยังไม่ได้ทำ (ตาม scope ในข้อเสนอโครงการ)
 
 - แจ้งเตือนอีเมลจริงตอนอนุมัติ/ไม่อนุมัติร้านค้า (ตอนนี้ backend อัปเดตสถานะอย่างเดียว ไม่ได้ส่งอีเมล — ต่างจาก orders ที่มีแจ้งเตือนแล้ว, มี in-app notification ให้แอดมินตอนร้านสมัครใหม่แล้วแต่ยังไม่มีอีเมลแจ้งร้านตอนผลอนุมัติออก)

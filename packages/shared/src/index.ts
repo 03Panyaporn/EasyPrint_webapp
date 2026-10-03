@@ -3,6 +3,7 @@ export * from "./schemas/service";
 export * from "./schemas/auth";
 export * from "./schemas/admin";
 export * from "./schemas/adminStorage";
+export * from "./schemas/adminLogs";
 export * from "./schemas/review";
 export * from "./schemas/cart";
 export * from "./schemas/shop";

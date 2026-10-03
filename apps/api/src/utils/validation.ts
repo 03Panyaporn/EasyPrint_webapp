@@ -9,6 +9,11 @@ export function isValidUUID(id: string): boolean {
   return UUID_RE.test(id);
 }
 
+// escape อักขระพิเศษของ LIKE (% _ \) ในคำค้นหา — ไม่งั้นพิมพ์ "%" แล้วจะ match ทุกแถว
+export function escapeLikePattern(input: string) {
+  return input.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 // Postgres error codes ที่ route handler มักต้องดักจับแล้วแปลงเป็น response ที่สุภาพ (400/409) แทน raw 500
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 const POSTGRES_FOREIGN_KEY_VIOLATION = "23503";

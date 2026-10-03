@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, boolean, pgEnum, numeric, primaryKey, jsonb, unique, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
 // โครงสร้างเริ่มต้น อ้างอิงจาก docs/proposal.md หัวข้อ 1.3
@@ -653,5 +653,47 @@ export const favoriteShops = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.shopId] }),
+  })
+);
+
+// ── audit_logs: ประวัติการทำรายการของแอดมิน (หน้า /admin/logs) ──
+// บันทึกอัตโนมัติจาก hook กลางใน apps/api/src/index.ts (ดู apps/api/src/utils/auditLog.ts) เฉพาะ endpoint ที่แก้ข้อมูลและทำสำเร็จ
+// actorEmail เก็บ snapshot ไว้ด้วย — ลบบัญชีแอดมินแล้ว actorId เป็น null แต่ยังรู้ว่าใครทำ
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    actorEmail: text("actor_email").notNull(),
+    action: text("action").notNull(), // key จาก AUDIT_ACTIONS ใน packages/shared (เช่น "shop.approve")
+    targetType: text("target_type"), // shop | customer | settings | announcement | file | review | contact_message
+    targetId: text("target_id"),
+    details: jsonb("details"), // body ที่ส่งมา (ตัดฟิลด์ลับออกแล้ว) + message จาก response
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("audit_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
+// ── login_history: ประวัติการเข้าสู่ระบบทุก role ทั้งสำเร็จและล้มเหลว (หน้า /admin/logs) ──
+// userId เป็น null เมื่ออีเมลที่กรอกไม่มีในระบบ — เก็บ email ที่กรอกมาเสมอเพื่อดูการเดารหัสผ่าน/บัญชี
+export const loginHistory = pgTable(
+  "login_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    email: text("email").notNull(),
+    role: userRoleEnum("role"),
+    success: boolean("success").notNull(),
+    failureReason: text("failure_reason"), // invalid_credentials | suspended — null เมื่อสำเร็จ
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("login_history_created_at_idx").on(table.createdAt),
   })
 );

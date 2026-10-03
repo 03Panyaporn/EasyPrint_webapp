@@ -169,6 +169,13 @@
       "when": 1790164800000,
       "tag": "0023_users_suspension",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790168400000,
+      "tag": "0024_audit_logs_login_history",
+      "breakpoints": true
     }
   ]
 }
