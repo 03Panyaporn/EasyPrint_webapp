@@ -64,6 +64,10 @@ export const users = pgTable("users", {
   lastname: text("lastname").notNull(),
   phone: text("phone").notNull(),
   address: text("address"),
+  // แอดมินระงับบัญชีลูกค้า (หน้า /admin/users) — null = ใช้งานปกติ, มีค่า = ถูกระงับตั้งแต่เวลานี้ (migration 0023)
+  // บังคับใช้จริงที่ hook กลางใน apps/api/src/index.ts (บล็อกทุก API ของลูกค้าที่ถูกระงับ) และตอน POST /auth/login
+  suspendedAt: timestamp("suspended_at"),
+  suspendedReason: text("suspended_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // อีเมลห้ามซ้ำแบบไม่สนตัวพิมพ์เล็ก/ใหญ่ (migration 0021) — แอปบันทึกเป็นตัวพิมพ์เล็กเสมอผ่าน emailSchema อยู่แล้ว

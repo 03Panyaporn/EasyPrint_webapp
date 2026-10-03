@@ -10,6 +10,11 @@ import type {
   AnnouncementItem,
   AnnouncementListResponse,
   CreateAnnouncementInput,
+  AdminCustomerListQuery,
+  AdminCustomerListResponse,
+  AdminCustomerDetail,
+  AdminCustomerStatus,
+  SuspendCustomerInput,
 } from "@easyprint/shared";
 import { apiFetch } from "./client";
 
@@ -139,4 +144,36 @@ export function deleteAdminStorageFile(path: string) {
 
 export function deleteAdminStorageShopFiles(shopId: string) {
   return apiFetch<{ message: string; deletedCount: number }>(`/admin/storage/shops/${shopId}/files`, { method: "DELETE" });
+}
+
+// ── จัดการบัญชีลูกค้า (หน้า /admin/users) ──
+export function listAdminCustomers(params: Partial<AdminCustomerListQuery> = {}) {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set("q", params.q);
+  if (params.status && params.status !== "all") qs.set("status", params.status);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.pageSize) qs.set("pageSize", String(params.pageSize));
+  const query = qs.toString();
+  return apiFetch<AdminCustomerListResponse>(`/admin/customers${query ? `?${query}` : ""}`);
+}
+
+export function getAdminCustomer(id: string) {
+  return apiFetch<{ customer: AdminCustomerDetail }>(`/admin/customers/${id}`);
+}
+
+type CustomerStatusResult = { customer: { id: string; status: AdminCustomerStatus; suspendedAt: string | null } };
+
+export function suspendCustomer(id: string, input: SuspendCustomerInput) {
+  return apiFetch<CustomerStatusResult>(`/admin/customers/${id}/suspend`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function reinstateCustomer(id: string) {
+  return apiFetch<CustomerStatusResult>(`/admin/customers/${id}/reinstate`, { method: "PATCH" });
+}
+
+export function deleteCustomer(id: string) {
+  return apiFetch<{ message: string }>(`/admin/customers/${id}`, { method: "DELETE" });
 }

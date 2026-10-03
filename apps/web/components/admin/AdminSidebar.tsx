@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   Store,
+  Users,
   ShieldCheck,
   HardDrive,
   Settings,
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { label: "หน้าหลัก", href: "/admin", icon: LayoutDashboard },
   { label: "ตรวจสอบร้านค้า", href: "/admin/shops", icon: ShieldCheck },
   { label: "จัดการร้านค้า", href: "/admin/manage", icon: Store },
+  { label: "จัดการบัญชีผู้ใช้", href: "/admin/users", icon: Users },
   { label: "จัดการไฟล์และพื้นที่จัดเก็บ", href: "/admin/storage", icon: HardDrive },
   { label: "รีวิวทั้งหมด", href: "/admin/reviews", icon: Star },
   { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },

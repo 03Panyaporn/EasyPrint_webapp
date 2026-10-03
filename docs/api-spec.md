@@ -186,6 +186,18 @@
 
 โค้ดอยู่ที่ `apps/api/src/routes/admin.ts` — ร้านต้อง `approvalStatus: "approved"` ก่อนถึงจะเรียก endpoint แก้ไข/ลบใน Main Services / Add-on Services / Delivery Options ด้านบนได้ (ร้าน `suspended` ถูกกันแบบเดียวกับ `pending`/`rejected` โดยอัตโนมัติ เพราะ `requireShopOwner()`/`canViewShopPublicly()` เช็คแบบ `!== "approved"`/`=== "approved"` อยู่แล้ว ไม่ต้องแก้โค้ดจุดนั้นเพิ่มตอนเพิ่มสถานะ `suspended`) — `GET /shops` (list สาธารณะ) กรองด้วย `WHERE approvalStatus = 'approved'` ตรงๆ เลยไม่ต้องแก้เพิ่มเช่นกัน ร้าน `suspended` จะหายจากรายการสาธารณะทันที
 
+## Admin — จัดการบัญชีลูกค้า
+
+| Method | Path | คำอธิบาย | Auth |
+|---|---|---|---|
+| GET | `/admin/customers` | list บัญชีลูกค้า (role `customer` เท่านั้น) แบ่งหน้าฝั่ง server — query `q` (ค้นหาชื่อ-นามสกุล/อีเมล/เบอร์โทร), `status` (`all`/`active`/`suspended`), `page`, `pageSize` (สูงสุด 50) — คืน `{ customers, pagination, stats }` โดย `stats` เป็นยอดรวมทั้งระบบไม่ขึ้นกับตัวกรอง | ต้อง login เป็น admin |
+| GET | `/admin/customers/:id` | รายละเอียดบัญชี + ที่อยู่ที่บันทึกไว้ + สรุปออเดอร์ (ทั้งหมด/กำลังดำเนินการ/เสร็จสิ้น/ยกเลิก/ยอดใช้จ่ายจากงานที่เสร็จสิ้น) + ออเดอร์ล่าสุด 5 รายการ + จำนวนรีวิว/ร้านโปรด + `canDelete` | ต้อง login เป็น admin |
+| PATCH | `/admin/customers/:id/suspend` | ระงับบัญชี (`{ reason: string }` บังคับกรอก) — 409 ถ้าถูกระงับอยู่แล้ว | ต้อง login เป็น admin |
+| PATCH | `/admin/customers/:id/reinstate` | เปิดใช้งานบัญชีอีกครั้ง (ล้าง `suspendedAt`/`suspendedReason`) — 409 ถ้าใช้งานปกติอยู่แล้ว | ต้อง login เป็น admin |
+| DELETE | `/admin/customers/:id` | ลบบัญชี — กติกาเดียวกับ `DELETE /auth/me` (`apps/api/src/utils/userAccount.ts`): ลบไม่ได้ถ้ามีออเดอร์ผูกอยู่ (409 ให้ใช้ระงับแทน), ถ้าลบได้จะล้างตะกร้า/ที่อยู่/token รีเซ็ตรหัสผ่าน และตัดการผูกข้อความ contact-admin ใน transaction เดียว | ต้อง login เป็น admin |
+
+โค้ดอยู่ที่ `apps/api/src/routes/admin.ts` — Zod/type ที่ `packages/shared/src/schemas/admin.ts` — หน้าเว็บ `apps/web/app/(admin)/admin/users/page.tsx` — **การบังคับใช้การระงับ:** hook กลาง `onBeforeHandle` ใน `apps/api/src/index.ts` ตอบ 403 (`{ error, code: "ACCOUNT_SUSPENDED" }`) ทุก endpoint ที่ cookie เป็นลูกค้าที่ถูกระงับ และล้าง cookie ทิ้ง (ยกเว้น login/logout/register/forgot/reset-password) — `POST /auth/login` ตอบ 403 ข้อความเดียวกัน (แนบอีเมล/เบอร์ติดต่อจาก `system_settings`) หลังตรวจรหัสผ่านถูกต้องแล้วเท่านั้น
+
 ## Admin — จัดการพื้นที่จัดเก็บ
 
 | Method | Path | คำอธิบาย | Auth |
