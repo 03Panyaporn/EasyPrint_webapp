@@ -24,7 +24,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "../auth/jwt";
 import { objectStorage } from "../storage";
 import { createNotification } from "../utils/notification";
 import { notifyShopApproved, notifyShopRejected } from "../notifications";
-import { isValidUUID } from "../utils/validation";
+import { isValidUUID, escapeLikePattern } from "../utils/validation";
 import { getAccountDeletionBlocker, deleteUserAccount } from "../utils/userAccount";
 
 // เช็คว่า request มี JWT ที่ login เป็น admin จริง — คืน { error } (ตั้ง set.status ให้แล้ว) ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
@@ -115,11 +115,6 @@ function serializeCustomerListItem(row: {
     orderCount: row.orderCount,
     createdAt: row.createdAt.toISOString(),
   };
-}
-
-// escape อักขระพิเศษของ LIKE (% _ \) ในคำค้นหา — ไม่งั้นพิมพ์ "%" แล้วจะ match ทุกแถว
-function escapeLikePattern(input: string) {
-  return input.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
 // หาบัญชีลูกค้า (role customer เท่านั้น) — คืน null ถ้า id ผิดรูปแบบหรือไม่พบ ให้ route ตอบ 404 เหมือนกันทุกกรณี

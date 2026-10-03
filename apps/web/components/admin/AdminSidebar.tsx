@@ -18,6 +18,7 @@ import {
   X,
   Printer,
   LogOut,
+  History,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { label: "จัดการไฟล์และพื้นที่จัดเก็บ", href: "/admin/storage", icon: HardDrive },
   { label: "รีวิวทั้งหมด", href: "/admin/reviews", icon: Star },
   { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },
+  { label: "ประวัติและสถานะระบบ", href: "/admin/logs", icon: History },
   { label: "ติดต่อสอบถาม", href: "/admin/contact-messages", icon: PhoneCall },
 ];
 

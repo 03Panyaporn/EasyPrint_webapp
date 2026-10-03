@@ -15,6 +15,11 @@ import type {
   AdminCustomerDetail,
   AdminCustomerStatus,
   SuspendCustomerInput,
+  AdminAuditLogQuery,
+  AdminAuditLogListResponse,
+  AdminLoginHistoryQuery,
+  AdminLoginHistoryListResponse,
+  SystemHealthResponse,
 } from "@easyprint/shared";
 import { apiFetch } from "./client";
 
@@ -176,4 +181,26 @@ export function reinstateCustomer(id: string) {
 
 export function deleteCustomer(id: string) {
   return apiFetch<{ message: string }>(`/admin/customers/${id}`, { method: "DELETE" });
+}
+
+// ── ประวัติและสถานะระบบ (หน้า /admin/logs) ──
+function toQueryString(params: Record<string, string | number | undefined>) {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && value !== "all") qs.set(key, String(value));
+  }
+  const query = qs.toString();
+  return query ? `?${query}` : "";
+}
+
+export function listAdminAuditLogs(params: Partial<AdminAuditLogQuery> = {}) {
+  return apiFetch<AdminAuditLogListResponse>(`/admin/audit-logs${toQueryString(params)}`);
+}
+
+export function listAdminLoginHistory(params: Partial<AdminLoginHistoryQuery> = {}) {
+  return apiFetch<AdminLoginHistoryListResponse>(`/admin/login-history${toQueryString(params)}`);
+}
+
+export function getSystemHealth() {
+  return apiFetch<SystemHealthResponse>("/admin/system-health");
 }

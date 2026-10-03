@@ -6,6 +6,9 @@ const APP_URL = process.env.APP_URL ?? "http://localhost:3001";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
+// ใช้แสดงในหน้า System Health ของแอดมิน — ไม่ได้ตั้งค่า = อีเมลรีเซ็ตรหัสผ่านจะไม่ถูกส่งจริง (พิมพ์ลง console แทน)
+export const isEmailConfigured = resend !== null;
+
 export async function sendPasswordResetEmail(to: string, token: string) {
   const resetLink = `${APP_URL}/reset-password?token=${token}`;
 

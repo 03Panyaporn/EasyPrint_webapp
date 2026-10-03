@@ -22,6 +22,8 @@ import { getSystemSettings } from "../systemSettings";
 import { isUniqueViolation } from "../utils/validation";
 import { getAccountDeletionBlocker, deleteUserAccount } from "../utils/userAccount";
 import { getSuspendedAccountMessage, ACCOUNT_SUSPENDED_CODE } from "../utils/accountSuspension";
+import { recordLogin } from "../utils/loginHistory";
+import { getRequestMeta } from "../utils/auditLog";
 
 // เช็คความยาวรหัสผ่านขั้นต่ำตามค่าที่แอดมินตั้งไว้ (system_settings.minPasswordLength) — เสริมจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว
 // คืน error message ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
@@ -263,7 +265,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     return { user: toPublicUser(user), shop };
   })
 
-  .post("/login", async ({ body, cookie, set }) => {
+  .post("/login", async ({ body, cookie, set, request, server }) => {
     const parsed = loginSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
@@ -273,16 +275,33 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     const user = await db.query.users.findFirst({ where: emailEquals(parsed.data.email) });
     const passwordOk = user ? await verifyPassword(user.passwordHash, parsed.data.password) : false;
 
+    // ประวัติการเข้าสู่ระบบ (หน้า /admin/logs) — ไม่ await กัน login ช้าลง, recordLogin จัดการ error เองแล้ว
+    // รหัสผ่านผิดแต่อีเมลมีจริงก็ผูก userId ไว้ด้วย ให้แอดมินเห็นว่าบัญชีไหนโดนลองรหัสผ่านซ้ำๆ
+    const meta = getRequestMeta(request, server);
+    const logAttempt = (success: boolean, failureReason: "invalid_credentials" | "suspended" | null) =>
+      void recordLogin({
+        email: parsed.data.email,
+        userId: user?.id ?? null,
+        role: user?.role ?? null,
+        success,
+        failureReason,
+        ...meta,
+      });
+
     if (!user || !passwordOk) {
+      logAttempt(false, "invalid_credentials");
       set.status = 401;
       return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
     }
 
     // บัญชีลูกค้าที่แอดมินระงับไว้ — เช็คหลังรหัสผ่านถูกเท่านั้น กันคนนอกใช้หน้า login เช็คว่าอีเมลไหนถูกระงับ
     if (user.role === "customer" && user.suspendedAt) {
+      logAttempt(false, "suspended");
       set.status = 403;
       return { error: await getSuspendedAccountMessage(), code: ACCOUNT_SUSPENDED_CODE };
     }
+
+    logAttempt(true, null);
 
     const token = signAuthToken({ userId: user.id, role: user.role }, parsed.data.rememberMe);
     cookie[COOKIE_NAME]?.set({

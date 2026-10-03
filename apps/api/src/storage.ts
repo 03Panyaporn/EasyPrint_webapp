@@ -5,6 +5,7 @@ import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
   CreateBucketCommand,
+  HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -165,4 +166,9 @@ export async function listBucketFiles(bucket: string): Promise<Map<string, numbe
   } while (continuationToken);
 
   return sizeByPath;
+}
+
+// เช็คว่าต่อ R2 ได้จริง (สิทธิ์ + network) สำหรับหน้า System Health ของแอดมิน — HeadBucket เบาสุด ไม่ list/โหลดไฟล์
+export async function checkStorageConnection(bucket: string): Promise<void> {
+  await s3.send(new HeadBucketCommand({ Bucket: bucket }));
 }

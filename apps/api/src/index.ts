@@ -20,10 +20,12 @@ import { reportsRoutes } from "./routes/reports";
 import { contactAdminRoutes } from "./routes/contactAdmin";
 import { adminNotificationsRoutes } from "./routes/adminNotificationsRoutes";
 import { favoritesRoutes } from "./routes/favorites";
+import { adminLogsRoutes } from "./routes/adminLogs";
 
 import { isInvalidTextRepresentation } from "./utils/validation";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "./auth/jwt";
 import { isCustomerSuspended, getSuspendedAccountMessage, ACCOUNT_SUSPENDED_CODE } from "./utils/accountSuspension";
+import { getAuditedRoute, getRequestMeta, recordAdminAudit } from "./utils/auditLog";
 const isProd = process.env.NODE_ENV === "production";
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 // ตอน dev พอร์ตของ `next dev` อาจขยับได้ (ชนพอร์ตอื่นแล้ว Next auto-fallback) เลยอนุญาต localhost ทุกพอร์ตแทนการ hardcode
@@ -85,6 +87,25 @@ const app = new Elysia()
     set.status = 403;
     return { error: await getSuspendedAccountMessage(), code: ACCOUNT_SUSPENDED_CODE };
   })
+  // Audit log ของแอดมิน (หน้า /admin/logs) — บันทึกที่จุดเดียวหลัง handler ทำงานเสร็จ แทนการไปแทรกโค้ดในทุก route
+  // เฉพาะ endpoint ที่อยู่ในรายการ AUDITED_ROUTES (utils/auditLog.ts) + role=admin + ทำสำเร็จเท่านั้น
+  // ไม่ await — ไม่ให้การเขียน log หน่วง response (recordAdminAudit จัดการ error เองแล้ว)
+  .onAfterHandle({ as: "global" }, ({ request, route, params, body, cookie, set, server, responseValue }) => {
+    if (!getAuditedRoute(request.method, route)) return;
+    const token = cookie[AUTH_COOKIE_NAME]?.value as string | undefined;
+    const payload = token ? verifyAuthToken(token) : null;
+    if (!payload || payload.role !== "admin") return;
+    void recordAdminAudit({
+      actorId: payload.userId,
+      method: request.method,
+      route,
+      params: (params ?? {}) as Record<string, string | undefined>,
+      body,
+      responseValue,
+      status: set.status,
+      ...getRequestMeta(request, server),
+    });
+  })
   .get("/", () => ({ status: "ok", service: "EasyPrint API" }))
   .use(servicesRoutes)
   .use(authRoutes)
@@ -105,6 +126,7 @@ const app = new Elysia()
   .use(contactAdminRoutes)
   .use(adminNotificationsRoutes)
   .use(favoritesRoutes)
+  .use(adminLogsRoutes)
 
   // ห้ามใช้ 3000 เป็นค่า default เพราะ Next.js (apps/web) ก็ใช้พอร์ตนี้เป็นค่าเริ่มต้นเหมือนกัน
   // บน Windows ทั้งสองฝั่ง bind พอร์ตเดียวกันได้แบบไม่ error (คนละ address family, IPv4 vs IPv6)

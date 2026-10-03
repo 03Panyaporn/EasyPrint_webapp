@@ -293,6 +293,35 @@
 | shop_id | uuid (FK → shops.id) [ON DELETE CASCADE] | PK ร่วมกับ user_id |
 | created_at | timestamp | |
 
+### `audit_logs`
+ประวัติการทำรายการของแอดมิน (หน้า `/admin/logs`) บันทึกอัตโนมัติจาก hook กลาง — ดู `docs/api-spec.md` หัวข้อ Admin — ประวัติและสถานะระบบ **เพิ่มใน migration `0024_audit_logs_login_history`**
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| actor_id | uuid (FK → users.id) [ON DELETE SET NULL] | แอดมินที่ทำรายการ |
+| actor_email | text | snapshot อีเมลแอดมิน — ยังรู้ว่าใครทำแม้บัญชีถูกลบ |
+| action | text | key ใน `AUDIT_ACTIONS` (packages/shared) เช่น `shop.approve` |
+| target_type | text (nullable) | `shop` / `customer` / `settings` / `announcement` / `file` / `review` / `contact_message` |
+| target_id | text (nullable) | id ของข้อมูลที่ถูกแก้ (ไฟล์ = path ใน bucket จึงเป็น text ไม่ใช่ uuid) |
+| details | jsonb (nullable) | `{ input, result }` — body ที่ส่งมา (ซ่อนฟิลด์ลับแล้ว) + message จาก response |
+| ip_address | text (nullable) | |
+| user_agent | text (nullable) | |
+| created_at | timestamp | index `audit_logs_created_at_idx` |
+
+### `login_history`
+ประวัติการเข้าสู่ระบบทุก role ทั้งสำเร็จและล้มเหลว (หน้า `/admin/logs`) **เพิ่มใน migration `0024_audit_logs_login_history`**
+| column | type | note |
+|---|---|---|
+| id | uuid (PK) | |
+| user_id | uuid (FK → users.id) [ON DELETE SET NULL] | null = อีเมลที่กรอกไม่มีในระบบ |
+| email | text | อีเมลที่กรอกตอน login เสมอ |
+| role | enum `user_role` (nullable) | |
+| success | boolean | |
+| failure_reason | text (nullable) | `invalid_credentials` / `suspended` — null เมื่อสำเร็จ |
+| ip_address | text (nullable) | |
+| user_agent | text (nullable) | |
+| created_at | timestamp | index `login_history_created_at_idx` |
+
 ⚠️ **หมายเหตุเรื่อง `drizzle-kit push`:** ตอนนี้ `bun --cwd apps/api drizzle-kit push` จะ crash ("Cannot read properties of undefined (reading 'replace')" ใน `checkValue.replace`) ตอน "Pulling schema from database" — พิสูจน์แล้วว่าเป็น bug ของ `drizzle-kit@0.31.10` เองตอน introspect DB บน Postgres 17.6 (ไม่เกี่ยวกับ schema ของโปรเจกต์นี้ เกิดกับ schema.ts เดิมก่อนแก้ด้วย) การเปลี่ยนแปลงรอบนี้ (enum `suspended`, `shops.storage_quota_mb`, `orders.finished_at`, ตาราง `system_settings`/`reviews`) ถูก apply ขึ้น Supabase ด้วย SQL ตรงแทน (ตรวจสอบแล้วว่าตรงกับ `schema.ts` 100%) — ครั้งหน้าที่แก้ schema ให้ลอง `drizzle-kit push` ก่อน ถ้ายัง crash อยู่ ให้ apply SQL ด้วยมือแบบเดียวกันแล้วเช็คกับ `schema.ts` ให้ตรงกันเสมอ
 
 ## ความสัมพันธ์ (Relationships)
@@ -329,6 +358,8 @@ shops (1) ──< messages (shop_id) [ON DELETE CASCADE]
 users (1) ──< announcements (created_by) [ON DELETE SET NULL]
 users (1) ──< favorite_shops (user_id) [ON DELETE CASCADE]
 shops (1) ──< favorite_shops (shop_id) [ON DELETE CASCADE]
+users (1) ──< audit_logs (actor_id) [ON DELETE SET NULL]
+users (1) ──< login_history (user_id) [ON DELETE SET NULL]
 ```
 
 ## ยังไม่ได้ทำ (TODO ตาม scope ในข้อเสนอโครงการ)
