@@ -202,7 +202,7 @@
 
 | Method | Path | คำอธิบาย | Auth |
 |---|---|---|---|
-| GET | `/admin/storage/overview` | สรุปพื้นที่ใช้งานต่อร้าน (พื้นที่ใช้ไป/โควต้า/เปอร์เซ็นต์/สถานะ `normal`\|`warning`(>65%)\|`danger`(>85%)) พร้อมยอดรวมทั้งระบบ | ต้อง login เป็น admin |
+| GET | `/admin/storage/overview` | สรุปพื้นที่ใช้งานต่อร้าน (พื้นที่ใช้ไป/โควต้า/เปอร์เซ็นต์/สถานะ `normal`(≤65%)\|`warning`(>65%)\|`danger`(>85%)\|`full`(=100%)\|`over`(>100%) — ตัดสินด้วย `getStorageStatus()` ใน shared, `percent` ไม่ clamp เกิน 100 ได้) พร้อมยอดรวมทั้งระบบ (`shopsNearLimitCount` = warning+danger, `shopsOverQuotaCount` = full+over) | ต้อง login เป็น admin |
 | GET | `/admin/storage/files` | list ไฟล์งานพิมพ์ทั้งหมด (ทั้งที่ยังอยู่ในตะกร้าและอยู่ในออเดอร์แล้ว) เรียงไฟล์ใหญ่สุดก่อน — filter เฉพาะร้านเดียวด้วย `?shopId=` ได้ | ต้อง login เป็น admin |
 | GET | `/admin/storage/files/:path/url` | ออก signed URL ชั่วคราว (10 นาที) ให้ดูตัวอย่าง/ดาวน์โหลดไฟล์ | ต้อง login เป็น admin |
 | DELETE | `/admin/storage/files/:path` | ลบไฟล์เดียวถาวรจาก Storage จริง + เคลียร์ `fileUrl`/`fileName` ใน DB (ไม่มีถังขยะ/กู้คืน) | ต้อง login เป็น admin |
@@ -249,7 +249,7 @@
 
 โค้ดอยู่ที่ `apps/api/src/routes/adminSettings.ts` + helper กลาง `apps/api/src/systemSettings.ts` (`getSystemSettings()` — ใช้ที่นี่และใน `apps/api/src/auth/routes.ts` ตอนเช็คความยาวรหัสผ่านขั้นต่ำ) — Zod schema ที่ `packages/shared/src/schemas/admin.ts` (`updateAdminSettingsSchema`) — ตาราง `system_settings` มีแถวเดียวเสมอ (singleton)
 
-⚠️ **ขอบเขตของฟิลด์ "ความปลอดภัย":** `minPasswordLength` เท่านั้นที่บังคับใช้จริง (เช็คที่ `POST /auth/register`, `POST /auth/register/shop`, `POST /auth/reset-password`, `POST /auth/change-password` เพิ่มจาก Zod ที่เช็คขั้นต่ำ 8 ตัวอักษรแบบ hardcode อยู่แล้ว) ส่วน `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` เก็บค่าไว้ในฐานข้อมูลจริงแต่**ยังไม่มีผลบังคับใช้จริงในระบบ** เก็บไว้ให้ UI แสดงผล/แก้ไขได้ก่อนเฉยๆ
+⚠️ **ขอบเขตของฟิลด์ "ความปลอดภัย":** `minPasswordLength` เท่านั้นที่บังคับใช้จริง (เช็คที่ `POST /auth/register`, `POST /auth/register/shop`, `POST /auth/reset-password`, `POST /auth/change-password` เพิ่มจาก Zod ที่เช็คขั้นต่ำ `PASSWORD_MIN_LENGTH` = 8 ตัวอักษรอยู่แล้ว — `PATCH /admin/settings` จึงรับ `minPasswordLength` ได้แค่ 8-32 เพราะค่า 6-7 ไม่มีผลจริง) ส่วน `requireSpecialChar`/`enable2fa`/`autoLogoutMinutes` เก็บค่าไว้ในฐานข้อมูลจริงแต่**ยังไม่มีผลบังคับใช้จริงในระบบ** เก็บไว้ให้ UI แสดงผล/แก้ไขได้ก่อนเฉยๆ
 
 ## ยังไม่ได้ทำ (ตาม scope ในข้อเสนอโครงการ)
 

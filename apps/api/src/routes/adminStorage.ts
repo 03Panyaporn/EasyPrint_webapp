@@ -5,8 +5,8 @@ import type {
   AdminStorageOverviewResponse,
   AdminStorageFilesResponse,
   AdminStorageShopSummary,
-  StorageStatus,
 } from "@easyprint/shared";
+import { getStorageStatus } from "@easyprint/shared";
 import { db } from "../db";
 import { cartItems, carts, orderItems, orders, shops, users, messages } from "../../drizzle/schema";
 import { requireAdmin } from "./admin";
@@ -184,8 +184,10 @@ export const adminStorageRoutes = new Elysia({ prefix: "/admin/storage" })
       .map((shop) => {
         const stats = statsByShop.get(shop.id) ?? { usedMb: 0, fileCount: 0 };
         const quotaMb = shop.storageQuotaMb ?? settings.defaultShopStorageQuotaMb;
+        // ไม่ clamp — ใช้เกินโควต้าต้องเห็นค่าจริง (เช่น 401%) / usedMb เป็นผลรวมของ bytes ÷ 2^20 ซึ่งหารลงตัวแบบ exact ใน float
+        // ใช้พื้นที่เท่าโควต้าพอดีจึงได้ 100 เป๊ะ (สถานะ full) ไม่เพี้ยนเป็น 99.999…
         const percent = quotaMb > 0 ? (stats.usedMb / quotaMb) * 100 : 0;
-        const status: StorageStatus = percent > 85 ? "danger" : percent > 65 ? "warning" : "normal";
+        const status = getStorageStatus(percent);
         return {
           shopId: shop.id,
           shopName: shop.name,
@@ -203,7 +205,8 @@ export const adminStorageRoutes = new Elysia({ prefix: "/admin/storage" })
         totalUsedMb: shopSummaries.reduce((s, r) => s + r.usedMb, 0),
         totalQuotaMb: shopSummaries.reduce((s, r) => s + r.quotaMb, 0),
         totalFileCount: shopSummaries.reduce((s, r) => s + r.fileCount, 0),
-        shopsNearLimitCount: shopSummaries.filter((r) => r.percent > 65).length,
+        shopsNearLimitCount: shopSummaries.filter((r) => r.status === "warning" || r.status === "danger").length,
+        shopsOverQuotaCount: shopSummaries.filter((r) => r.status === "full" || r.status === "over").length,
         totalShopsCount: shopRows.length,
       },
       shops: shopSummaries,

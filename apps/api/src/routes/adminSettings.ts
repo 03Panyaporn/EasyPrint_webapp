@@ -41,7 +41,8 @@ export const adminSettingsRoutes = new Elysia({ prefix: "/admin/settings" })
     const parsed = updateAdminSettingsSchema.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
-      return { error: "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
+      // ส่งข้อความของ field แรกที่ไม่ผ่านให้หน้าเว็บแสดงตรงๆ (เช่น "อย่างน้อย 8 ตัวอักษร") — pattern เดียวกับ POST /admin/announcements
+      return { error: parsed.error.errors[0]?.message ?? "ข้อมูลไม่ถูกต้อง", details: parsed.error.flatten() };
     }
 
     const current = await getSystemSettings(); // เผื่อยังไม่เคยมีแถวเลย ให้สร้าง default ก่อน แล้วค่อย update ทับ

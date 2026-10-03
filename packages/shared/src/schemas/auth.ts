@@ -10,6 +10,10 @@ const emailSchema = z.string().trim().toLowerCase().email("อีเมลไม
 
 // ตัด "-" กับช่องว่างออกก่อนเช็คความยาว เพราะฟอร์ม (placeholder "0XX-XXX-XXXX") ยอมให้ผู้ใช้พิมพ์เบอร์แบบมีขีดได้
 // ถ้าไม่ตัดก่อน ค่าที่มีขีดจะยาวเกิน 10 ตัวอักษรและไม่ผ่าน validation ทั้งที่เป็นเบอร์ที่ถูกต้อง
+// ความยาวรหัสผ่านขั้นต่ำที่ระบบบังคับเสมอ (floor) — แอดมินปรับ system_settings.minPasswordLength ให้สูงกว่านี้ได้ แต่ต่ำกว่านี้ไม่ได้
+// updateAdminSettingsSchema ใน admin.ts ใช้ค่านี้เป็นขั้นต่ำด้วย กันตั้งค่า 6-7 ที่ไม่มีผลจริง (Zod ตรงนี้ปฏิเสธก่อนถึง dynamic check)
+export const PASSWORD_MIN_LENGTH = 8;
+
 export const phoneSchema = z
   .string()
   .transform((val) => val.replace(/[\s-]/g, ""))
@@ -17,7 +21,7 @@ export const phoneSchema = z
 
 export const registerSchema = z.object({
   email: emailSchema,
-  password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
+  password: z.string().min(PASSWORD_MIN_LENGTH, `รหัสผ่านต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`),
   firstname: z.string().min(1, "กรุณากรอกชื่อ"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุล"),
   phone: phoneSchema,
@@ -51,7 +55,7 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, "ไม่พบ token"),
-  password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
+  password: z.string().min(PASSWORD_MIN_LENGTH, `รหัสผ่านต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`),
 });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
@@ -59,7 +63,7 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 // ใช้ตอนผู้ใช้ล็อกอินอยู่แล้วขอเปลี่ยนรหัสผ่านเอง (ต่างจาก reset-password ที่ใช้ token จากอีเมลตอนลืมรหัสผ่าน)
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
-  newPassword: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH, `รหัสผ่านต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`),
 });
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
@@ -115,7 +119,7 @@ export const SHOP_DELIVERY_METHODS = shopDeliveryMethodSchema.options;
 
 export const registerShopSchema = z.object({
   email: emailSchema,
-  password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
+  password: z.string().min(PASSWORD_MIN_LENGTH, `รหัสผ่านต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`),
   firstname: z.string().min(1, "กรุณากรอกชื่อเจ้าของร้าน"),
   lastname: z.string().min(1, "กรุณากรอกนามสกุลเจ้าของร้าน"),
   shopName: z.string().min(1, "กรุณากรอกชื่อร้านค้า").max(100),
