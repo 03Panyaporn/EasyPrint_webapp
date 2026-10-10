@@ -31,3 +31,6 @@ Thumbs.db
 .open-next/
 .wrangler/
 .dev.vars
+
+# Scratch scripts for QA test-result spreadsheets (local only)
+.scratch_xlsx/
