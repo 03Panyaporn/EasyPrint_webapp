@@ -28,4 +28,5 @@ jobs:
             echo "::error::ยังไม่ได้ตั้งค่า repository variable ชื่อ API_URL — ดูวิธีตั้งค่าในคอมเมนต์ต้นไฟล์นี้"
             exit 1
           fi
-          curl -sf --max-time 20 "${{ vars.API_URL }}/" -o /dev/null && echo "ping สำเร็จ: ${{ vars.API_URL }}"
+          # timeout 90 วิ เผื่อ cold start ของ Render free tier (30-60 วิ) + retry กันเครือข่ายสะดุด
+          curl -sf --max-time 90 --retry 2 --retry-delay 5 --retry-all-errors "${{ vars.API_URL }}/" -o /dev/null && echo "ping สำเร็จ: ${{ vars.API_URL }}"
